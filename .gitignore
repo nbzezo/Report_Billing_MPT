@@ -1,0 +1,12 @@
+downloads/
+.cache/
+config/
+*.cookies.txt
+*.headers.txt
+*.log
+.codegraph/
+__pycache__/
+# Dữ liệu cuộc gọi thật (có số điện thoại khách hàng) — không đưa vào repo
+calldata-*.csv
+# Bản backup thủ công: lịch sử git đã đảm nhiệm vai trò này
+*.backup-*.html
