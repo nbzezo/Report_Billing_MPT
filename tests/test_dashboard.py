@@ -274,7 +274,7 @@ class WorkerProtocolTests(unittest.TestCase):
     HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
 
     def test_worker_handles_every_message_type(self):
-        for t in ("'parse'", "'ingest'", "'ingestRows'", "'reenrich'", "'cube'", "'page'"):
+        for t in ("'parse'", "'ingest'", "'ingestRows'", "'reenrich'", "'cube'", "'billing'", "'page'"):
             self.assertIn("type === " + t, self.WORKER, f"worker thiếu type {t}")
 
     def test_worker_keeps_string_message_backcompat(self):
@@ -343,6 +343,17 @@ class CubeRenderPipelineTests(unittest.TestCase):
         core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
         self.assertNotIn("stats.meta = {", core)   # không gắn property lên Array nữa
         self.assertIn("return {\n    stats,\n    meta: {", core)
+
+    def test_billing_tab_runs_in_worker_with_shared_filter(self):
+        core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+        worker = (ROOT / "dashboard-csv-worker.js").read_text(encoding="utf-8")
+        self.assertIn("function billingRows(rows, cfg){", core)
+        self.assertIn("type === 'billing'", worker)
+        self.assertIn("billingRows(state.enriched, cfg)", worker)
+        # HTML: getBillingRows chỉ còn là wrapper mỏng, renderBillingTab async qua worker
+        self.assertIn("function getBillingRows(cfg){ return billingRows(enriched || [], cfg); }", self.HTML)
+        self.assertIn("async function renderBillingTab(){", self.HTML)
+        self.assertIn("await dashWorker.billing(cfg)", self.HTML)
 
 
 class ExportProgressTests(unittest.TestCase):

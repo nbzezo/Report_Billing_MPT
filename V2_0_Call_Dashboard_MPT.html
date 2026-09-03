@@ -4216,23 +4216,8 @@ function loadBillingConfig(){
 // computeBilling -> dashboard-core.js
 
 /** Lọc dữ liệu riêng cho tab cước (độc lập bộ lọc chính). */
-function getBillingRows(cfg){
-  const src = enriched || [];
-  if(!src.length) return [];
-  const sMs = Date.parse(`${cfg.startDate}T${cfg.startTime}:00`);
-  const eMs = Date.parse(`${cfg.endDate}T${cfg.endTime}:59`);
-  const hasRange = isFinite(sMs) && isFinite(eMs);
-  return src.filter(r=>{
-    if(hasRange){
-      let t = (r.start_ts!==undefined && r.start_ts!==null) ? r.start_ts : Date.parse(String(r.start_stamp||'').replace(' ','T'));
-      if(!isFinite(t)) return false;
-      if(t < sMs || t > eMs) return false;
-    }
-    if(cfg.account && String(r.account_id)!==cfg.account) return false;
-    if(cfg.telco && String(r.telco)!==cfg.telco) return false;
-    return true;
-  });
-}
+// Bộ lọc thuần dùng chung với worker -> dashboard-core.js: billingRows(rows, cfg).
+function getBillingRows(cfg){ return billingRows(enriched || [], cfg); }
 
 let lastBilling = null;
 
@@ -4283,12 +4268,22 @@ function setBillingRangeDays(days){
   const et = document.getElementById('billEndTime');   if(et) et.value = '23:59';
 }
 
-function renderBillingTab(){
+async function renderBillingTab(){
   initBillingFilters(false);
   const cfg = getBillingConfig();
-  const rows = getBillingRows(cfg);
-  const res = computeBilling(rows, cfg);
-  lastBilling = {cfg, res, rows};
+  // computeBilling chạy trong worker (bộ lọc cước riêng); fallback main-thread.
+  let res, rowCount;
+  if(dashWorker.available()){
+    try{
+      const b = await dashWorker.billing(cfg);
+      res = b.report; rowCount = b.rowCount;
+    }catch(e){ console.warn('dashWorker.billing lỗi, fallback:', e && e.message); }
+  }
+  if(!res){
+    const rows = getBillingRows(cfg);
+    res = computeBilling(rows, cfg); rowCount = rows.length;
+  }
+  lastBilling = {cfg, res, rowCount};
   const colors = dashState.colors || getSeriesColors();
 
   const t = res.totals;
@@ -4318,15 +4313,15 @@ function renderBillingTab(){
 
   const sub = document.getElementById('billingRangeSubLabel');
   if(sub){
-    sub.innerText = !rows.length
+    sub.innerText = !rowCount
       ? 'Không có cuộc gọi trong khoảng đã chọn.'
       : `${fmtVND(t.minutes)} phút × ${cfg.rate ? fmtVND(cfg.rate)+' đ/phút' : '(chưa nhập đơn giá)'}`;
   }
 
   const f = document.getElementById('billingFormula');
   if(f){
-    f.style.color = (rows.length && !cfg.rate) ? 'var(--red)' : '';
-    f.innerHTML = !rows.length
+    f.style.color = (rowCount && !cfg.rate) ? 'var(--red)' : '';
+    f.innerHTML = !rowCount
       ? 'Không có cuộc gọi nào trong khoảng đã chọn — hãy mở rộng khoảng thời gian hoặc bỏ lọc Account/Telco.'
       : (`Công thức: ${fmtInt(t.billedSec)} s ÷ 60 = ${fmtVND(t.minutes)} phút × ${fmtVND(cfg.rate)} đ/phút = <b>${fmtVND(t.cost)} đ</b>`
         + (cfg.rate ? '' : ' — <b>chưa nhập đơn giá/phút</b>, thành tiền đang là 0.')
@@ -5943,6 +5938,7 @@ const dashWorker=(()=>{
     ingestRows:(rows,opts)=>call('ingestRows',{rows,...opts}),
     reenrich:nameMap=>call('reenrich',{nameMap}),
     cube:params=>call('cube',{params}),
+    billing:cfg=>call('billing',{cfg}),
     page:(offset,limit,params)=>call('page',{offset,limit,params})
   };
 })();

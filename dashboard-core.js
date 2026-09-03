@@ -1006,6 +1006,25 @@ function roundMoney(v, step){
   return Math.round(n / s) * s;
 }
 
+// Lọc rows theo cấu hình tab Cước phí (khoảng ngày/giờ riêng + 1 account + 1 telco).
+function billingRows(rows, cfg){
+  const src = rows || [];
+  if(!src.length) return [];
+  const sMs = Date.parse(`${cfg.startDate}T${cfg.startTime}:00`);
+  const eMs = Date.parse(`${cfg.endDate}T${cfg.endTime}:59`);
+  const hasRange = isFinite(sMs) && isFinite(eMs);
+  return src.filter(r=>{
+    if(hasRange){
+      let t = (r.start_ts!==undefined && r.start_ts!==null) ? r.start_ts : Date.parse(String(r.start_stamp||'').replace(' ','T'));
+      if(!isFinite(t)) return false;
+      if(t < sMs || t > eMs) return false;
+    }
+    if(cfg.account && String(r.account_id)!==cfg.account) return false;
+    if(cfg.telco && String(r.telco)!==cfg.telco) return false;
+    return true;
+  });
+}
+
 function billingPeriodKey(r, groupBy){
   const s = String(r.start_stamp||'');
   if(groupBy==='hour')  return s.slice(0,13).replace(' ','T').replace('T',' ') + 'h';
@@ -1225,7 +1244,7 @@ const __exports = {
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
   computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats,
-  billedSecondsOf, roundMoney, billingPeriodKey, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
+  billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }

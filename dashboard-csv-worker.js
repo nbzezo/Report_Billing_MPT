@@ -10,6 +10,7 @@
      ingestRows  {rows,sourceLabel,nameMap}   -> {meta, rows}     (rows đã normalize sẵn)
      reenrich    {nameMap}                    -> {meta, rows}     (enrich lại từ bản deduped đã lưu)
      cube        {params}                     -> {cube}           (buildCube trên rows đã lưu)
+     billing     {cfg}                        -> {report,rowCount}(tab Cước phí — bộ lọc riêng)
      page        {offset,limit,params}        -> {rows, total}    (một trang dữ liệu đã lọc — bảng chi tiết)
 
    Message dạng CHUỖI thuần (không object) vẫn được: coi là parse-only (giữ
@@ -111,6 +112,12 @@ function handle(msg) {
     }
     if (type === 'cube') {
       self.postMessage({ id, cube: buildCube(state.enriched, msg.params || {}) });
+      return;
+    }
+    if (type === 'billing') {
+      const cfg = msg.cfg || {};
+      const rows = billingRows(state.enriched, cfg);
+      self.postMessage({ id, report: computeBilling(rows, cfg), rowCount: rows.length });
       return;
     }
     if (type === 'page') {
