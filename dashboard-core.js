@@ -644,6 +644,315 @@ function buildCube(enrichedRows, params) {
 }
 
 
+// ---------- Cum tong hop cac tab (Milestone 1c-ii-A) ----------
+function computeRetryPattern(rows,windowMinutes=5,scope='account'){
+  const windowMs=windowMinutes*60*1000;
+  const grouped=new Map();
+  let eligibleFailures=0;
+  (rows||[]).forEach(row=>{
+    const destination=String(row.destination_number||row.out_number||'').trim();
+    const ts=retryTimestamp(row);
+    if(!destination || ts===null) return;
+    const account=String(row.account_id||'Unknown');
+    const call={
+      ts,destination,account,
+      accountName:String(row.account_name||account),
+      outcome:String(row.connType||'Unknown'),
+      telco:String(row.telco||'Unknown'),
+      prefix:String(row.prefix||'Other')
+    };
+    const key=scope==='account' ? `${account}\u0000${destination}` : destination;
+    if(!grouped.has(key)) grouped.set(key,[]);
+    grouped.get(key).push(call);
+    if(call.outcome==='Fail'||call.outcome==='No Answer'||call.outcome==='Cancelled') eligibleFailures++;
+  });
+
+  const events=[];
+  grouped.forEach((calls,key)=>{
+    calls.sort((a,b)=>a.ts-b.ts);
+    let retryAttempt=0;
+    let chainIndex=0;
+    for(let i=1;i<calls.length;i++){
+      const previous=calls[i-1],current=calls[i];
+      const gapMs=current.ts-previous.ts;
+      const qualifies=(previous.outcome==='Fail'||previous.outcome==='No Answer'||previous.outcome==='Cancelled')
+        && gapMs>0 && gapMs<=windowMs;
+      if(!qualifies){ retryAttempt=0; continue; }
+      if(retryAttempt===0) chainIndex++;
+      retryAttempt++;
+      const date=new Date(current.ts);
+      events.push({
+        account:current.account,accountName:current.accountName,destination:current.destination,
+        outcome:current.outcome,connected:current.outcome==='Connected',
+        ts:current.ts,
+        delayMinutes:gapMs/60000,delayBucket:retryDelayBucket(gapMs/60000),
+        attempt:retryAttempt,chain:`${key}\u0000${chainIndex}`,
+        date:typeof localISODate==='function'?localISODate(date):date.toISOString().slice(0,10),
+        hour:`${String(date.getHours()).padStart(2,'0')}:00`,
+        telco:current.telco,prefix:current.prefix
+      });
+    }
+  });
+
+  const accountMap=new Map();
+  events.forEach(event=>{
+    if(!accountMap.has(event.account)) accountMap.set(event.account,{
+      acc:event.account,name:event.accountName,retries:0,retryConnected:0,retry2Plus:0,
+      destinations:new Set(),chains:new Set(),chainFinals:new Map()
+    });
+    const item=accountMap.get(event.account);
+    item.retries++;
+    if(event.connected) item.retryConnected++;
+    if(event.attempt>=2) item.retry2Plus++;
+    item.destinations.add(event.destination);
+    item.chains.add(event.chain);
+    item.chainFinals.set(event.chain,event.connected);
+  });
+  const accArr=Array.from(accountMap.values()).map(item=>({
+    acc:item.acc,name:item.name,retries:item.retries,retryConnected:item.retryConnected,
+    retryASR:item.retries?+(item.retryConnected*100/item.retries).toFixed(2):0,
+    uniqueDestinations:item.destinations.size,chains:item.chains.size,
+    successfulChains:Array.from(item.chainFinals.values()).filter(Boolean).length,
+    chainASR:item.chains.size?+(Array.from(item.chainFinals.values()).filter(Boolean).length*100/item.chains.size).toFixed(2):0,
+    retry2Plus:item.retry2Plus
+  })).sort((a,b)=>b.retries-a.retries||b.retryASR-a.retryASR);
+
+  const totalRetries=events.length;
+  const retryConnected=events.filter(event=>event.connected).length;
+  const chainFinals=new Map();
+  events.forEach(event=>chainFinals.set(event.chain,event.connected));
+  const successfulChains=Array.from(chainFinals.values()).filter(Boolean).length;
+  return {
+    totalRetries,retryConnected,
+    retryASR:totalRetries?+(retryConnected*100/totalRetries).toFixed(2):0,
+    retryRate:eligibleFailures?+(totalRetries*100/eligibleFailures).toFixed(2):0,
+    eligibleFailures,
+    uniqueDestinations:new Set(events.map(event=>event.destination)).size,
+    chains:chainFinals.size,successfulChains,
+    chainASR:chainFinals.size?+(successfulChains*100/chainFinals.size).toFixed(2):0,
+    events,accArr
+  };
+}
+
+function retryAggregate(events,keyFn){
+  const map=new Map();
+  events.forEach(event=>{
+    const key=String(keyFn(event));
+    if(!map.has(key)) map.set(key,{key,retries:0,connected:0});
+    const item=map.get(key);
+    item.retries++;
+    if(event.connected) item.connected++;
+  });
+  return Array.from(map.values()).map(item=>({...item,asr:item.retries?+(item.connected*100/item.retries).toFixed(2):0}));
+}
+
+function computeAccountKPIs(rows){
+  const map = {};
+  (rows||[]).forEach(r=>{
+    const acc = String(r.account_id||'Unknown');
+    if(!map[acc]) map[acc] = {acc, label: (r.account_name && String(r.account_name).trim()) || (typeof accountNameMap!=='undefined' ? accountNameMap[acc] : acc) || acc,
+                              total:0, connected:0, noans:0, fail:0, minutes:0};
+    const m = map[acc];
+    m.total++;
+    if(r.connType==='Connected') m.connected++;
+    else if(r.connType==='No Answer') m.noans++;
+    else if(r.connType==='Fail') m.fail++;
+    m.minutes += Number(r.billsec||0)/60;
+  });
+  const arr = Object.values(map).map(m=>{
+    const asr = (m.connected + m.noans) === 0 ? 0 : (m.connected/(m.connected+m.noans)*100);
+    const failPct = m.total===0 ? 0 : (m.fail/m.total*100);
+    return {...m, asr, failPct, minutes:+m.minutes.toFixed(2)};
+  });
+  return arr;
+}
+
+function computeTopDest(rows){
+  const map = {};
+  (rows||[]).forEach(r=>{
+    const dn = String(r.destination_number || r.out_number || '').trim();
+    if(!dn) return;
+    if(!map[dn]) map[dn] = {dn, total:0, connected:0, noans:0, fail:0};
+    const m = map[dn];
+    m.total++;
+    if(r.connType==='Connected') m.connected++;
+    else if(r.connType==='No Answer') m.noans++;
+    else if(r.connType==='Fail') m.fail++;
+  });
+  const arr = Object.values(map).map(m=>{
+    const failPct = m.total===0 ? 0 : (m.fail/m.total*100);
+    return {...m, failPct:+failPct.toFixed(2)};
+  });
+  return arr;
+}
+
+function aggDestTelcoShare(rows){
+  const map = {}; let total=0;
+  rows.forEach(r=>{ const tel = String(r.telco||'Unknown'); map[tel]=(map[tel]||0)+1; total++; });
+  const arr = Object.keys(map).map(t=> ({tel:t, count:map[t]}));
+  arr.sort((a,b)=> b.count - a.count);
+  return {data:arr, total};
+}
+
+function aggTelcoConnBreakdown(rows){
+  const map = {}; // telco -> {Connected, 'No Answer', Fail, total}
+  (rows||[]).forEach(r=>{
+    const tel = String(r.telco||'Unknown');
+    const ct = r.connType || 'Unknown';
+    if(!map[tel]) map[tel] = {Connected:0, 'No Answer':0, Cancelled:0, Fail:0, Unknown:0, total:0};
+    if(map[tel][ct] === undefined) map[tel][ct] = 0;
+    map[tel][ct]++;
+    map[tel].total++;
+  });
+  const arr = Object.keys(map).map(t=>{
+    const d = map[t];
+    const total = d.total || 0;
+    const pct = (v)=> total>0 ? +(v/total*100).toFixed(2) : 0;
+    return {
+      tel: t,
+      con: d.Connected||0, noans: d['No Answer']||0, canc: d.Cancelled||0, fail: d.Fail||0, unk: d.Unknown||0, total,
+      counts: d,
+      conPct: pct(d.Connected||0), noansPct: pct(d['No Answer']||0), cancPct: pct(d.Cancelled||0),
+      failPct: pct(d.Fail||0), unkPct: pct(d.Unknown||0)
+    };
+  });
+  arr.sort((a,b)=> b.conPct - a.conPct);
+  return arr;
+}
+
+function weekdayIndex(dateStr){ const d=new Date(dateStr+'T00:00:00'); if(isNaN(d)) return null; // 0=Sun..6=Sat
+  return (d.getDay()); }
+
+function computeTimeHeatmap(rows){
+  // 7 (Sun..Sat) x 24 hours
+  const z = Array.from({length:7}, ()=> Array(24).fill(0));
+  rows.forEach(r=>{
+    const wd = weekdayIndex(r.date);
+    const h = parseInt(r.hour||'0',10);
+    if(wd!=null && h>=0 && h<=23) z[wd][h] += Number(isConnectedStrict(r) ? 1 : 0); // count connected attempts
+  });
+  return z;
+}
+
+function computeAnswerRateByAccountPerDay(rows){
+  const map = {}; // {date:{acc:{con,no}}}
+  rows.forEach(r=>{
+    const d = r.date;
+    const acc = String(r.account_id||'Unknown');
+    if(!map[d]) map[d] = {};
+    if(!map[d][acc]) map[d][acc] = {con:0,no:0};
+    if(r.connType==='Connected') map[d][acc].con++;
+    if(r.connType==='No Answer') map[d][acc].no++;
+  });
+  const dates = Object.keys(map).sort();
+  const accSet = new Set();
+  dates.forEach(d=> Object.keys(map[d]).forEach(a=> accSet.add(a)));
+  const accounts = Array.from(accSet);
+  const series = accounts.map(acc=>{
+    const y = dates.map(d=>{
+      const obj = map[d][acc];
+      if(!obj) return null;
+      const tot = obj.con + obj.no;
+      return tot===0 ? null : +(obj.con / tot * 100).toFixed(2);
+    });
+    // label
+    const row = rows.find(r=> String(r.account_id)===acc );
+    const label = (row && row.account_name && String(row.account_name).trim()) || acc;
+    return {name:String(label), x:dates, y};
+  });
+  return {series};
+}
+
+function computeGoldenHours(rows){
+  const cells = Array.from({length:7}, ()=> Array.from({length:24}, ()=>({tot:0, con:0})));
+  (rows||[]).forEach(r=>{
+    const wd = weekdayIndex(r.date);
+    const h = parseInt(r.hour||'0',10);
+    if(wd==null || isNaN(h) || h<0 || h>23) return;
+    cells[wd][h].tot += 1;
+    if(isConnectedStrict(r)) cells[wd][h].con += 1;
+  });
+  const zRate = cells.map(row=> row.map(c=> c.tot? +(100*c.con/c.tot).toFixed(2) : null));
+  const zTot  = cells.map(row=> row.map(c=> c.tot));
+  const zCon  = cells.map(row=> row.map(c=> c.con));
+  return {cells, zRate, zTot, zCon};
+}
+
+function computeDailyPrefixStats(rows){
+  const out={}; // key: date|prefix
+  (rows||[]).forEach(r=>{
+    const d=r.date; const p=r.prefix||'Other';
+    if(!d || !p || p==='Other') return;
+    const k=d+'|'+p;
+    if(!out[k]) out[k]={date:d,prefix:p,tot:0,con:0};
+    out[k].tot+=1; if(isConnectedStrict(r)) out[k].con+=1;
+  });
+  return Object.values(out);
+}
+
+function computeAgentPerf(rows){
+  return __getAgg(rows, 'computeAgentPerf', ()=>{
+  const out={};
+  (rows||[]).forEach(r=>{
+    const id=String(r.account_id||'unknown');
+    if(!out[id]) out[id]={id, tot:0, con:0, noans:0, canc:0, fail:0, unknown:0, billsec:0, conBillsec:0, conCnt:0, shortCalls:0};
+    out[id].tot+=1;
+    const ct = r.connType;
+    if(ct==='Connected') out[id].con+=1;
+    else if(ct==='No Answer') out[id].noans+=1;
+    else if(ct==='Cancelled') out[id].canc+=1;
+    else if(ct==='Fail') out[id].fail+=1;
+    else out[id].unknown+=1;
+    const bs=Number(r.billsec)||0;
+    out[id].billsec += bs;
+    if(ct==='Connected'){
+      out[id].conBillsec += bs;
+      out[id].conCnt += 1;
+      if(bs < 10) out[id].shortCalls += 1;
+    }
+  });
+  return Object.values(out).map(a=>{
+    const rate = a.tot? a.con/a.tot : 0;
+    const asr = (a.con+a.noans) ? a.con/(a.con+a.noans) : 0;
+    const avgCon = a.conCnt? a.conBillsec/a.conCnt : 0;
+    const shortRate = a.conCnt ? a.shortCalls/a.conCnt : 0;
+    return {...a, rate, asr, minutes: a.billsec/60, avgCon, shortRate};
+  });
+
+  });
+}
+
+function computeCallbackStats(rows){
+  const byDn={};
+  (rows||[]).forEach(r=>{
+    const dn=String(r.destination_number||'');
+    if(!dn) return;
+    if(!byDn[dn]) byDn[dn]={dn, tot:0, con:0, firstConnectAttempt:null, seen:0};
+    byDn[dn].tot += 1;
+    if(isConnectedStrict(r)) byDn[dn].con += 1;
+  });
+
+  // first connect attempt: sort per dn by time
+  const byDnRows={};
+  (rows||[]).forEach(r=>{
+    const dn=String(r.destination_number||'');
+    if(!dn) return;
+    byDnRows[dn]=byDnRows[dn]||[];
+    byDnRows[dn].push(r);
+  });
+  Object.keys(byDnRows).forEach(dn=>{
+    const arr = byDnRows[dn].slice().sort((a,b)=> (a.start_stamp||'').localeCompare(b.start_stamp||''));
+    let attempt=0; let first=null;
+    for(const r of arr){
+      attempt++;
+      if(isConnectedStrict(r)){ first=attempt; break; }
+    }
+    if(byDn[dn]) byDn[dn].firstConnectAttempt = first; // null if never connected
+  });
+
+  return Object.values(byDn);
+}
+
 // ==========================================================================
 // Xuất ra: gán vào global (self trong worker, window/globalThis trong trang)
 // + module.exports cho Node test.
@@ -662,6 +971,7 @@ const __exports = {
   enrichData, filterData, dedupByUUID,
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
+  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }
