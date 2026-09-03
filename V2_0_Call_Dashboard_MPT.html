@@ -2215,7 +2215,7 @@ async function applyLoadedRows(rows){
   adjustDateRangeToData(enriched);
   refreshAccountFilter();
   initBillingFilters(true);
-  updateDashboardWithFilters();
+  await updateDashboardWithFilters();
 }
 
 async function offerLastSnapshot(){
@@ -4035,82 +4035,99 @@ function safePlot(targetId, fn){
   }
 }
 
+// Vẽ từng biểu đồ rồi nhả luồng, để cửa sổ không "treo cứng" khi Plotly dựng
+// nhiều biểu đồ liền nhau. Cập nhật màn chờ nếu đang hiện.
+// Nhả luồng một nhịp. Ưu tiên trước paint (rAF) nhưng có fallback setTimeout
+// vì rAF KHÔNG chạy khi cửa sổ/tab bị ẩn — không được để render treo lúc đó.
+function yieldFrame(){
+  return new Promise(resolve=>{
+    let done=false;
+    const fin=()=>{ if(!done){ done=true; resolve(); } };
+    try{ requestAnimationFrame(fin); }catch(_){ }
+    setTimeout(fin, 32);
+  });
+}
+async function renderSteps(steps){
+  const total = steps.length;
+  const overlay = document.getElementById('reportLoading');
+  const showProgress = overlay && overlay.classList.contains('show') && typeof setReportLoadingDetail==='function';
+  for(let i=0;i<total;i++){
+    try{ steps[i](); }catch(e){ console.warn('render step', i, e); }
+    if(showProgress) setReportLoadingDetail(`Đang vẽ biểu đồ ${Math.min(i+1,total)}/${total}…`);
+    await yieldFrame();
+  }
+}
+
 function renderOverviewTab(filtered, ov, colors){
-  plotConnDonut(ov.counts, colors);
-  plotAnswerGauge(ov.answerRate, colors);
-  plotDirectionSplit(filtered, colors);
-  plotMinutesByAccount(filtered, colors, parseInt((document.getElementById('topNSelectMinutes')||{}).value||'10',10));
+  return renderSteps([
+    ()=> plotConnDonut(ov.counts, colors),
+    ()=> plotAnswerGauge(ov.answerRate, colors),
+    ()=> plotDirectionSplit(filtered, colors),
+    ()=> plotMinutesByAccount(filtered, colors, parseInt((document.getElementById('topNSelectMinutes')||{}).value||'10',10)),
+  ]);
 }
 
 
 function renderQualityTab(filtered, colors){
   const pref = cubeVal('byPrefix', ()=>aggByPrefix(filtered));
-  const palette = (colors && Array.isArray(colors.Palette) && colors.Palette.length) ? colors.Palette : (typeof baseScheme==='function' ? baseScheme('default') : []);
-
-  safePlot('chart_stack_prefix_pct', ()=> plotStackPrefixPct(pref, colors));
-
-  renderHangupBreakdownTable(filtered, 30);
-
-  safePlot('chart_dest_telco_share', ()=> plotDestTelcoShare(filtered, colors));
-  safePlot('chart_telco_conn_stacked', ()=> plotTelcoConnStacked(filtered, colors));
-
-  safePlot('chart_avgdur_prefix', ()=> plotAvgDurationByPrefix(filtered, colors));
-  safePlot('chart_dur_share_prefix', ()=> plotDurationShareByPrefix(filtered, colors));
-  safePlot('chart_avgdur_vs_rate', ()=> plotAvgDurationVsConnectRate(filtered, colors));
-
-  // ===== GROUP 1 NEW =====
-  safePlot('chart_fail_streak_dist',     ()=> plotFailStreakDistribution(filtered, colors));
-  safePlot('chart_fail_streak_timeline', ()=> plotFailStreakTimeline(filtered, colors));
-  safePlot('chart_hangup_heatmap',       ()=> plotHangupHeatmap(filtered));
-
-  // ===== CHẤT LƯỢNG THOẠI (MOS / Jitter / Packet loss) =====
-  safePlot('chart_mos_histogram',    ()=> plotMosHistogram(filtered, colors));
-  safePlot('chart_quality_by_telco', ()=> plotQualityByTelco(filtered, colors));
-  safePlot('chart_mos_vs_packetloss',()=> plotMosVsPacketLoss(filtered, colors));
-
-  renderTopDestTable(filtered, 10, 5);
+  return renderSteps([
+    ()=> safePlot('chart_stack_prefix_pct', ()=> plotStackPrefixPct(pref, colors)),
+    ()=> renderHangupBreakdownTable(filtered, 30),
+    ()=> safePlot('chart_dest_telco_share', ()=> plotDestTelcoShare(filtered, colors)),
+    ()=> safePlot('chart_telco_conn_stacked', ()=> plotTelcoConnStacked(filtered, colors)),
+    ()=> safePlot('chart_avgdur_prefix', ()=> plotAvgDurationByPrefix(filtered, colors)),
+    ()=> safePlot('chart_dur_share_prefix', ()=> plotDurationShareByPrefix(filtered, colors)),
+    ()=> safePlot('chart_avgdur_vs_rate', ()=> plotAvgDurationVsConnectRate(filtered, colors)),
+    ()=> safePlot('chart_fail_streak_dist',     ()=> plotFailStreakDistribution(filtered, colors)),
+    ()=> safePlot('chart_fail_streak_timeline', ()=> plotFailStreakTimeline(filtered, colors)),
+    ()=> safePlot('chart_hangup_heatmap',       ()=> plotHangupHeatmap(filtered)),
+    ()=> safePlot('chart_mos_histogram',    ()=> plotMosHistogram(filtered, colors)),
+    ()=> safePlot('chart_quality_by_telco', ()=> plotQualityByTelco(filtered, colors)),
+    ()=> safePlot('chart_mos_vs_packetloss',()=> plotMosVsPacketLoss(filtered, colors)),
+    ()=> renderTopDestTable(filtered, 10, 5),
+  ]);
 }
 
 
 function renderTimeTab(filtered, colors){
   const mDay = cubeVal('minutesPerDay', ()=>minutesPerDay(filtered));
-  plotMinutesDay(mDay, colors);
-  plotASRByTime(filtered, colors);
-  safePlot('chart_caller_participation_heatmap', ()=> plotCallerParticipationHeatmap(filtered, colors));
-
-  plotCompareTimeline(filtered, colors);
-  plotTimeHeatmap(filtered);
-
-  plotConcurrentCalls(filtered, colors, 'chart_concurrent_calls');
-  plotConcurrentByTelco(filtered, colors, (document.getElementById('concurTelcoMode')||{}).value||'percent');
-  plotCcuByTelco(filtered, colors);
-  renderCcuByTelcoTable(filtered);
-
-  plotDurationHistogram(filtered, colors);
-  safePlot('chart_answer_delay_telco', ()=> plotAnswerDelayByTelco(filtered, colors));
-
-  plotGoldenHoursRate(filtered);
-  plotTopTimeSlots(filtered, colors, 10, 30);
-  plotCallFunnel(filtered, 30);
-  plotLineHealthTrend(filtered, colors, 6);
-  renderLineAnomalyTable(filtered, 50, 10);
-  safePlot('chart_short_call_rate',      ()=> plotShortCallRate(filtered, colors));
-  safePlot('chart_short_call_by_account',()=> plotShortCallByAccount(filtered, colors));
-  safePlot('chart_billsec_duration_gap', ()=> plotBillsecDurationGap(filtered, colors));
-  safePlot('chart_retry_pattern',        ()=> plotRetryPattern(filtered, colors));
-  plotCallbackDistribution(filtered, colors);
-  renderCallbackTopTable(filtered, 30, 3);
+  return renderSteps([
+    ()=> plotMinutesDay(mDay, colors),
+    ()=> plotASRByTime(filtered, colors),
+    ()=> safePlot('chart_caller_participation_heatmap', ()=> plotCallerParticipationHeatmap(filtered, colors)),
+    ()=> plotCompareTimeline(filtered, colors),
+    ()=> plotTimeHeatmap(filtered),
+    ()=> plotConcurrentCalls(filtered, colors, 'chart_concurrent_calls'),
+    ()=> plotConcurrentByTelco(filtered, colors, (document.getElementById('concurTelcoMode')||{}).value||'percent'),
+    ()=> plotCcuByTelco(filtered, colors),
+    ()=> renderCcuByTelcoTable(filtered),
+    ()=> plotDurationHistogram(filtered, colors),
+    ()=> safePlot('chart_answer_delay_telco', ()=> plotAnswerDelayByTelco(filtered, colors)),
+    ()=> plotGoldenHoursRate(filtered),
+    ()=> plotTopTimeSlots(filtered, colors, 10, 30),
+    ()=> plotCallFunnel(filtered, 30),
+    ()=> plotLineHealthTrend(filtered, colors, 6),
+    ()=> renderLineAnomalyTable(filtered, 50, 10),
+    ()=> safePlot('chart_short_call_rate',      ()=> plotShortCallRate(filtered, colors)),
+    ()=> safePlot('chart_short_call_by_account',()=> plotShortCallByAccount(filtered, colors)),
+    ()=> safePlot('chart_billsec_duration_gap', ()=> plotBillsecDurationGap(filtered, colors)),
+    ()=> safePlot('chart_retry_pattern',        ()=> plotRetryPattern(filtered, colors)),
+    ()=> plotCallbackDistribution(filtered, colors),
+    ()=> renderCallbackTopTable(filtered, 30, 3),
+  ]);
 }
 
 function renderAdvancedTab(filtered, colors){
-  safePlot('chart_rn_histogram', ()=> plotRNHistogram(filtered));
-  safePlot('chart_account_radar', ()=> plotAccountRadar(filtered, colors, 5));
-  if(typeof renderRN_CF_ReportUnified==='function') renderRN_CF_ReportUnified(filtered);
-  plotAgentPerformance(filtered, colors, 10);
-  renderAgentPerfTable(filtered);
-  renderDataQuality(filtered);
-  renderAdvancedAlerts(filtered);
-  renderTableTab(filtered);
+  return renderSteps([
+    ()=> safePlot('chart_rn_histogram', ()=> plotRNHistogram(filtered)),
+    ()=> safePlot('chart_account_radar', ()=> plotAccountRadar(filtered, colors, 5)),
+    ()=> { if(typeof renderRN_CF_ReportUnified==='function') renderRN_CF_ReportUnified(filtered); },
+    ()=> plotAgentPerformance(filtered, colors, 10),
+    ()=> renderAgentPerfTable(filtered),
+    ()=> renderDataQuality(filtered),
+    ()=> renderAdvancedAlerts(filtered),
+    ()=> renderTableTab(filtered),
+  ]);
 }
 
 function renderTableTab(filtered){
@@ -4331,11 +4348,13 @@ async function renderBillingTab(){
         + ` Làm tròn tiền: ${cfg.roundStep ? 'đến '+fmtInt(cfg.roundStep)+'đ' : 'không làm tròn'}.`);
   }
 
-  plotBillingByPeriod(res, cfg, metric, colors);
-  plotBillingByTelco(res, cfg, metric, colors);
-  plotBillingByPrefix(res, cfg, metric, colors);
-  renderBillingPeriodTable(res, cfg);
-  renderBillingAccountTable(res, cfg);
+  await renderSteps([
+    ()=> plotBillingByPeriod(res, cfg, metric, colors),
+    ()=> plotBillingByTelco(res, cfg, metric, colors),
+    ()=> plotBillingByPrefix(res, cfg, metric, colors),
+    ()=> renderBillingPeriodTable(res, cfg),
+    ()=> renderBillingAccountTable(res, cfg),
+  ]);
 }
 
 function plotBillingByPeriod(res, cfg, metric, colors){
@@ -4512,7 +4531,7 @@ function exportBillingDetail(){
   on('billExportDetail', exportBillingDetail);
 })();
 
-function ensureTabRendered(tabName, force=false){
+async function ensureTabRendered(tabName, force=false){
   if(!dashState) return;
   const filtered = dashState.filtered || [];
   if(!force && renderedTabs.has(tabName)) return;
@@ -4520,18 +4539,19 @@ function ensureTabRendered(tabName, force=false){
   const colors = dashState.colors || getSeriesColors();
   const ov = dashState.ov || aggregateOverview(filtered);
 
+  // Đánh dấu đã render TRƯỚC khi await để lần gọi chồng (đổi tab nhanh) không
+  // kích hoạt render trùng; force vẫn vẽ lại bình thường.
+  renderedTabs.add(tabName);
   try{
-    if(tabName==='overview') renderOverviewTab(filtered, ov, colors);
-    else if(tabName==='quality') renderQualityTab(filtered, colors);
-    else if(tabName==='time') renderTimeTab(filtered, colors);
-    else if(tabName==='advanced') renderAdvancedTab(filtered, colors);
-    else if(tabName==='billing') renderBillingTab();
+    if(tabName==='overview') await renderOverviewTab(filtered, ov, colors);
+    else if(tabName==='quality') await renderQualityTab(filtered, colors);
+    else if(tabName==='time') await renderTimeTab(filtered, colors);
+    else if(tabName==='advanced') await renderAdvancedTab(filtered, colors);
+    else if(tabName==='billing') await renderBillingTab();
     else if(tabName==='table') renderTableTab(filtered);
   }catch(e){
     console.warn('Render tab error:', tabName, e);
   }
-
-  renderedTabs.add(tabName);
 
   if(window.Plotly && Plotly.Plots){
     requestAnimationFrame(()=>{
@@ -5591,7 +5611,7 @@ async function updateDashboardWithFilters(){
   }
 
   renderCommon(filtered, ov, colors);
-  ensureTabRendered(currentTab, true);
+  await ensureTabRendered(currentTab, true);
 }
 
 
@@ -5646,7 +5666,7 @@ fileInput.addEventListener('change', async (e)=>{
 adjustDateRangeToData(enriched);
     refreshAccountFilter();
     initBillingFilters(true);
-    updateDashboardWithFilters();
+    await updateDashboardWithFilters();
     const total = rawData.length, fn = files.length;
     const removed = removedDedup + removedStream;
     adwHideRestoreBanner();
@@ -5681,7 +5701,7 @@ document.getElementById('exportPNG').addEventListener('click', async ()=>{
   const tabsToWarm = ['overview','quality','time','advanced','billing'];
   for(const t of tabsToWarm){
     showTab(t);
-    ensureTabRendered(t, true);
+    await ensureTabRendered(t, true);
     await new Promise(r=>requestAnimationFrame(r));
   }
   showTab(origTab);
@@ -5724,7 +5744,7 @@ document.getElementById('exportPDF').addEventListener('click', async ()=>{
     // Render every lazy tab before print so the PDF contains all charts and tables.
     for(const tab of ['overview','quality','time','advanced']){
       showTab(tab);
-      ensureTabRendered(tab,true);
+      await ensureTabRendered(tab,true);
       await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
       await new Promise(resolve=>setTimeout(resolve,80));
     }
@@ -6000,7 +6020,7 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     adjustDateRangeToData(enriched);
     refreshAccountFilter();
     initBillingFilters(true);
-    updateDashboardWithFilters();
+    await updateDashboardWithFilters();
     const sourceAccountCount = new Set(rawData.map(row=>String(row.account_id||'Unknown'))).size;
     const cacheState = res.headers.get('X-MPT-Cache');
     const cacheText = cacheState ? ` | MPT cache: ${cacheState}` : '';

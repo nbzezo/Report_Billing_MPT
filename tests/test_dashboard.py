@@ -339,6 +339,38 @@ class CubeRenderPipelineTests(unittest.TestCase):
         # trước đây tự set enriched -> worker rỗng -> cube 0 dòng
         self.assertIn("await applyLoadedRows(normalizeCallRecords(sample));", self.HTML)
 
+
+class IncrementalRenderTests(unittest.TestCase):
+    """Milestone 4: vẽ từng biểu đồ có nhả luồng -> cửa sổ không treo cứng."""
+
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_yield_frame_has_timeout_fallback_for_hidden_window(self):
+        self.assertIn("function yieldFrame(){", self.HTML)
+        # rAF không chạy khi cửa sổ ẩn -> phải có fallback setTimeout
+        self.assertIn("requestAnimationFrame(fin)", self.HTML)
+        self.assertIn("setTimeout(fin, 32)", self.HTML)
+
+    def test_every_tab_renderer_uses_render_steps(self):
+        for fn in ("renderOverviewTab", "renderQualityTab", "renderTimeTab",
+                   "renderAdvancedTab"):
+            body = self.HTML.split(f"function {fn}(", 1)[1].split("\n}", 1)[0]
+            self.assertIn("renderSteps([", body, f"{fn} chưa dùng renderSteps")
+        # renderBillingTab (đã async từ 3-billing) cũng vẽ qua renderSteps
+        billing = self.HTML.split("async function renderBillingTab()", 1)[1].split("\n}", 1)[0]
+        self.assertIn("await renderSteps([", billing)
+
+    def test_ensure_tab_rendered_is_async_and_awaited_on_load(self):
+        self.assertIn("async function ensureTabRendered(tabName, force=false){", self.HTML)
+        self.assertIn("await ensureTabRendered(currentTab, true);", self.HTML)
+        # đánh dấu đã render trước await để không render trùng khi đổi tab nhanh
+        idx_add = self.HTML.index("renderedTabs.add(tabName);")
+        idx_await = self.HTML.index("await renderOverviewTab(filtered, ov, colors);")
+        self.assertLess(idx_add, idx_await)
+
+    def test_load_paths_await_dashboard_update_for_progress(self):
+        self.assertEqual(self.HTML.count("await updateDashboardWithFilters();"), 3)
+
     def test_ccu_by_telco_returns_stats_and_meta_separately(self):
         core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
         self.assertNotIn("stats.meta = {", core)   # không gắn property lên Array nữa
