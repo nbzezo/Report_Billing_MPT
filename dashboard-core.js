@@ -662,6 +662,7 @@ function buildCube(enrichedRows, params) {
     retryPattern: computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account'),
     concurrency: {
       all: __computeConcurrency(rows, () => 'Tất cả', ccuScope),
+      byTelco: __computeConcurrency(rows, getTelco, ccuScope),
       ccuByTelco: computeCcuByTelco(rows, { scope: ccuScope, filterSpanSec })
     },
     // --- Cước phí (chỉ khi có cấu hình billing) ---
@@ -1190,15 +1191,19 @@ function computeCcuByTelco(rows, opts){
     };
   });
   stats.sort((a,b)=> b.peak - a.peak || b.loadPct - a.loadPct);
-  stats.meta = {
-    systemPeak: res.systemPeak,
-    systemPeakAtISO: res.systemPeakAt!=null ? localISODateTime(res.systemPeakAt) : null,
-    filterSpanSec: filterSpan,
-    observedSpanSec: res.observedSpanSec,
-    derivedEnd: res.derivedEnd,
-    calls: res.calls
+  // Trả {stats, meta} thay vì gắn .meta lên mảng — structured-clone (worker) sẽ
+  // mất property phụ trên Array, nên phải để meta ở khoá riêng.
+  return {
+    stats,
+    meta: {
+      systemPeak: res.systemPeak,
+      systemPeakAtISO: res.systemPeakAt!=null ? localISODateTime(res.systemPeakAt) : null,
+      filterSpanSec: filterSpan,
+      observedSpanSec: res.observedSpanSec,
+      derivedEnd: res.derivedEnd,
+      calls: res.calls
+    }
   };
-  return stats;
 }
 
 // ==========================================================================

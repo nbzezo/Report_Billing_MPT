@@ -296,6 +296,55 @@ class WorkerProtocolTests(unittest.TestCase):
         self.assertIn("enrichData(ded.rows, accountNameMap)", html)
 
 
+class CubeRenderPipelineTests(unittest.TestCase):
+    """Milestone 3: render đọc từ cube (worker) thay vì compute*(filtered) tại chỗ."""
+
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_update_dashboard_is_async_and_fetches_cube(self):
+        self.assertIn("async function updateDashboardWithFilters(){", self.HTML)
+        self.assertIn("const cube = await computeCubeFor(params);", self.HTML)
+        self.assertIn("dashState.cube = cached.cube || null;", self.HTML)
+
+    def test_compute_cube_helper_prefers_worker_then_falls_back(self):
+        self.assertIn("async function computeCubeFor(params){", self.HTML)
+        self.assertIn("dashWorker.cube(params)", self.HTML)
+        self.assertIn("return buildCube(enriched, params);", self.HTML)
+        self.assertIn("function cubeVal(path, fallbackFn){", self.HTML)
+
+    def test_render_call_sites_read_from_cube(self):
+        for token in (
+            "cubeVal('byPrefix',",
+            "cubeVal('minutesPerDay',",
+            "cubeVal('timeHeatmap',",
+            "cubeVal('goldenHours',",
+            "cubeVal('concurrency.all',",
+            "cubeVal('concurrency.byTelco',",
+            "cubeVal('concurrency.ccuByTelco',",
+            "cubeVal('agentPerf',",
+            "cubeVal('callbackStats',",
+            "cubeVal('retryPattern',",
+            "cubeVal('dailyPrefixStats',",
+            "cubeVal('columnHealth',",
+            "cubeVal('timeAnomaly',",
+            "cubeVal('overview.destinationQuality',",
+            "cubeVal('accountKPIs',",
+            "cubeVal('topDest',",
+        ):
+            self.assertIn(token, self.HTML, f"thiếu {token}")
+        # overview đi qua dashState.ov (đã = cube.overview) nên không cần cubeVal riêng
+        self.assertIn("const ov = (cube && cube.overview) || aggregateOverview(filtered);", self.HTML)
+
+    def test_sample_button_routes_through_worker_load_path(self):
+        # trước đây tự set enriched -> worker rỗng -> cube 0 dòng
+        self.assertIn("await applyLoadedRows(normalizeCallRecords(sample));", self.HTML)
+
+    def test_ccu_by_telco_returns_stats_and_meta_separately(self):
+        core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+        self.assertNotIn("stats.meta = {", core)   # không gắn property lên Array nữa
+        self.assertIn("return {\n    stats,\n    meta: {", core)
+
+
 class ExportProgressTests(unittest.TestCase):
     def test_multi_account_export_reports_progress_for_each_account(self):
         class FakeClient:

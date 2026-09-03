@@ -1937,7 +1937,7 @@ function plotRetryPattern(rows,colors){
   retryLastRows=rows||[];
   retryLastColors=colors||null;
   const config=readRetryConfig();
-  const analysis=computeRetryPattern(retryLastRows,config.windowMinutes,config.scope);
+  const analysis=(dashState.cube && dashState.cube.retryPattern) || computeRetryPattern(retryLastRows,config.windowMinutes,config.scope);
   retryLastAnalysis=analysis;
   const subtitle=document.getElementById('retrySubtitle');
   if(subtitle) subtitle.textContent=`Retry trong ${config.windowMinutes} phút • ${config.scope==='account'?'Chỉ nối các cuộc cùng Account':'Nối cuộc gọi trên toàn hệ thống'} • ${analysis.eligibleFailures.toLocaleString('vi-VN')} Fail/No Answer trong phạm vi lọc`;
@@ -1988,7 +1988,7 @@ function minMaxScale(arr, key){
 
 function plotAccountRadar(rows, colors, topN=5){
   const elId = 'chart_account_radar';
-  const data = computeAccountKPIs(rows);
+  const data = cubeVal('accountKPIs', ()=>computeAccountKPIs(rows));
   if(!data.length) return showNoData(elId,'Không có dữ liệu');
 
   // Lấy top account theo tổng cuộc
@@ -2036,7 +2036,7 @@ function plotAccountRadar(rows, colors, topN=5){
 
 function renderTopDestTable(rows, topN=10, minCallsForFail=5){
   const tblId = 'topDestTable';
-  const data = computeTopDest(rows);
+  const data = cubeVal('topDest', ()=>computeTopDest(rows));
   const tbody = document.querySelector('#'+tblId+' tbody');
   if(!tbody) return;
   tbody.innerHTML = '';
@@ -2982,7 +2982,7 @@ function plotDurationHistogram(rows, colors){
 
 // aggDestTelcoShare -> dashboard-core.js
 function plotDestTelcoShare(rows, colors){
-  const agg = aggDestTelcoShare(rows);
+  const agg = cubeVal('destTelcoShare', ()=>aggDestTelcoShare(rows));
   const elId = 'chart_dest_telco_share';
   if(!agg.data.length) return showNoData(elId, 'Không có dữ liệu');
   const data=[{
@@ -3153,7 +3153,7 @@ function plotAvgDurationVsConnectRate(rows, colors){
 
 function plotTelcoConnStacked(rows, colors){
   const elId = 'chart_telco_conn_stacked';
-  const dataArr = aggTelcoConnBreakdown(rows);
+  const dataArr = cubeVal('telcoConnBreakdown', ()=>aggTelcoConnBreakdown(rows));
   if(!dataArr.length) return showNoData(elId, 'Không có dữ liệu');
 
   const tel = dataArr.map(d=> d.tel);
@@ -3354,7 +3354,7 @@ function isoDaysAgo(days){ const d = new Date(); d.setDate(d.getDate()-days); re
 // computeTimeHeatmap -> dashboard-core.js
 function plotTimeHeatmap(rows){
   if(!rows || !rows.length) return showNoData('chart_time_heatmap','Không có dữ liệu');
-  const z = computeTimeHeatmap(rows);
+  const z = cubeVal('timeHeatmap', ()=>computeTimeHeatmap(rows));
   const data=[{
     z, type:'heatmap', x:Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')),
     y:['CN','T2','T3','T4','T5','T6','T7'],
@@ -3593,7 +3593,38 @@ let currentFilterKey = null;
 let renderedTabs = new Set();
 const FILTER_CACHE_LIMIT = 3;
 const filterCache = new Map();
-const dashState = { filterKey:null, filtered:[], ov:null, colors:null };
+const dashState = { filterKey:null, filtered:[], ov:null, cube:null, colors:null };
+
+// Tham số lọc + config phụ để worker dựng cube.
+function currentCubeParams(start,end,st,et,accParam){
+  const rc = (typeof readRetryConfig==='function') ? readRetryConfig() : null;
+  return {
+    startDate:start, endDate:end, startTime:st, endTime:et, account:accParam,
+    ccuScope:(typeof ccuScope==='function') ? ccuScope() : 'answered',
+    retry: rc ? {windowMinutes:rc.windowMinutes, scope:rc.scope} : undefined
+  };
+}
+// Lấy một nhánh của cube hiện tại; thiếu -> gọi fallback (compute* trực tiếp).
+function cubeVal(path, fallbackFn){
+  const c = dashState.cube;
+  if(c){
+    let v = c;
+    for(const k of path.split('.')){ v = (v==null ? v : v[k]); }
+    if(v !== undefined && v !== null) return v;
+  }
+  return fallbackFn ? fallbackFn() : null;
+}
+
+// Cube cho bộ lọc hiện tại — worker nếu có, không thì dựng ngay trên main thread.
+async function computeCubeFor(params){
+  try{
+    if(dashWorker.available()){
+      const res = await dashWorker.cube(params);
+      if(res && res.cube) return res.cube;
+    }
+  }catch(e){ console.warn('dashWorker.cube lỗi, fallback main-thread:', e && e.message); }
+  try{ return buildCube(enriched, params); }catch(e){ console.warn('buildCube lỗi:', e); return null; }
+}
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
 const REPORT_ORDER_VERSION='2026-08-24-quality-direction-billing-v2';
@@ -3963,7 +3994,7 @@ function renderCommon(filtered, ov, colors){
   // Peak KPI — dùng chung động cơ CCU với biểu đồ và bảng telco (kết quả cached
   // theo mảng rows nên không tính lại).
   try{
-    const cc = computeConcurrencyAll(filtered);
+    const cc = cubeVal('concurrency.all', ()=>computeConcurrencyAll(filtered));
     const k = document.getElementById('kpi_peak_text');
     if(k) k.innerText = String(cc.systemPeak||0);
   }catch(e){ console.warn('Peak KPI error', e); }
@@ -4013,7 +4044,7 @@ function renderOverviewTab(filtered, ov, colors){
 
 
 function renderQualityTab(filtered, colors){
-  const pref = aggByPrefix(filtered);
+  const pref = cubeVal('byPrefix', ()=>aggByPrefix(filtered));
   const palette = (colors && Array.isArray(colors.Palette) && colors.Palette.length) ? colors.Palette : (typeof baseScheme==='function' ? baseScheme('default') : []);
 
   safePlot('chart_stack_prefix_pct', ()=> plotStackPrefixPct(pref, colors));
@@ -4042,7 +4073,7 @@ function renderQualityTab(filtered, colors){
 
 
 function renderTimeTab(filtered, colors){
-  const mDay = minutesPerDay(filtered);
+  const mDay = cubeVal('minutesPerDay', ()=>minutesPerDay(filtered));
   plotMinutesDay(mDay, colors);
   plotASRByTime(filtered, colors);
   safePlot('chart_caller_participation_heatmap', ()=> plotCallerParticipationHeatmap(filtered, colors));
@@ -4638,7 +4669,7 @@ function lastDayOfLastMonthISO(){
 
 function plotCompareTimeline(rows, colors){
   if(!document.getElementById('chart_compare_timeline')) return;
-  const {series} = computeAnswerRateByAccountPerDay(rows);
+  const {series} = cubeVal('answerRateByAccountPerDay', ()=>computeAnswerRateByAccountPerDay(rows));
   if(!series || series.length===0) return showNoData('chart_compare_timeline','Không có dữ liệu');
   const palette = colors.Palette;
   const traces = series.map((s,i)=>({
@@ -4730,7 +4761,7 @@ function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
   const el = document.getElementById(targetId);
   if(!el){ console.warn("Missing #" + targetId + " element"); return; }
 
-  const res = computeConcurrencyAll(rows);
+  const res = cubeVal('concurrency.all', ()=>computeConcurrencyAll(rows));
   if(!res.xISO.length) return showNoData(targetId,'Không có dữ liệu');
 
   // Downsample for faster rendering on large ranges
@@ -4786,7 +4817,7 @@ function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
 // ---------- Concurrent by Telco (absolute + percent, with labels) ----------
 // Quét sự kiện dùng chung __computeConcurrency() ở trên.
 function plotConcurrentByTelco(rows, colors, mode='percent'){
-  const res = computeConcurrencyByTelco(rows);
+  const res = cubeVal('concurrency.byTelco', ()=>computeConcurrencyByTelco(rows));
   const keys = res.keys;
   const elId = 'chart_concurrent_by_telco';
   if(!document.getElementById(elId)) return;
@@ -4849,9 +4880,10 @@ function plotConcurrentByTelco(rows, colors, mode='percent'){
 function plotCcuByTelco(rows, colors){
   const elId = 'chart_ccu_by_telco';
   if(!document.getElementById(elId)) return;
-  const stats = computeCcuByTelco(rows, {scope: ccuScope(), filterSpanSec: currentFilterWindowSec()});
+  const __ccu = cubeVal('concurrency.ccuByTelco', ()=>computeCcuByTelco(rows, {scope: ccuScope(), filterSpanSec: currentFilterWindowSec()}));
+  const stats = (__ccu && __ccu.stats) || [];
   if(!stats.length) return showNoData(elId, 'Không có dữ liệu');
-  const meta = stats.meta || {};
+  const meta = (__ccu && __ccu.meta) || {};
   const tels = stats.map(s=> s.telco);
   const peakVals = stats.map(s=> s.peak);
   const useFilter = meta.filterSpanSec != null;
@@ -4899,8 +4931,9 @@ function renderCcuByTelcoTable(rows){
   if(!tb) return;
   tb.innerHTML='';
   if(!rows || !rows.length) return;
-  const stats = computeCcuByTelco(rows, {scope: ccuScope(), filterSpanSec: currentFilterWindowSec()});
-  const meta = stats.meta || {};
+  const __ccu = cubeVal('concurrency.ccuByTelco', ()=>computeCcuByTelco(rows, {scope: ccuScope(), filterSpanSec: currentFilterWindowSec()}));
+  const stats = (__ccu && __ccu.stats) || [];
+  const meta = (__ccu && __ccu.meta) || {};
   const NCOL = 8;
   if(!stats.length){
     tb.innerHTML = `<tr><td colspan="${NCOL}" style="border:1px solid #eee;padding:8px" class="muted">Không có dữ liệu cuộc gọi kết nối.</td></tr>`;
@@ -4955,7 +4988,7 @@ function renderCcuByTelcoTable(rows){
 // computeGoldenHours -> dashboard-core.js
 function plotGoldenHoursRate(rows){
   if(!rows || !rows.length) return showNoData('chart_golden_hours_rate','Không có dữ liệu');
-  const {zRate, zTot, zCon} = computeGoldenHours(rows);
+  const {zRate, zTot, zCon} = cubeVal('goldenHours', ()=>computeGoldenHours(rows));
   const data=[{
     z: zRate, type:'heatmap',
     x: Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')),
@@ -4969,7 +5002,7 @@ function plotGoldenHoursRate(rows){
 }
 function plotTopTimeSlots(rows, colors, topN=10, minAttempts=30){
   if(!rows || !rows.length) return showNoData('chart_top_time_slots','Không có dữ liệu');
-  const {cells} = computeGoldenHours(rows);
+  const {cells} = cubeVal('goldenHours', ()=>computeGoldenHours(rows));
   const slots=[];
   for(let wd=0; wd<7; wd++){
     for(let h=0; h<24; h++){
@@ -5052,7 +5085,7 @@ function plotCallFunnel(rows, minCompletedBillsec=30){
 // computeDailyPrefixStats -> dashboard-core.js
 function plotLineHealthTrend(rows, colors, topN=6){
   if(!rows || !rows.length) return showNoData('chart_line_health_trend','Không có dữ liệu');
-  const stats = computeDailyPrefixStats(rows);
+  const stats = cubeVal('dailyPrefixStats', ()=>computeDailyPrefixStats(rows));
   if(!stats.length) return showNoData('chart_line_health_trend','Không đủ dữ liệu theo prefix');
   // choose top prefixes by volume
   const vol={};
@@ -5080,7 +5113,7 @@ function renderLineAnomalyTable(rows, minAttemptsDay=50, dropThresholdPp=10){
   tb.innerHTML='';
   if(!rows || !rows.length) return;
 
-  const stats = computeDailyPrefixStats(rows);
+  const stats = cubeVal('dailyPrefixStats', ()=>computeDailyPrefixStats(rows));
   if(!stats.length) return;
 
   const dates = Array.from(new Set(stats.map(s=>s.date))).sort();
@@ -5136,7 +5169,7 @@ function plotAgentPerformance(rows, colors, topN=10){
   if(!rows || !rows.length) return showNoData('chart_agent_perf','Không có dữ liệu');
   const accountCount = new Set((rows||[]).map(r=>String(r.account_id||'unknown'))).size;
   if(accountCount < 2) return showNoData('chart_agent_perf','Không đủ account để so sánh. Xem chi tiết ở bảng Account summary.');
-  const selected = computeAgentPerf(rows).sort((a,b)=> b.tot-a.tot).slice(0, topN);
+  const selected = (cubeVal('agentPerf', ()=>computeAgentPerf(rows))||[]).slice().sort((a,b)=> b.tot-a.tot).slice(0, topN);
   if(!selected.length) return showNoData('chart_agent_perf','Không có dữ liệu');
   const data=selected.slice().sort((a,b)=>b.rate-a.rate || b.tot-a.tot);
   const y = data.map(a=>{
@@ -5184,10 +5217,10 @@ function renderAgentPerfTable(rows){
 
   const retryMap = {};
   try{
-    const retry = computeRetryPattern(rows, 5);
+    const retry = cubeVal('retryPattern', ()=>computeRetryPattern(rows, 5));
     (retry.accArr||[]).forEach(r=>{ retryMap[String(r.acc)] = r.retries || 0; });
   }catch(e){}
-  const data = computeAgentPerf(rows).sort((a,b)=> b.tot-a.tot).slice(0, 50);
+  const data = (cubeVal('agentPerf', ()=>computeAgentPerf(rows))||[]).slice().sort((a,b)=> b.tot-a.tot).slice(0, 50);
   data.forEach(a=>{
     const tr=document.createElement('tr');
     const name=getAccountNameForId(a.id);
@@ -5216,7 +5249,7 @@ function maskDn(dn){
 }
 function plotCallbackDistribution(rows, colors){
   if(!rows || !rows.length) return showNoData('chart_callback_dist','Không có dữ liệu');
-  const stats = computeCallbackStats(rows).filter(x=> x.firstConnectAttempt!=null);
+  const stats = (cubeVal('callbackStats', ()=>computeCallbackStats(rows))||[]).filter(x=> x.firstConnectAttempt!=null);
   if(!stats.length) return showNoData('chart_callback_dist','Không có số đích nào kết nối trong khoảng lọc');
   const vals = stats.map(x=> x.firstConnectAttempt);
   Plotly.react('chart_callback_dist', [{
@@ -5236,7 +5269,7 @@ function renderCallbackTopTable(rows, topN=30, minAttempts=3){
   tb.innerHTML='';
   if(!rows || !rows.length) return;
 
-  const stats = computeCallbackStats(rows)
+  const stats = (cubeVal('callbackStats', ()=>computeCallbackStats(rows))||[])
     .filter(x=> x.tot>=minAttempts)
     .sort((a,b)=> b.tot-a.tot);
 
@@ -5268,13 +5301,13 @@ function renderDataQuality(rows){
   if(tb) tb.innerHTML='';
   if(!rows || !rows.length) return;
 
-  const q = computeDestinationQualityMetrics(rows);
+  const q = cubeVal('overview.destinationQuality', ()=>computeDestinationQualityMetrics(rows));
   const total = q.total;
   const dns = rows.map(r=> String(r.destination_number||'').trim()).filter(Boolean);
   const unique = q.uniqueDestination;
   const invalid = q.invalidDestination;
-  const colHealth = computeRequiredColumnHealth(rows);
-  const timeAnom = computeTimeAnomalyMetrics(rows);
+  const colHealth = cubeVal('columnHealth', ()=>computeRequiredColumnHealth(rows));
+  const timeAnom = cubeVal('timeAnomaly', ()=>computeTimeAnomalyMetrics(rows));
   const uuidCounts = {};
   rows.forEach(r=>{
     const u = String(r.uuid||'').trim();
@@ -5352,7 +5385,7 @@ function renderAdvancedAlerts(rows){
   })();
 
   // anomalies table already computed; reuse quickly
-  const stats = computeDailyPrefixStats(rows);
+  const stats = cubeVal('dailyPrefixStats', ()=>computeDailyPrefixStats(rows));
   const dates = Array.from(new Set(stats.map(s=>s.date))).sort();
   const lastDate = dates[dates.length-1];
   const prevDates = dates.slice(Math.max(0, dates.length-8), -1);
@@ -5392,7 +5425,7 @@ function renderAdvancedAlerts(rows){
 
   // Cảnh báo dữ liệu đầu vào phải đứng trước: nếu cột hỏng thì mọi chỉ số
   // bên dưới đều vô nghĩa.
-  const health = computeRequiredColumnHealth(rows);
+  const health = cubeVal('columnHealth', ()=>computeRequiredColumnHealth(rows));
   (health.critical||[]).forEach(msg=> items.push({level:'red', title:'Dữ liệu đầu vào hỏng', desc: msg}));
   if(health.missing.length) items.push({level:'red', title:'Thiếu cột bắt buộc', desc: health.missing.join(', ')});
   else if(health.sparse.length) items.push({level:'yellow', title:'Cột thiếu dữ liệu', desc: health.sparse.join(', ')});
@@ -5506,7 +5539,7 @@ function updateFilterScopeNotice(start,end){
   el.append(text,button);
 }
 
-function updateDashboardWithFilters(){
+async function updateDashboardWithFilters(){
   const start = (document.getElementById('startDate')||{}).value || todayISO;
   const end = (document.getElementById('endDate')||{}).value || todayISO;
 
@@ -5516,17 +5549,21 @@ function updateDashboardWithFilters(){
   const st = (document.getElementById('startTime')||{}).value || '00:00';
   const et = (document.getElementById('endTime')||{}).value || '23:59';
 
-  const filterKey = makeFilterKey(start, end, st, et, (accParam==='all') ? [] : accParam);
+  const params = currentCubeParams(start, end, st, et, accParam);
+  // Khoá cache gồm cả config phụ (ccuScope/retry) để đổi chúng cũng tính lại cube.
+  const filterKey = makeFilterKey(start, end, st, et, (accParam==='all') ? [] : accParam)
+    + '|' + params.ccuScope + '|' + JSON.stringify(params.retry || 0);
 
   updateFilterScopeNotice(start, end);
   markFilterDirty(false);
 
-  // Reuse filtered rows + overview if filterKey unchanged (cache)
+  // Reuse filtered rows + cube nếu khoá không đổi (cache LRU)
   let cached = filterCache.get(filterKey);
   if(!cached){
     const filtered = filterData(enriched, start, end, accParam, st, et);
-    const ov = aggregateOverview(filtered);
-    cached = { filtered, ov };
+    const cube = await computeCubeFor(params);
+    const ov = (cube && cube.overview) || aggregateOverview(filtered);
+    cached = { filtered, ov, cube };
     filterCache.set(filterKey, cached);
 
     // LRU trim
@@ -5550,6 +5587,7 @@ function updateDashboardWithFilters(){
   dashState.filterKey = filterKey;
   dashState.filtered = filtered;
   dashState.ov = ov;
+  dashState.cube = cached.cube || null;
   dashState.colors = colors;
 
   if(currentFilterKey !== filterKey){
@@ -5627,7 +5665,7 @@ adjustDateRangeToData(enriched);
     toast('Lỗi đọc nhiều file: ' + err.message, true);
   }
 });// load sample
-document.getElementById('loadSample').addEventListener('click', ()=>{ const sample=[
+document.getElementById('loadSample').addEventListener('click', async ()=>{ const sample=[
   // Mẫu cũ (snake_case)
   {"account_id":"lab-A","caller_id_number":"0342681734","destination_number":"0592123488","direction":"Inbound","start_stamp":"2025-09-10 06:16:46","answer_stamp":"1970-01-01 08:00:00","end_stamp":"2025-09-10 06:16:46","duration":0,"billsec":0,"hangup_cause":"NORMAL_CLEARING","telco":"Gmobile","calltype":"External"},
   {"account_id":"lab-B","caller_id_number":"0994317158","destination_number":"0862405973","direction":"Outbound","start_stamp":"2025-09-10 08:06:34","answer_stamp":"2025-09-10 08:06:41","end_stamp":"2025-09-10 08:08:35","duration":121,"billsec":114,"hangup_cause":"NORMAL_CLEARING","telco":"Viettel","calltype":"External"},
@@ -5635,7 +5673,7 @@ document.getElementById('loadSample').addEventListener('click', ()=>{ const samp
   // Mẫu mới (Title Case + M/D/YYYY H:mm + telco viết hoa + không có uuid)
   {"Account":"lab-D","Caller":"02479923672","Destination":"0906904857","Ani":"7000000054","Call type":"Outbound","Start time":"9/10/2025 17:46","Answer time":"","End time":"9/10/2025 17:46","Duration":"39","Billsec":"0","Telco":"MOBI","Hangup Cause":"NO_USER_RESPONSE","Status Code":"480","MOS":"4.38","Quality (%)":"92","Jitter Min (ms)":"28,159.72","Jitter Max (ms)":"1,306,800.00","Jitter Loss Rate (%)":"0","Packet Count":"951","Skip Packet Count":"1022","RTCP Packet Count":"0","RTCP RTT (ms)":""},
   {"Account":"lab-D","Caller":"02479924050","Destination":"0966312373","Ani":"7000000054","Call type":"Outbound","Start time":"9/10/2025 09:12","Answer time":"9/10/2025 09:12","End time":"9/10/2025 09:13","Duration":"75","Billsec":"61","Telco":"VIETTEL","Hangup Cause":"NORMAL_CLEARING","Status Code":"200","MOS":"4.5","Quality (%)":"100","Jitter Min (ms)":"0","Jitter Max (ms)":"0","Jitter Loss Rate (%)":"0","Packet Count":"1200","Skip Packet Count":"3","RTCP Packet Count":"12","RTCP RTT (ms)":"45"}
-]; rawData=normalizeCallRecords(sample); enriched=enrichData(rawData, accountNameMap); resetDashboardCaches(); adjustDateRangeToData(enriched); refreshAccountFilter(); initBillingFilters(true); updateDashboardWithFilters(); document.getElementById('uploadStatus').innerText = 'Sample loaded'; toast('Sample loaded'); });
+]; await applyLoadedRows(normalizeCallRecords(sample)); document.getElementById('uploadStatus').innerText = 'Sample loaded'; toast('Sample loaded'); });
 
 document.getElementById('applyFilter').addEventListener('click', ()=> updateDashboardWithFilters());
 

@@ -144,7 +144,9 @@ test('buildCube — phủ đủ các nhóm biểu đồ 5 tab', () => {
   assert.equal(cube.timeHeatmap[0].length, 24);
   assert.equal(cube.goldenHours.zRate.length, 7);
   assert.equal(cube.concurrency.all.systemPeak, 1); // 2 cuộc connected không chồng nhau
-  assert.equal(cube.concurrency.ccuByTelco.length, 2);
+  assert.ok(Array.isArray(cube.concurrency.byTelco.keys));
+  assert.equal(cube.concurrency.ccuByTelco.stats.length, 2); // {stats, meta} — structured-clone-safe
+  assert.ok(cube.concurrency.ccuByTelco.meta && 'systemPeak' in cube.concurrency.ccuByTelco.meta);
   assert.equal(cube.billing.totals.billedSec, 430); // 150 + 280
   assert.equal(cube.agentPerf.length, 2);
   assert.equal(cube.accountKPIs.length, 2);
