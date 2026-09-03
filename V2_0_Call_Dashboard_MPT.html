@@ -2204,12 +2204,12 @@ function adwHideRestoreBanner(){
 }
 
 async function applyLoadedRows(rows){
+  let ing=null;
   if(dashWorker.available()){
-    const ing=await dashWorker.ingestRows(rows,{nameMap:accountNameMap});
-    enriched=ing.rows;
-  }else{
-    enriched=enrichData(rows, accountNameMap);
+    try{ ing=await dashWorker.ingestRows(rows,{nameMap:accountNameMap}); }
+    catch(e){ console.warn('worker ingestRows lỗi, fallback main-thread:', e && e.message); }
   }
+  enriched = ing ? ing.rows : enrichData(rows, accountNameMap);
   rawData=enriched;
   resetDashboardCaches();
   adjustDateRangeToData(enriched);
@@ -5650,11 +5650,14 @@ fileInput.addEventListener('change', async (e)=>{
       }
     }
     if(allRows.length===0){ toast('Không đọc được dữ liệu từ các file đã chọn', true); return; }
-    let removedDedup = 0;
+    let removedDedup = 0, ingUp = null;
     if(dashWorker.available()){
-      const ing = await dashWorker.ingestRows(allRows, {nameMap: accountNameMap});
-      enriched = ing.rows;
-      removedDedup = (ing.meta && ing.meta.removed) || 0;
+      try{ ingUp = await dashWorker.ingestRows(allRows, {nameMap: accountNameMap}); }
+      catch(e){ console.warn('worker ingestRows lỗi, fallback main-thread:', e && e.message); }
+    }
+    if(ingUp){
+      enriched = ingUp.rows;
+      removedDedup = (ingUp.meta && ingUp.meta.removed) || 0;
     }else{
       const ded = dedupByUUID(allRows);
       enriched = enrichData(ded.rows, accountNameMap);
@@ -5942,24 +5945,35 @@ const dashWorker=(()=>{
     }catch(_){ worker=null; dead=true; }
     return worker;
   }
-  function call(type,payload){
+  function call(type,payload,timeoutMs){
     const w=ensure();
     if(!w) return null;
     const id=++seq;
     return new Promise((resolve,reject)=>{
-      pending.set(id,{resolve,reject});
+      // Watchdog: worker im lặng (kẹt/không reply) -> reject để nơi gọi tự
+      // fallback main-thread thay vì treo cửa sổ vô thời hạn.
+      const to=setTimeout(()=>{
+        if(pending.delete(id)){
+          console.warn('dashWorker: quá hạn', type, '-> fallback main-thread');
+          reject(new Error('worker-timeout:'+type));
+        }
+      }, timeoutMs||20000);
+      pending.set(id,{
+        resolve:v=>{ clearTimeout(to); resolve(v); },
+        reject:e=>{ clearTimeout(to); reject(e); }
+      });
       try{ w.postMessage({id,type,...payload}); }
-      catch(err){ pending.delete(id); reject(err); }
+      catch(err){ clearTimeout(to); pending.delete(id); reject(err); }
     });
   }
   return {
     available:()=>!!ensure(),
-    ingest:(text,opts)=>call('ingest',{text,...opts}),
-    ingestRows:(rows,opts)=>call('ingestRows',{rows,...opts}),
-    reenrich:nameMap=>call('reenrich',{nameMap}),
-    cube:params=>call('cube',{params}),
-    billing:cfg=>call('billing',{cfg}),
-    page:(offset,limit,params)=>call('page',{offset,limit,params})
+    ingest:(text,opts)=>call('ingest',{text,...opts},45000),
+    ingestRows:(rows,opts)=>call('ingestRows',{rows,...opts},45000),
+    reenrich:nameMap=>call('reenrich',{nameMap},30000),
+    cube:params=>call('cube',{params},25000),
+    billing:cfg=>call('billing',{cfg},20000),
+    page:(offset,limit,params)=>call('page',{offset,limit,params},10000)
   };
 })();
 
@@ -6000,9 +6014,12 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     const text = await res.text();
     const isJSON = String(dataUrl).toLowerCase().endsWith('.json');
     // Parse + normalize + dedup + enrich chạy trong worker (ngoài luồng UI).
-    let removedDup = 0;
+    let removedDup = 0, ing = null;
     if(dashWorker.available()){
-      const ing = await dashWorker.ingest(text, {isJSON, sourceLabel: dataUrl, nameMap: accountNameMap});
+      try{ ing = await dashWorker.ingest(text, {isJSON, sourceLabel: dataUrl, nameMap: accountNameMap}); }
+      catch(e){ console.warn('worker ingest lỗi, fallback main-thread:', e && e.message); }
+    }
+    if(ing){
       enriched = ing.rows;
       removedDup = (ing.meta && ing.meta.removed) || 0;
     }else{

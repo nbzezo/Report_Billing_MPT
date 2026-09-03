@@ -7,6 +7,7 @@ lives next to the executable so the whole app is portable: copy the folder,
 double-click ``MPT Call Dashboard.exe``.
 """
 import ctypes
+import os
 import sys
 import threading
 from pathlib import Path
@@ -83,8 +84,11 @@ def main():
     )
     window.events.closed += shutdown
 
+    # Đặt MPT_DASHBOARD_DEBUG=1 để bật DevTools (chuột phải -> Inspect / F12).
+    debug = str(os.environ.get("MPT_DASHBOARD_DEBUG", "")).strip() not in ("", "0")
+
     try:
-        webview.start(storage_path=str(storage), private_mode=False)
+        webview.start(storage_path=str(storage), private_mode=False, debug=debug)
     except Exception as exc:
         _fatal(
             "Không mở được cửa sổ ứng dụng.\n"
