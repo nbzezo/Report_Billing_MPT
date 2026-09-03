@@ -117,6 +117,47 @@ test('buildCube — overview trên dữ liệu mẫu 2 định dạng', () => {
   assert.ok(cube.timeAnomaly && typeof cube.timeAnomaly.endBeforeStart === 'number');
 });
 
+test('buildCube — phủ đủ các nhóm biểu đồ 5 tab', () => {
+  const raw = core.normalizeCallRecords([
+    { account_id: 'A', caller_id_number: '0912345678', destination_number: '0900000001',
+      start_stamp: '2026-09-03 08:00:00', end_stamp: '2026-09-03 08:03:00',
+      duration: 180, billsec: 150, hangup_cause: 'NORMAL_CLEARING', uuid: '1', telco: 'VIETTEL' },
+    { account_id: 'A', caller_id_number: '0333000000', destination_number: '0900000001',
+      start_stamp: '2026-09-03 08:01:00', end_stamp: '2026-09-03 08:01:00',
+      duration: 0, billsec: 0, hangup_cause: 'USER_BUSY', uuid: '2', telco: 'MOBI' },
+    { account_id: 'B', caller_id_number: '0777000000', destination_number: '0900000002',
+      start_stamp: '2026-09-03 09:00:00', end_stamp: '2026-09-03 09:05:00',
+      duration: 300, billsec: 280, hangup_cause: 'NORMAL_CLEARING', uuid: '3', telco: 'VINA' }
+  ]);
+  const cube = core.buildCube(core.enrichData(raw, {}), {
+    startDate: '2026-09-03', endDate: '2026-09-03', account: 'all',
+    startTime: '00:00', endTime: '23:59',
+    billing: { firstBlock: 6, nextBlock: 1, rate: 1000, roundStep: 0, onlyConnected: true, groupBy: 'day' }
+  });
+
+  for (const k of ['overview', 'byPrefix', 'minutesPerDay', 'accountKPIs', 'topDest',
+    'destTelcoShare', 'telcoConnBreakdown', 'dailyPrefixStats', 'timeHeatmap', 'goldenHours',
+    'answerRateByAccountPerDay', 'agentPerf', 'callbackStats', 'retryPattern', 'concurrency', 'billing']) {
+    assert.ok(k in cube, `thiếu cube.${k}`);
+  }
+  assert.equal(cube.timeHeatmap.length, 7);
+  assert.equal(cube.timeHeatmap[0].length, 24);
+  assert.equal(cube.goldenHours.zRate.length, 7);
+  assert.equal(cube.concurrency.all.systemPeak, 1); // 2 cuộc connected không chồng nhau
+  assert.equal(cube.concurrency.ccuByTelco.length, 2);
+  assert.equal(cube.billing.totals.billedSec, 430); // 150 + 280
+  assert.equal(cube.agentPerf.length, 2);
+  assert.equal(cube.accountKPIs.length, 2);
+});
+
+test('buildCube — không có billing config -> billing null', () => {
+  const cube = core.buildCube(core.enrichData(core.normalizeCallRecords([
+    { account_id: 'A', caller_id_number: '09', start_stamp: '2026-09-03 08:00:00', end_stamp: '2026-09-03 08:01:00', duration: 60, billsec: 20, hangup_cause: 'NORMAL_CLEARING', uuid: 'a' }
+  ]), {}), { startDate: '2026-09-03', endDate: '2026-09-03', account: 'all', startTime: '00:00', endTime: '23:59' });
+  assert.equal(cube.billing, null);
+  assert.equal(cube.meta.filterSpanSec, 86400);
+});
+
 test('buildCube — account filter (mảng id)', () => {
   const enriched = core.enrichData(core.normalizeCallRecords([
     { account_id: 'A', caller_id_number: '09', start_stamp: '2026-09-03 08:00:00', end_stamp: '2026-09-03 08:01:00', duration: 60, billsec: 20, hangup_cause: 'NORMAL_CLEARING', uuid: 'a' },

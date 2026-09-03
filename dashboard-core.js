@@ -628,18 +628,44 @@ function buildCube(enrichedRows, params) {
     params.startTime, params.endTime
   );
   const dates = rows.map(r => r.date).filter(d => d && d !== 'Unknown').sort();
+  const ccuScope = params.ccuScope === 'occupied' ? 'occupied' : 'answered';
+  const filterSpanSec = filterWindowSec(params);
+  const retry = params.retry || {};
   return {
     meta: {
       rows: rows.length,
       accounts: new Set(rows.map(r => String(r.account_id || 'Unknown'))).size,
       dateMin: dates.length ? dates[0] : null,
-      dateMax: dates.length ? dates[dates.length - 1] : null
+      dateMax: dates.length ? dates[dates.length - 1] : null,
+      ccuScope,
+      filterSpanSec
     },
+    // --- Tổng quan / renderCommon ---
     overview: aggregateOverview(rows),
     byPrefix: aggByPrefix(rows),
     minutesPerDay: minutesPerDay(rows),
     columnHealth: computeRequiredColumnHealth(rows),
-    timeAnomaly: computeTimeAnomalyMetrics(rows)
+    timeAnomaly: computeTimeAnomalyMetrics(rows),
+    accountKPIs: computeAccountKPIs(rows),
+    topDest: computeTopDest(rows),
+    // --- Chất lượng ---
+    destTelcoShare: aggDestTelcoShare(rows),
+    telcoConnBreakdown: aggTelcoConnBreakdown(rows),
+    dailyPrefixStats: computeDailyPrefixStats(rows),
+    // --- Thời gian ---
+    timeHeatmap: computeTimeHeatmap(rows),
+    goldenHours: computeGoldenHours(rows),
+    answerRateByAccountPerDay: computeAnswerRateByAccountPerDay(rows),
+    // --- Nâng cao ---
+    agentPerf: computeAgentPerf(rows),
+    callbackStats: computeCallbackStats(rows),
+    retryPattern: computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account'),
+    concurrency: {
+      all: __computeConcurrency(rows, () => 'Tất cả', ccuScope),
+      ccuByTelco: computeCcuByTelco(rows, { scope: ccuScope, filterSpanSec })
+    },
+    // --- Cước phí (chỉ khi có cấu hình billing) ---
+    billing: params.billing ? computeBilling(rows, params.billing) : null
   };
 }
 
@@ -953,6 +979,228 @@ function computeCallbackStats(rows){
   return Object.values(byDn);
 }
 
+// ---------- Billing + CCU engine (Milestone 1c-ii-B) ----------
+
+// Do dai khoang thoi gian dang loc (giay) — mirror cua currentFilterWindowSec() trong trang.
+function filterWindowSec(params) {
+  if (!params || !params.startDate || !params.endDate) return null;
+  const s = Date.parse(`${params.startDate}T${params.startTime || '00:00'}:00`);
+  const e = Date.parse(`${params.endDate}T${params.endTime || '23:59'}:59`) + 1000;
+  return (isFinite(s) && isFinite(e) && e > s) ? (e - s) / 1000 : null;
+}
+
+function billedSecondsOf(billsec, firstBlock, nextBlock, chargeZero){
+  const b = Math.max(0, Math.floor(Number(billsec)||0));
+  const fb = Math.max(1, Math.floor(firstBlock||6));
+  const nb = Math.max(1, Math.floor(nextBlock||1));
+  if(b <= 0) return chargeZero ? fb : 0;
+  if(b <= fb) return fb;
+  return fb + Math.ceil((b - fb) / nb) * nb;
+}
+
+function roundMoney(v, step){
+  const s = Number(step)||0;
+  const n = Number(v)||0;
+  if(s <= 0) return n;
+  return Math.round(n / s) * s;
+}
+
+function billingPeriodKey(r, groupBy){
+  const s = String(r.start_stamp||'');
+  if(groupBy==='hour')  return s.slice(0,13).replace(' ','T').replace('T',' ') + 'h';
+  if(groupBy==='month') return s.slice(0,7);
+  return s.slice(0,10);
+}
+
+function computeBilling(rows, cfg){
+  const empty = ()=>({calls:0, billedCalls:0, rawSec:0, billedSec:0});
+  const byPeriod = new Map(), byAccount = new Map(), byTelco = new Map();
+  const totals = empty();
+  const detail = [];
+
+  for(const r of (rows||[])){
+    const raw = Math.max(0, Math.floor(Number(r.billsec)||0));
+    if(cfg.onlyConnected && raw <= 0){
+      // vẫn đếm số cuộc để biết tỉ lệ, nhưng không cộng cước
+      totals.calls++;
+      const pk = billingPeriodKey(r, cfg.groupBy);
+      if(!byPeriod.has(pk)) byPeriod.set(pk, empty());
+      byPeriod.get(pk).calls++;
+      const ak = String(r.account_id||'Unknown');
+      if(!byAccount.has(ak)) byAccount.set(ak, empty());
+      byAccount.get(ak).calls++;
+      const tk = String(r.telco||'Unknown');
+      if(!byTelco.has(tk)) byTelco.set(tk, empty());
+      byTelco.get(tk).calls++;
+      continue;
+    }
+
+    const billed = billedSecondsOf(raw, cfg.firstBlock, cfg.nextBlock, !cfg.onlyConnected);
+    const add = (m, k)=>{
+      if(!m.has(k)) m.set(k, empty());
+      const o = m.get(k);
+      o.calls++; if(billed>0) o.billedCalls++;
+      o.rawSec += raw; o.billedSec += billed;
+    };
+    totals.calls++; if(billed>0) totals.billedCalls++;
+    totals.rawSec += raw; totals.billedSec += billed;
+    add(byPeriod,  billingPeriodKey(r, cfg.groupBy));
+    add(byAccount, String(r.account_id||'Unknown'));
+    add(byTelco,   String(r.telco||'Unknown'));
+
+    detail.push({
+      start_stamp: r.start_stamp, account_id: r.account_id,
+      caller_id_number: r.caller_id_number, destination_number: r.destination_number,
+      telco: r.telco, hangup_cause: r.hangup_cause, connType: r.connType,
+      duration: r.duration, billsec: raw, billed_sec: billed,
+      billed_min: +(billed/60).toFixed(4),
+      // Lưu ý: cột cost là cước của riêng cuộc này (đã làm tròn tiền);
+      // tổng cước của kỳ được tính từ tổng giây nên có thể lệch vài đồng so với tổng cột này.
+      cost: roundMoney(billed/60*cfg.rate, cfg.roundStep)
+    });
+  }
+
+  const finish = (o)=>({
+    ...o,
+    diffSec: o.billedSec - o.rawSec,
+    minutes: +(o.billedSec/60).toFixed(2),
+    cost: roundMoney(o.billedSec/60*cfg.rate, cfg.roundStep)
+  });
+  const toSorted = (m, byCost)=> Array.from(m.entries())
+    .map(([k,v])=>({key:k, ...finish(v)}))
+    .sort((a,b)=> byCost ? (b.billedSec-a.billedSec) : String(a.key).localeCompare(String(b.key)));
+
+  return {
+    periods: toSorted(byPeriod, false),
+    accounts: toSorted(byAccount, true),
+    telcos: toSorted(byTelco, true),
+    totals: finish(totals),
+    detail
+  };
+}
+
+function __ccuIntervals(rows, scope){
+  const list = []; let derivedEnd = 0;
+  const keep = (scope==='occupied')
+    ? (r=> Number(r.duration||0) > 0 || Number(r.billsec||0) > 0)
+    : isConnectedStrict;
+  for(const r of (rows||[])){
+    if(!keep(r)) continue;
+
+    let s = (r.start_ts!==undefined && r.start_ts!==null) ? Number(r.start_ts)
+          : Date.parse(String(r.start_stamp||'').replace(' ','T'));
+    if(!isFinite(s)) continue;
+
+    let e = (r.end_ts!==undefined && r.end_ts!==null) ? Number(r.end_ts)
+          : Date.parse(String(r.end_stamp||'').replace(' ','T'));
+    if(!isFinite(e) || e<=s){
+      // Không có end dùng được -> suy từ độ dài cuộc gọi.
+      const d = Number(r.duration||0) || Number(r.billsec||0);
+      if(!(d>0)) continue;
+      e = s + d*1000;
+    }
+    if(!(e>s)) continue;
+
+    if(r.__end_derived) derivedEnd++;
+    list.push({s, e, r});
+  }
+  return {list, derivedEnd};
+}
+
+function __computeConcurrency(rows, keyFn, scope){
+  const {list, derivedEnd} = __ccuIntervals(rows, scope);
+  const changes = new Map();          // ms -> [{k, d}]
+  const keySet = new Set();
+  const erlangSec = Object.create(null);
+
+  for(const it of list){
+    const k = String(keyFn(it.r));
+    keySet.add(k);
+    erlangSec[k] = (erlangSec[k]||0) + (it.e - it.s)/1000;
+    if(!changes.has(it.s)) changes.set(it.s, []);
+    if(!changes.has(it.e)) changes.set(it.e, []);
+    changes.get(it.s).push({k, d:+1});
+    changes.get(it.e).push({k, d:-1});
+  }
+
+  const keys  = Array.from(keySet).sort();
+  const times = Array.from(changes.keys()).sort((a,b)=> a-b);
+  const series = Object.create(null);  // key -> {y:[]}  (dùng chung trục xISO)
+  const cur = Object.create(null), peaks = Object.create(null), peakAt = Object.create(null);
+  keys.forEach(k=>{ series[k]={y:[]}; cur[k]=0; peaks[k]=0; peakAt[k]=null; });
+
+  const xISO = [], totalY = [];
+  let systemPeak = 0, systemPeakAt = null, systemPeakIdx = -1;
+
+  for(let i=0;i<times.length;i++){
+    const t = times[i];
+    // Cộng dồn hết sự kiện tại mốc t TRƯỚC khi chốt giá trị & so peak.
+    for(const ev of changes.get(t)) cur[ev.k] = (cur[ev.k]||0) + ev.d;
+
+    xISO.push(localISODateTime(t));
+    let tot = 0;
+    for(const k of keys){
+      const v = cur[k]||0;
+      series[k].y.push(v);
+      tot += v;
+      if(v > peaks[k]){ peaks[k] = v; peakAt[k] = t; }
+    }
+    totalY.push(tot);
+    if(tot > systemPeak){ systemPeak = tot; systemPeakAt = t; systemPeakIdx = i; }
+  }
+
+  // CCU của từng khoá tại ĐÚNG thời điểm hệ thống đạt đỉnh — đây mới là
+  // "tỷ trọng lúc căng nhất". Cộng peak riêng lẻ của các khoá là vô nghĩa
+  // vì chúng xảy ra ở những thời điểm khác nhau.
+  const atSystemPeak = Object.create(null);
+  keys.forEach(k=>{ atSystemPeak[k] = systemPeakIdx>=0 ? series[k].y[systemPeakIdx] : 0; });
+
+  const totalErlangSec = keys.reduce((s,k)=> s + (erlangSec[k]||0), 0);
+
+  return {
+    times, xISO, keys, series, totalY,
+    peaks, peakAt, systemPeak, systemPeakAt, atSystemPeak,
+    erlangSec, totalErlangSec,
+    observedSpanSec: times.length>1 ? (times[times.length-1]-times[0])/1000 : 0,
+    derivedEnd, calls: list.length, scope: scope||'answered'
+  };
+}
+
+function computeCcuByTelco(rows, opts){
+  const res = __computeConcurrency(rows, getTelco, (opts && opts.scope) || 'answered');
+  const filterSpan = (opts && opts.filterSpanSec != null) ? opts.filterSpanSec : null;
+  const stats = res.keys.map(tel=>{
+    const ys = res.series[tel].y;
+    // Tích phân CCU theo thời gian = tổng thời lượng chiếm kênh của telco.
+    let weightedSec = 0;
+    for(let i=0;i<res.times.length-1;i++){
+      weightedSec += (ys[i]||0) * (res.times[i+1]-res.times[i]) / 1000;
+    }
+    const at = res.peakAt[tel];
+    return {
+      telco: tel,
+      peak: res.peaks[tel]||0,
+      peakAtISO: at!=null ? localISODateTime(at) : null,
+      avgFilter:   filterSpan ? weightedSec/filterSpan : null,
+      avgObserved: res.observedSpanSec ? weightedSec/res.observedSpanSec : 0,
+      atSystemPeak: res.atSystemPeak[tel]||0,
+      atSystemPeakPct: res.systemPeak ? (res.atSystemPeak[tel]||0)*100/res.systemPeak : 0,
+      loadPct: res.totalErlangSec ? (res.erlangSec[tel]||0)*100/res.totalErlangSec : 0,
+      erlangSec: res.erlangSec[tel]||0
+    };
+  });
+  stats.sort((a,b)=> b.peak - a.peak || b.loadPct - a.loadPct);
+  stats.meta = {
+    systemPeak: res.systemPeak,
+    systemPeakAtISO: res.systemPeakAt!=null ? localISODateTime(res.systemPeakAt) : null,
+    filterSpanSec: filterSpan,
+    observedSpanSec: res.observedSpanSec,
+    derivedEnd: res.derivedEnd,
+    calls: res.calls
+  };
+  return stats;
+}
+
 // ==========================================================================
 // Xuất ra: gán vào global (self trong worker, window/globalThis trong trang)
 // + module.exports cho Node test.
@@ -972,6 +1220,7 @@ const __exports = {
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
   computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats,
+  billedSecondsOf, roundMoney, billingPeriodKey, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }
