@@ -70,7 +70,11 @@ doi lai, ai doc duoc thu muc deu giai ma duoc (xem **Bao mat**).
 
 ## File chinh
 
-- `V2_0_Call_Dashboard_MPT.html` - Dashboard chinh
+- `V2_0_Call_Dashboard_MPT.html` - Dashboard chinh (giao dien + ve bieu do)
+- `dashboard-core.js` - Logic thuan (khong DOM): normalize/classify/enrich +
+  ~40 ham tong hop + `buildCube()`. Dung chung boi trang, Web Worker va Node test.
+- `dashboard-csv-worker.js` - Web Worker: giu du lieu da enrich, dung "cube" tong
+  hop NGOAI luong UI (parse/normalize/enrich/aggregate deu chay o day).
 - `mpt_filter.html` - Trang filter cu, duoc giu lai de tuong thich
 - `scripts/mpt_dashboard_server.py` - Server noi bo (proxy MPT API)
 - `scripts/mpt_dashboard_app.py` - Cua so native (dung cho ban portable)
@@ -115,7 +119,9 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 - Lưu kết nối trùng domain + tên đăng nhập sẽ hỏi lại trước khi tạo thêm.
 - Bỏ nút *Lưu vào HTML* ở phần gán tên Account: mapping đã tự lưu trong trình duyệt, và file HTML tải về
   không nằm trong allowlist nên mở qua server không chạy. Vẫn còn Export/Import JSON.
-- CSV thông thường được parse bằng Web Worker; CSV trên 20 MB tiếp tục dùng parser streaming.
+- **Xử lý nặng chạy trong Web Worker.** Parse CSV, chuẩn hoá schema, phân loại cuộc gọi, enrich và toàn bộ ~40 phép tổng hợp (kể cả CCU/concurrency và tính cước) chạy trong `dashboard-csv-worker.js`, không khoá luồng giao diện. Trang chỉ nhận một "cube" gọn (`buildCube`) rồi vẽ. Với ~40.000 dòng: ingest ~0,85s + cube ~0,6s, đều ngoài luồng UI. Không có Worker thì tự chạy lại trên main thread (`buildCube(enriched, params)`).
+- **Vẽ biểu đồ tăng dần.** Mỗi tab vẽ từng biểu đồ rồi nhả luồng (`renderSteps`/`yieldFrame` — ưu tiên trước paint, fallback `setTimeout` khi cửa sổ ẩn), kèm tiến độ *Đang vẽ biểu đồ X/Y* trên màn chờ. Cửa sổ phản hồi liên tục trong lúc dựng ~20 biểu đồ.
+- CSV trên 20 MB tiếp tục dùng parser streaming.
 - Plotly nằm trong `vendor/`, nên biểu đồ vẫn hoạt động khi mất Internet.
 - Mật khẩu profile được mã hóa bằng keyfile `config/secret.key` (AES-256-GCM) đi kèm thư mục, nên bản portable copy sang máy khác vẫn dùng được. Profile cũ mã hóa bằng Windows DPAPI vẫn đọc được trên đúng máy đã tạo và tự chuyển sang scheme mới ở lần khởi động kế tiếp; sang máy khác thì cần nhập lại mật khẩu.
 - Server chỉ phục vụ file giao diện cần thiết; `config/`, `logs/`, backup và mã nguồn bị chặn qua HTTP.
@@ -123,7 +129,10 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 ## Kiểm thử
 
 ```powershell
-python -m unittest discover -s tests -v
+python -m unittest discover -s tests -v   # Python: server, đóng gói, cấu trúc HTML/worker/core
+node --test tests/core.test.mjs           # Node: đối chiếu số của dashboard-core.js + buildCube
 ```
 
-Bộ test kiểm tra profile encryption/migration (keyfile + DPAPI cũ), keyfile portable đi theo thư mục, `app_root()`/`create_server()`, static-file allowlist, ngày local, thứ tự khởi tạo biểu đồ, loading/accessibility và Web Worker.
+`python -m unittest` cũng tự gọi `node --test` nếu có Node.
+
+Bộ test kiểm tra: profile encryption/migration (keyfile + DPAPI cũ), keyfile portable đi theo thư mục, `app_root()`/`create_server()`, static-file allowlist; `dashboard-core.js` là nguồn duy nhất và không tham chiếu DOM; `buildCube` khớp số trên dữ liệu mẫu (2 định dạng nguồn); giao thức Web Worker + fallback main-thread; render đọc từ cube; tab Cước phí qua worker; vẽ tăng dần có `yieldFrame`.

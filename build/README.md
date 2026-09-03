@@ -21,7 +21,8 @@ MPT Call Dashboard\
 ├─ _internal\                    ← Python runtime + thư viện (pywebview, cryptography…)
 ├─ V2_0_Call_Dashboard_MPT.html  ← file rời, sửa nóng được
 ├─ mpt_filter.html
-├─ dashboard-csv-worker.js
+├─ dashboard-core.js            ← logic thuần dùng chung
+├─ dashboard-csv-worker.js      ← Web Worker (tổng hợp ngoài luồng UI)
 └─ vendor\                       ← plotly + font
 ```
 
