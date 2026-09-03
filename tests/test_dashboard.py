@@ -253,7 +253,7 @@ class DashboardCoreModuleTests(unittest.TestCase):
             self.assertNotIn(token, html, f"HTML vẫn còn định nghĩa trùng: {token}")
         # phần render vẫn ở HTML và vẫn gọi các hàm đó (giờ từ core)
         self.assertIn("aggregateOverview(", html)
-        self.assertIn("enrichData(rawData, accountNameMap)", html)
+        self.assertIn("enrichData(", html)
 
     def test_node_core_suite_passes(self):
         node = shutil.which("node")
@@ -265,6 +265,35 @@ class DashboardCoreModuleTests(unittest.TestCase):
             encoding="utf-8", errors="replace", cwd=str(ROOT),
         )
         self.assertEqual(proc.returncode, 0, proc.stdout or "<no output>")
+
+
+class WorkerProtocolTests(unittest.TestCase):
+    """Worker bền: giao thức message + fallback main-thread."""
+
+    WORKER = (ROOT / "dashboard-csv-worker.js").read_text(encoding="utf-8")
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_worker_handles_every_message_type(self):
+        for t in ("'parse'", "'ingest'", "'ingestRows'", "'reenrich'", "'cube'", "'page'"):
+            self.assertIn("type === " + t, self.WORKER, f"worker thiếu type {t}")
+
+    def test_worker_keeps_string_message_backcompat(self):
+        # parseCSVInWorker cũ gửi chuỗi thuần -> vẫn phải trả mảng
+        self.assertIn("if (typeof d === 'string')", self.WORKER)
+        self.assertIn("self.postMessage(parseCSV(d))", self.WORKER)
+
+    def test_worker_stores_state_and_builds_cube_from_it(self):
+        self.assertIn("state = { deduped: [], enriched: [], nameMap: {} }", self.WORKER)
+        self.assertIn("buildCube(state.enriched, msg.params", self.WORKER)
+
+    def test_html_load_paths_use_worker_with_main_thread_fallback(self):
+        html = self.HTML
+        self.assertIn("const dashWorker=(()=>{", html)
+        self.assertIn("dashWorker.ingest(text,", html)          # loadReportDataUrl
+        self.assertIn("dashWorker.ingestRows(allRows,", html)   # file upload
+        self.assertIn("dashWorker.ingestRows(rows,", html)      # applyLoadedRows (snapshot)
+        # mỗi nhánh worker phải có else fallback dùng core trực tiếp
+        self.assertIn("enrichData(ded.rows, accountNameMap)", html)
 
 
 class ExportProgressTests(unittest.TestCase):

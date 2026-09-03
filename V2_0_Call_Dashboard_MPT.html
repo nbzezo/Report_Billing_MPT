@@ -2203,9 +2203,14 @@ function adwHideRestoreBanner(){
   if(banner) banner.hidden=true;
 }
 
-function applyLoadedRows(rows){
-  rawData=rows;
-  enriched=enrichData(rawData, accountNameMap);
+async function applyLoadedRows(rows){
+  if(dashWorker.available()){
+    const ing=await dashWorker.ingestRows(rows,{nameMap:accountNameMap});
+    enriched=ing.rows;
+  }else{
+    enriched=enrichData(rows, accountNameMap);
+  }
+  rawData=enriched;
   resetDashboardCaches();
   adjustDateRangeToData(enriched);
   refreshAccountFilter();
@@ -5592,18 +5597,25 @@ fileInput.addEventListener('change', async (e)=>{
       }
     }
     if(allRows.length===0){ toast('Không đọc được dữ liệu từ các file đã chọn', true); return; }
-    const ded = dedupByUUID(allRows);
-    rawData = ded.rows;
-    enriched = enrichData(rawData, accountNameMap);
-    
-    
+    let removedDedup = 0;
+    if(dashWorker.available()){
+      const ing = await dashWorker.ingestRows(allRows, {nameMap: accountNameMap});
+      enriched = ing.rows;
+      removedDedup = (ing.meta && ing.meta.removed) || 0;
+    }else{
+      const ded = dedupByUUID(allRows);
+      enriched = enrichData(ded.rows, accountNameMap);
+      removedDedup = ded.removed;
+    }
+    rawData = enriched;
+
     resetDashboardCaches();
 adjustDateRangeToData(enriched);
     refreshAccountFilter();
     initBillingFilters(true);
     updateDashboardWithFilters();
     const total = rawData.length, fn = files.length;
-    const removed = ((ded && ded.removed) ? ded.removed : 0) + removedStream;
+    const removed = removedDedup + removedStream;
     adwHideRestoreBanner();
     snapshotSave(rawData,snapshotMetaFromRange());
     const stat = `Đã load ${fn} file, tổng ${total} bản ghi (đã loại ${removed} trùng uuid).`;
@@ -5853,6 +5865,50 @@ function parseCSVInWorker(text){
   });
 }
 
+// Worker bền: giữ dữ liệu đã enrich, dựng cube ngoài luồng UI (dashboard-csv-worker.js).
+// RPC promise theo id. Trả null khi không có Worker -> nơi gọi tự fallback main-thread.
+const dashWorker=(()=>{
+  let worker=null, seq=0, dead=false;
+  const pending=new Map();
+  function ensure(){
+    if(worker||dead||!window.Worker) return worker;
+    try{
+      worker=new Worker('/dashboard-csv-worker.js');
+      worker.onmessage=e=>{
+        const {id,error}=e.data||{};
+        const p=pending.get(id); if(!p) return;
+        pending.delete(id);
+        error?p.reject(new Error(error)):p.resolve(e.data);
+      };
+      worker.onerror=()=>{
+        for(const p of pending.values()) p.reject(new Error('dashboard worker lỗi'));
+        pending.clear();
+        try{worker.terminate();}catch(_){}
+        worker=null; dead=true;
+      };
+    }catch(_){ worker=null; dead=true; }
+    return worker;
+  }
+  function call(type,payload){
+    const w=ensure();
+    if(!w) return null;
+    const id=++seq;
+    return new Promise((resolve,reject)=>{
+      pending.set(id,{resolve,reject});
+      try{ w.postMessage({id,type,...payload}); }
+      catch(err){ pending.delete(id); reject(err); }
+    });
+  }
+  return {
+    available:()=>!!ensure(),
+    ingest:(text,opts)=>call('ingest',{text,...opts}),
+    ingestRows:(rows,opts)=>call('ingestRows',{rows,...opts}),
+    reenrich:nameMap=>call('reenrich',{nameMap}),
+    cube:params=>call('cube',{params}),
+    page:(offset,limit,params)=>call('page',{offset,limit,params})
+  };
+})();
+
 async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
   if(!dataUrl) return false;
   if(reportAbortController) reportAbortController.abort();
@@ -5888,19 +5944,24 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
       throw new Error(message);
     }
     const text = await res.text();
-    let rows;
-    if(String(dataUrl).toLowerCase().endsWith('.json')){
-      rows = JSON.parse(text);
-      if(!Array.isArray(rows)) rows = [];
+    const isJSON = String(dataUrl).toLowerCase().endsWith('.json');
+    // Parse + normalize + dedup + enrich chạy trong worker (ngoài luồng UI).
+    let removedDup = 0;
+    if(dashWorker.available()){
+      const ing = await dashWorker.ingest(text, {isJSON, sourceLabel: dataUrl, nameMap: accountNameMap});
+      enriched = ing.rows;
+      removedDup = (ing.meta && ing.meta.removed) || 0;
     }else{
-      rows = await parseCSVInWorker(text);
+      let rows = isJSON ? JSON.parse(text) : await parseCSVInWorker(text);
+      if(!Array.isArray(rows)) rows = [];
+      rows = normalizeCallRecords(rows);
+      for(const row of rows) row.__source_file = dataUrl;
+      const ded = dedupByUUID(rows);
+      enriched = enrichData(ded.rows, accountNameMap);
+      removedDup = ded.removed;
     }
-    rows = normalizeCallRecords(rows);
-    // Avoid one extra object allocation per call for large server exports.
-    for(const row of rows) row.__source_file = dataUrl;
-    const ded = dedupByUUID(rows);
-    rawData = ded.rows;
-    enriched = enrichData(rawData, accountNameMap);
+    // enrichData spread ...r nên enriched là superset của rawData cũ (đủ mọi cột gốc).
+    rawData = enriched;
     resetDashboardCaches();
     adjustDateRangeToData(enriched);
     refreshAccountFilter();
@@ -5909,7 +5970,7 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     const sourceAccountCount = new Set(rawData.map(row=>String(row.account_id||'Unknown'))).size;
     const cacheState = res.headers.get('X-MPT-Cache');
     const cacheText = cacheState ? ` | MPT cache: ${cacheState}` : '';
-    const stat = `Auto loaded ${rawData.length} records / ${sourceAccountCount} account(s) (removed ${ded.removed||0} duplicate uuid)${cacheText}.`;
+    const stat = `Auto loaded ${rawData.length} records / ${sourceAccountCount} account(s) (removed ${removedDup} duplicate uuid)${cacheText}.`;
     const statusEl = document.getElementById('uploadStatus');
     if(statusEl) statusEl.innerText = stat;
     updateMptLoadedSummary(dataUrl,rawData.length,sourceAccountCount);
