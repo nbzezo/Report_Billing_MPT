@@ -437,7 +437,23 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/accounts":
             self.handle_accounts_post()
             return
+        if parsed.path == "/api/clientlog":
+            self.handle_client_log()
+            return
         self.send_error(404)
+
+    def handle_client_log(self):
+        """Beacon lỗi JS từ cửa sổ native (không có DevTools) -> in ra stderr."""
+        try:
+            body = self.read_json_body()
+        except Exception:
+            body = {}
+        msg = str(body.get("message", ""))[:2000]
+        where = str(body.get("where", ""))[:400]
+        print(f"[CLIENT] {body.get('kind', 'log')}: {msg} @ {where}",
+              file=__import__("sys").stderr, flush=True)
+        self.send_response(204)
+        self.end_headers()
 
     def do_DELETE(self):
         parsed = urllib.parse.urlparse(self.path)

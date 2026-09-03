@@ -309,7 +309,7 @@ class CubeRenderPipelineTests(unittest.TestCase):
     def test_compute_cube_helper_prefers_worker_then_falls_back(self):
         self.assertIn("async function computeCubeFor(params){", self.HTML)
         self.assertIn("dashWorker.cube(params)", self.HTML)
-        self.assertIn("return buildCube(enriched, params);", self.HTML)
+        self.assertIn("buildCube(enriched, params)", self.HTML)  # nhánh fallback main-thread
         self.assertIn("function cubeVal(path, fallbackFn){", self.HTML)
 
     def test_render_call_sites_read_from_cube(self):

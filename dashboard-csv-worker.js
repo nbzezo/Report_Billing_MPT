@@ -111,7 +111,16 @@ function handle(msg) {
       return;
     }
     if (type === 'cube') {
-      self.postMessage({ id, cube: buildCube(state.enriched, msg.params || {}) });
+      const cube = buildCube(state.enriched, msg.params || {});
+      self.postMessage({
+        id, cube,
+        __diag: {
+          stored: state.enriched.length,
+          tzoff: new Date().getTimezoneOffset(),
+          row0ts: state.enriched[0] && state.enriched[0].start_ts,
+          reparse: state.enriched[0] && Date.parse(String(state.enriched[0].start_stamp || '').replace(' ', 'T'))
+        }
+      });
       return;
     }
     if (type === 'billing') {
@@ -133,6 +142,14 @@ function handle(msg) {
     self.postMessage({ id, error: String(err && err.message || err) });
   }
 }
+
+self.addEventListener('error', function (e) {
+  try { self.postMessage({ __workerError: (e && e.message) || String(e), where: (e && e.filename ? e.filename + ':' + e.lineno : '') }); } catch (_) {}
+});
+self.addEventListener('unhandledrejection', function (e) {
+  const r = e && e.reason;
+  try { self.postMessage({ __workerError: (r && (r.stack || r.message)) || String(r), where: 'unhandledrejection' }); } catch (_) {}
+});
 
 self.onmessage = function (event) {
   const d = event.data;

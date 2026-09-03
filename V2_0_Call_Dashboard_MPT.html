@@ -2409,6 +2409,24 @@ function adwPlotTheme(){
 })();
 </script>
 
+<!-- Beacon lỗi JS -> log server (cửa sổ native không có DevTools). -->
+<script>
+(function(){
+  var sent=0;
+  function beacon(kind,message,where){
+    if(sent>30) return; sent++;
+    try{ fetch('/api/clientlog',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({kind:kind,message:String(message||'').slice(0,2000),where:String(where||'')})}); }catch(_){}
+  }
+  window.addEventListener('error',function(e){
+    beacon('error',(e && e.message)||e, (e && e.filename? e.filename+':'+e.lineno+':'+e.colno : ''));
+  });
+  window.addEventListener('unhandledrejection',function(e){
+    var r=e && e.reason; beacon('unhandledrejection', (r && (r.stack||r.message))||r, '');
+  });
+  window.__beacon=beacon;
+})();
+</script>
 <!-- Logic thuần (không DOM) dùng chung với Web Worker và Node test. Phải nạp trước script chính. -->
 <script src="/dashboard-core.js"></script>
 
@@ -3620,10 +3638,17 @@ async function computeCubeFor(params){
   try{
     if(dashWorker.available()){
       const res = await dashWorker.cube(params);
-      if(res && res.cube) return res.cube;
+      if(res && res.cube){
+        try{ window.__beacon && window.__beacon('cube-worker', JSON.stringify({rows:res.cube.meta&&res.cube.meta.rows, diag:res.__diag})); }catch(_){}
+        return res.cube;
+      }
     }
-  }catch(e){ console.warn('dashWorker.cube lỗi, fallback main-thread:', e && e.message); }
-  try{ return buildCube(enriched, params); }catch(e){ console.warn('buildCube lỗi:', e); return null; }
+  }catch(e){ console.warn('dashWorker.cube lỗi, fallback main-thread:', e && e.message);
+    try{ window.__beacon && window.__beacon('cube-worker-fail', String(e && e.message || e)); }catch(_){} }
+  try{ const c = buildCube(enriched, params);
+    try{ window.__beacon && window.__beacon('cube-mainthread', JSON.stringify({rows:c && c.meta && c.meta.rows})); }catch(_){}
+    return c;
+  }catch(e){ console.warn('buildCube lỗi:', e); return null; }
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
@@ -5565,6 +5590,19 @@ async function updateDashboardWithFilters(){
   const et = (document.getElementById('endTime')||{}).value || '23:59';
 
   const params = currentCubeParams(start, end, st, et, accParam);
+  try{
+    if(window.__beacon){
+      const s0=enriched[0], sN=enriched[enriched.length-1];
+      window.__beacon('cubeparams', JSON.stringify({
+        start, end, st, et, todayISO,
+        sMs: Date.parse(start+'T'+st+':00'), eMs: Date.parse(end+'T'+et+':59'),
+        tzoff: new Date().getTimezoneOffset(),
+        row0: s0 && {stamp:s0.start_stamp, ts:s0.start_ts, date:s0.date},
+        rowN: sN && {stamp:sN.start_stamp, ts:sN.start_ts, date:sN.date},
+        enrichedLen: enriched.length
+      }));
+    }
+  }catch(_){}
   // Khoá cache gồm cả config phụ (ccuScope/retry) để đổi chúng cũng tính lại cube.
   const filterKey = makeFilterKey(start, end, st, et, (accParam==='all') ? [] : accParam)
     + '|' + params.ccuScope + '|' + JSON.stringify(params.retry || 0);
@@ -5931,12 +5969,16 @@ const dashWorker=(()=>{
     try{
       worker=new Worker('/dashboard-csv-worker.js');
       worker.onmessage=e=>{
-        const {id,error}=e.data||{};
+        const d=e.data||{};
+        if(d.__workerError){ try{ window.__beacon && window.__beacon('worker', d.__workerError, d.where); }catch(_){}
+          console.warn('worker error:', d.__workerError, d.where); return; }
+        const {id,error}=d;
         const p=pending.get(id); if(!p) return;
         pending.delete(id);
-        error?p.reject(new Error(error)):p.resolve(e.data);
+        error?p.reject(new Error(error)):p.resolve(d);
       };
-      worker.onerror=()=>{
+      worker.onerror=ev=>{
+        try{ window.__beacon && window.__beacon('worker.onerror', (ev && ev.message)||ev, (ev && ev.filename? ev.filename+':'+ev.lineno : '')); }catch(_){}
         for(const p of pending.values()) p.reject(new Error('dashboard worker lỗi'));
         pending.clear();
         try{worker.terminate();}catch(_){}
@@ -6012,6 +6054,7 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
       throw new Error(message);
     }
     const text = await res.text();
+    try{ window.__beacon && window.__beacon('phase','csv nhận '+text.length+' byte, worker='+dashWorker.available()); }catch(_){}
     const isJSON = String(dataUrl).toLowerCase().endsWith('.json');
     // Parse + normalize + dedup + enrich chạy trong worker (ngoài luồng UI).
     let removedDup = 0, ing = null;
@@ -6019,6 +6062,7 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
       try{ ing = await dashWorker.ingest(text, {isJSON, sourceLabel: dataUrl, nameMap: accountNameMap}); }
       catch(e){ console.warn('worker ingest lỗi, fallback main-thread:', e && e.message); }
     }
+    try{ window.__beacon && window.__beacon('phase','ingest xong, ing='+(ing?ing.rows.length+' dòng':'null -> fallback')); }catch(_){}
     if(ing){
       enriched = ing.rows;
       removedDup = (ing.meta && ing.meta.removed) || 0;
@@ -6037,7 +6081,9 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     adjustDateRangeToData(enriched);
     refreshAccountFilter();
     initBillingFilters(true);
+    try{ window.__beacon && window.__beacon('phase','truoc updateDashboardWithFilters, enriched='+enriched.length); }catch(_){}
     await updateDashboardWithFilters();
+    try{ window.__beacon && window.__beacon('phase','render xong, cube='+(dashState.cube?dashState.cube.meta.rows+' dòng':'null')); }catch(_){}
     const sourceAccountCount = new Set(rawData.map(row=>String(row.account_id||'Unknown'))).size;
     const cacheState = res.headers.get('X-MPT-Cache');
     const cacheText = cacheState ? ` | MPT cache: ${cacheState}` : '';

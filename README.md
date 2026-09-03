@@ -28,13 +28,14 @@ python -m pip install -r build\requirements-build.txt
 .\build\build.ps1
 ```
 
-Ket qua: `dist\MPT Call Dashboard\` — chay `MPT Call Dashboard.exe`. Cua so native (WebView2),
-khong con tab trinh duyet, khong cua so terminal. Lan chay dau tu tao `config\`, `logs\`,
-`data\webview2\` ngay trong thu muc do.
+Ket qua: `dist\MPT Call Dashboard\` — chay `MPT Call Dashboard.exe`. No chay server noi bo
+roi mo dashboard bang **cua so Microsoft Edge / Chrome che do `--app`** (khong thanh dia chi,
+ho so rieng trong `data\edge\`), khong cua so terminal. Lan chay dau tu tao `config\`,
+`logs\`, `data\edge\` ngay trong thu muc do.
 
 **Chep sang may khac:** copy ca thu muc `MPT Call Dashboard\` (ke ca `config\`) — mat khau MPT
-da luu van dung duoc vi `config\secret.key` di kem. May dich can Windows 10 (1803+)/11 co
-**Microsoft Edge WebView2 Runtime** (gan nhu may nao cung co san).
+da luu van dung duoc vi `config\secret.key` di kem. May dich can Windows 10/11 co san
+**Microsoft Edge** (moi may Win10/11 deu co) hoac Chrome.
 
 Chi tiet + luu y ky ich: [`build/README.md`](build/README.md).
 

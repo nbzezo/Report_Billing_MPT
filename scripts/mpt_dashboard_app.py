@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """Native desktop window for the MPT Call Dashboard (portable Windows build).
 
-Runs the existing local server on an ephemeral port and shows it in a WebView2
-window instead of a browser tab. Data (``config/``, ``logs/``, ``data/webview2/``)
-lives next to the executable so the whole app is portable: copy the folder,
-double-click ``MPT Call Dashboard.exe``.
+Runs the existing local server on an ephemeral port and opens it as a chromeless
+Microsoft Edge / Chrome window (``--app`` mode) with an isolated profile under the
+app folder. No pywebview / WebView2 wrapper — the browser engine that the
+dashboard is tested against renders it directly.
+
+Data (``config/``, ``logs/``, ``data/edge/``) lives next to the executable so the
+whole app is portable: copy the folder, run ``MPT Call Dashboard.exe``.
 """
 import ctypes
 import os
+import shutil
+import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -47,11 +53,52 @@ def _single_instance_guard():
     return handle
 
 
+def _find_browser():
+    """Path to msedge.exe (preferred) or chrome.exe, or None."""
+    bases = [os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles"),
+             os.environ.get("LOCALAPPDATA")]
+    rel = [("Microsoft", "Edge", "Application", "msedge.exe"),
+           ("Google", "Chrome", "Application", "chrome.exe")]
+    for parts in rel:
+        for base in bases:
+            if not base:
+                continue
+            cand = Path(base).joinpath(*parts)
+            if cand.exists():
+                return str(cand)
+    for name in ("msedge", "chrome", "chrome.exe", "msedge.exe"):
+        found = shutil.which(name)
+        if found:
+            return found
+    return None
+
+
+def _profile_windows_alive(marker):
+    """True while a browser process still has our --user-data-dir open."""
+    if not sys.platform.startswith("win"):
+        return False
+    ps = (
+        "$m=$env:MPT_EDGE_MARKER;"
+        "(@(Get-CimInstance Win32_Process -Filter \"name='msedge.exe' or name='chrome.exe'\""
+        " -ErrorAction SilentlyContinue |"
+        " Where-Object { $_.CommandLine -and $_.CommandLine.Contains($m) })).Count"
+    )
+    try:
+        env = dict(os.environ, MPT_EDGE_MARKER=marker)
+        out = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, text=True, timeout=15, env=env,
+        )
+        return (out.stdout or "").strip() not in ("", "0")
+    except Exception:
+        return False
+
+
 def main():
-    guard = _single_instance_guard()
+    guard = _single_instance_guard()  # noqa: F841 (kept alive for process lifetime)
     root = app_root()
-    storage = root / "data" / "webview2"
-    storage.mkdir(parents=True, exist_ok=True)
+    profile = root / "data" / "edge"
+    profile.mkdir(parents=True, exist_ok=True)
 
     try:
         server = create_server(host="127.0.0.1", port=0, root=root)
@@ -60,6 +107,7 @@ def main():
         return
 
     port = server.server_address[1]
+    url = f"http://127.0.0.1:{port}/"
     threading.Thread(target=server.serve_forever, name="mpt-server", daemon=True).start()
 
     def shutdown():
@@ -68,34 +116,44 @@ def main():
         except Exception:
             pass
 
-    try:
-        import webview
-    except ImportError:
+    browser = _find_browser()
+    if not browser:
         shutdown()
-        _fatal("Bản đóng gói thiếu thư viện giao diện (pywebview). Hãy build lại.")
+        _fatal(
+            "Không tìm thấy Microsoft Edge hoặc Google Chrome để mở cửa sổ ứng dụng.\n"
+            "Cài Edge (có sẵn trên Windows 10/11) rồi chạy lại."
+        )
         return
 
-    window = webview.create_window(
-        APP_TITLE,
-        f"http://127.0.0.1:{port}/",
-        width=1440,
-        height=920,
-        min_size=(1024, 680),
-    )
-    window.events.closed += shutdown
-
-    # Đặt MPT_DASHBOARD_DEBUG=1 để bật DevTools (chuột phải -> Inspect / F12).
-    debug = str(os.environ.get("MPT_DASHBOARD_DEBUG", "")).strip() not in ("", "0")
+    args = [
+        browser,
+        f"--app={url}",
+        f"--user-data-dir={profile}",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--disable-background-mode",
+        "--disable-features=Translate,msEdgeSplitScreen",
+        "--window-size=1440,920",
+    ]
+    if str(os.environ.get("MPT_DASHBOARD_DEBUG", "")).strip() not in ("", "0"):
+        args.append("--auto-open-devtools-for-tabs")
 
     try:
-        webview.start(storage_path=str(storage), private_mode=False, debug=debug)
+        proc = subprocess.Popen(args)
     except Exception as exc:
-        _fatal(
-            "Không mở được cửa sổ ứng dụng.\n"
-            "Máy có thể thiếu 'Microsoft Edge WebView2 Runtime'.\n"
-            "Cài tại: https://developer.microsoft.com/microsoft-edge/webview2/\n\n"
-            f"Chi tiết: {exc}"
-        )
+        shutdown()
+        _fatal(f"Không mở được cửa sổ ứng dụng:\n{exc}")
+        return
+
+    try:
+        started = time.monotonic()
+        proc.wait()
+        # Edge/Chrome đôi khi bàn giao cho tiến trình khác rồi thoát ngay. Nếu
+        # thoát quá nhanh, theo dõi cho tới khi không còn cửa sổ nào của profile.
+        if time.monotonic() - started < 4:
+            time.sleep(1.5)
+            while _profile_windows_alive(str(profile)):
+                time.sleep(2)
     finally:
         shutdown()
         del guard

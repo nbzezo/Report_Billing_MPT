@@ -18,15 +18,19 @@ Kết quả: `dist\MPT Call Dashboard\`
 ```
 MPT Call Dashboard\
 ├─ MPT Call Dashboard.exe        ← chạy cái này
-├─ _internal\                    ← Python runtime + thư viện (pywebview, cryptography…)
+├─ _internal\                    ← Python runtime + cryptography (rất gọn)
 ├─ V2_0_Call_Dashboard_MPT.html  ← file rời, sửa nóng được
 ├─ mpt_filter.html
-├─ dashboard-core.js            ← logic thuần dùng chung
-├─ dashboard-csv-worker.js      ← Web Worker (tổng hợp ngoài luồng UI)
+├─ dashboard-core.js             ← logic thuần dùng chung
+├─ dashboard-csv-worker.js       ← Web Worker (tổng hợp ngoài luồng UI)
 └─ vendor\                       ← plotly + font
 ```
 
-Lần chạy đầu tự tạo `config\` (có `profiles.json` + `secret.key`), `logs\`, `data\webview2\`
+`MPT Call Dashboard.exe` chạy server nội bộ rồi mở dashboard bằng **cửa sổ Microsoft Edge
+(hoặc Chrome) ở chế độ `--app`** — không thanh địa chỉ, hồ sơ Edge riêng trong `data\edge\`.
+Không nhúng thư viện GUI nào nên bundle nhỏ và ổn định.
+
+Lần chạy đầu tự tạo `config\` (có `profiles.json` + `secret.key`), `logs\`, `data\edge\`
 ngay trong thư mục app.
 
 ## Chép sang máy khác
@@ -39,16 +43,17 @@ Copy **cả thư mục** `MPT Call Dashboard\`. Kể cả `config\` → mật kh
 
 ## Yêu cầu trên máy chạy
 
-- Windows 10 (1803+) / 11
-- **Microsoft Edge WebView2 Runtime** — có sẵn trên gần như mọi máy Win10/11 (Edge tự cài).
-  Nếu thiếu, app hiện thông báo kèm link tải:
-  <https://developer.microsoft.com/microsoft-edge/webview2/>
+- Windows 10 / 11
+- **Microsoft Edge** (có sẵn trên mọi máy Win10/11) hoặc **Google Chrome**. Thiếu cả hai
+  thì app báo lỗi kèm hướng dẫn.
 
 ## Ghi chú
 
 - `.exe` **chưa ký số** → Windows SmartScreen có thể cảnh báo "unknown publisher" và một số
   antivirus báo nhầm ở lần đầu. Chấp nhận được khi copy nội bộ giữa máy quen; muốn hết cảnh
   báo thì cần chứng chỉ Authenticode để ký.
-- Đóng gói `pywebview` đôi khi vướng `pythonnet`/hidden-import. Nếu `.exe` mở lên tắt ngay,
-  build lại với `console=True` trong `build/mpt_dashboard.spec` để đọc traceback.
+- `.exe` mở lên tắt ngay → build lại với `console=True` trong `build/mpt_dashboard.spec` để
+  đọc traceback.
+- `MPT_DASHBOARD_DEBUG=1` → cửa sổ mở kèm DevTools.
 - Icon: đặt file `build\app.ico` là spec tự nhận.
+```
