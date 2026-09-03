@@ -369,12 +369,28 @@ class IncrementalRenderTests(unittest.TestCase):
         self.assertLess(idx_add, idx_await)
 
     def test_load_paths_await_dashboard_update_for_progress(self):
-        self.assertEqual(self.HTML.count("await updateDashboardWithFilters();"), 3)
+        # loadReportDataUrl, tải file, applyLoadedRows, applyLoadedText
+        self.assertGreaterEqual(self.HTML.count("await updateDashboardWithFilters();"), 3)
 
     def test_ccu_by_telco_returns_stats_and_meta_separately(self):
         core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
         self.assertNotIn("stats.meta = {", core)   # không gắn property lên Array nữa
         self.assertIn("return {\n    stats,\n    meta: {", core)
+
+    def test_main_thread_row_cap_keeps_full_data_in_worker(self):
+        worker = (ROOT / "dashboard-csv-worker.js").read_text(encoding="utf-8")
+        html = self.HTML
+        # worker giữ toàn bộ, chỉ gửi về main thread tối đa cap dòng
+        self.assertIn("state.enriched.slice(0, cap)", worker)
+        self.assertIn("accountIds: accountIds", worker)   # danh sách account đủ, không bị cap
+        self.assertIn("const MAIN_ROW_CAP=", html)
+        self.assertIn("cap:MAIN_ROW_CAP", html)
+        # cube/page vẫn tính trên state.enriched đầy đủ
+        self.assertIn("buildCube(state.enriched", worker)
+        self.assertIn("filterData(state.enriched", worker)
+        # snapshot cho nguồn CSV: lưu chuỗi thô thay vì hàng chục nghìn object
+        self.assertIn("async function snapshotSaveText(text,meta,count,sourceUrl)", html)
+        self.assertIn("text = null;", html)   # giải phóng chuỗi CSV sớm
 
     def test_billing_tab_runs_in_worker_with_shared_filter(self):
         core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")

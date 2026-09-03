@@ -64,22 +64,28 @@ var state = { deduped: [], enriched: [], nameMap: {} };
 
 function metaOf(deduped, enriched, removed) {
   const dates = enriched.map(r => r.date).filter(d => d && d !== 'Unknown').sort();
+  const accountIds = Array.from(new Set(enriched.map(r => String(r.account_id || 'Unknown')))).sort();
   return {
     count: deduped.length,
     removed: removed || 0,
     dateMin: dates.length ? dates[0] : null,
     dateMax: dates.length ? dates[dates.length - 1] : null,
-    accounts: new Set(enriched.map(r => String(r.account_id || 'Unknown'))).size
+    accounts: accountIds.length,
+    accountIds: accountIds
   };
 }
 
-function ingestFromRows(rawRows, sourceLabel, nameMap) {
+// cap: số dòng đã enrich gửi về luồng chính (0/undefined = tất cả). Toàn bộ vẫn
+// nằm trong worker để buildCube/page tính CHÍNH XÁC trên mọi dòng.
+function ingestFromRows(rawRows, sourceLabel, nameMap, cap) {
   if (sourceLabel) for (const r of rawRows) r.__source_file = sourceLabel;
   const ded = dedupByUUID(rawRows);
   state.deduped = ded.rows;
   state.nameMap = nameMap || {};
   state.enriched = enrichData(state.deduped, state.nameMap);
-  return { meta: metaOf(state.deduped, state.enriched, ded.removed), rows: state.enriched };
+  const meta = metaOf(state.deduped, state.enriched, ded.removed);
+  const rows = (cap && state.enriched.length > cap) ? state.enriched.slice(0, cap) : state.enriched;
+  return { meta: meta, rows: rows, capped: rows.length < state.enriched.length };
 }
 
 function handle(msg) {
@@ -97,30 +103,23 @@ function handle(msg) {
       let rows = msg.isJSON ? JSON.parse(String(msg.text || 'null')) : parseCSV(String(msg.text || ''));
       if (!Array.isArray(rows)) rows = [];
       rows = normalizeCallRecords(rows);
-      self.postMessage({ id, ...ingestFromRows(rows, msg.sourceLabel, msg.nameMap) });
+      self.postMessage({ id, ...ingestFromRows(rows, msg.sourceLabel, msg.nameMap, msg.cap) });
       return;
     }
     if (type === 'ingestRows') {
-      self.postMessage({ id, ...ingestFromRows(msg.rows || [], msg.sourceLabel, msg.nameMap) });
+      self.postMessage({ id, ...ingestFromRows(msg.rows || [], msg.sourceLabel, msg.nameMap, msg.cap) });
       return;
     }
     if (type === 'reenrich') {
       state.nameMap = msg.nameMap || {};
       state.enriched = enrichData(state.deduped, state.nameMap);
-      self.postMessage({ id, meta: metaOf(state.deduped, state.enriched, 0), rows: state.enriched });
+      const meta = metaOf(state.deduped, state.enriched, 0);
+      const rows = (msg.cap && state.enriched.length > msg.cap) ? state.enriched.slice(0, msg.cap) : state.enriched;
+      self.postMessage({ id, meta: meta, rows: rows, capped: rows.length < state.enriched.length });
       return;
     }
     if (type === 'cube') {
-      const cube = buildCube(state.enriched, msg.params || {});
-      self.postMessage({
-        id, cube,
-        __diag: {
-          stored: state.enriched.length,
-          tzoff: new Date().getTimezoneOffset(),
-          row0ts: state.enriched[0] && state.enriched[0].start_ts,
-          reparse: state.enriched[0] && Date.parse(String(state.enriched[0].start_stamp || '').replace(' ', 'T'))
-        }
-      });
+      self.postMessage({ id, cube: buildCube(state.enriched, msg.params || {}) });
       return;
     }
     if (type === 'billing') {

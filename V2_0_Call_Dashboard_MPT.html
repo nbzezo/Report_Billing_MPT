@@ -780,6 +780,7 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
           <button id="applyFilter" class="primary-btn">Áp dụng bộ lọc</button>
         </div>
         <div id="mainFilterScope" class="filter-scope muted" role="status" aria-live="polite">Chưa có dữ liệu. Hãy tải báo cáo từ MPT hoặc mở “Tải file thủ công”.</div>
+        <div id="rowCapNotice" class="filter-scope muted" role="status" aria-live="polite" hidden></div>
       </div>
   </div>
 
@@ -2184,6 +2185,22 @@ async function snapshotSave(rows,meta){
     db.close();
   }catch(_){}
 }
+// Snapshot cho nguồn MPT/CSV: giữ CHUỖI CSV thô (một blob, nhẹ bộ nhớ) thay vì
+// hàng chục nghìn object. Khi "Dùng lại" thì nạp lại chuỗi này qua worker.
+async function snapshotSaveText(text,meta,count,sourceUrl){
+  if(!text||typeof text!=='string') return;
+  try{
+    const db=await snapshotOpen();
+    await new Promise((resolve,reject)=>{
+      const transaction=db.transaction(SNAPSHOT_STORE,'readwrite');
+      transaction.objectStore(SNAPSHOT_STORE).put(
+        {text,meta:meta||{},count:count||0,sourceUrl:sourceUrl||'',savedAt:Date.now()},SNAPSHOT_KEY);
+      transaction.oncomplete=resolve;
+      transaction.onerror=()=>reject(transaction.error);
+    });
+    db.close();
+  }catch(_){}
+}
 async function snapshotLoad(){
   try{
     const db=await snapshotOpen();
@@ -2209,10 +2226,44 @@ async function applyLoadedRows(rows){
     try{ ing=await dashWorker.ingestRows(rows,{nameMap:accountNameMap}); }
     catch(e){ console.warn('worker ingestRows lỗi, fallback main-thread:', e && e.message); }
   }
-  enriched = ing ? ing.rows : enrichData(rows, accountNameMap);
-  rawData=enriched;
-  resetDashboardCaches();
-  adjustDateRangeToData(enriched);
+  if(ing){
+    enriched = ing.rows; rawData = enriched;
+    loadedAccountIds = (ing.meta && ing.meta.accountIds) || null;
+    setLoadedRowCap(enriched.length, (ing.meta && ing.meta.count) || enriched.length);
+    resetDashboardCaches();
+    if(ing.meta) setDateRangeInputs(ing.meta.dateMin, ing.meta.dateMax, ing.meta.count);
+    else adjustDateRangeToData(enriched);
+  }else{
+    enriched = enrichData(rows, accountNameMap); rawData=enriched;
+    loadedAccountIds = null;
+    setLoadedRowCap(enriched.length, enriched.length);
+    resetDashboardCaches();
+    adjustDateRangeToData(enriched);
+  }
+  refreshAccountFilter();
+  initBillingFilters(true);
+  await updateDashboardWithFilters();
+}
+
+// Nạp lại từ chuỗi CSV thô đã lưu (snapshot mới) — đi qua worker như tải MPT.
+async function applyLoadedText(text){
+  let rows;
+  if(dashWorker.available()){
+    const ing=await dashWorker.ingest(text,{isJSON:false,sourceLabel:'snapshot',nameMap:accountNameMap});
+    enriched=ing.rows; rawData=enriched;
+    loadedAccountIds=(ing.meta&&ing.meta.accountIds)||null;
+    setLoadedRowCap(enriched.length,(ing.meta&&ing.meta.count)||enriched.length);
+    resetDashboardCaches();
+    if(ing.meta) setDateRangeInputs(ing.meta.dateMin,ing.meta.dateMax,ing.meta.count);
+  }else{
+    rows=normalizeCallRecords(parseCSVRobust(text));
+    const ded=dedupByUUID(rows);
+    enriched=enrichData(ded.rows,accountNameMap); rawData=enriched;
+    loadedAccountIds=null;
+    setLoadedRowCap(enriched.length,enriched.length);
+    resetDashboardCaches();
+    adjustDateRangeToData(enriched);
+  }
   refreshAccountFilter();
   initBillingFilters(true);
   await updateDashboardWithFilters();
@@ -2222,19 +2273,26 @@ async function offerLastSnapshot(){
   if(rawData.length) return;
   const snapshot=await snapshotLoad();
   const banner=document.getElementById('restoreBanner');
-  if(!snapshot||!Array.isArray(snapshot.rows)||!snapshot.rows.length||!banner) return;
+  if(!snapshot||!banner) return;
+  const hasText=typeof snapshot.text==='string' && snapshot.text.length>0;
+  const hasRows=Array.isArray(snapshot.rows) && snapshot.rows.length>0;
+  if(!hasText && !hasRows) return;
   const meta=snapshot.meta||{};
+  const count=snapshot.count || (hasRows ? snapshot.rows.length : 0);
   const when=new Date(snapshot.savedAt||Date.now()).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   const range=[meta.from,meta.to].filter(Boolean).map(formatVnDate).join(' → ');
   document.getElementById('restoreBannerText').textContent=
-    `Dữ liệu lần trước: ${Number(snapshot.rows.length).toLocaleString('vi-VN')} dòng${range?' · '+range:''} · tải lúc ${when}.`;
+    `Dữ liệu lần trước: ${count?Number(count).toLocaleString('vi-VN')+' dòng':''}${range?(count?' · ':'')+range:''} · tải lúc ${when}.`;
   banner.hidden=false;
-  document.getElementById('restoreSnapshot').onclick=()=>{
-    applyLoadedRows(snapshot.rows);
-    const summary=document.getElementById('mptSourceSummary');
-    if(summary) summary.textContent=`Dùng lại dữ liệu lần trước · ${Number(snapshot.rows.length).toLocaleString('vi-VN')} dòng`;
+  document.getElementById('restoreSnapshot').onclick=async ()=>{
     adwHideRestoreBanner();
-    toast('Đã dùng lại dữ liệu lần trước. Bấm Tải báo cáo khi cần số liệu mới.');
+    try{
+      if(hasText) await applyLoadedText(snapshot.text);
+      else await applyLoadedRows(snapshot.rows);
+      const summary=document.getElementById('mptSourceSummary');
+      if(summary) summary.textContent=`Dùng lại dữ liệu lần trước · ${Number(rawData.length).toLocaleString('vi-VN')} dòng`;
+      toast('Đã dùng lại dữ liệu lần trước. Bấm Tải báo cáo khi cần số liệu mới.');
+    }catch(e){ toast('Không dùng lại được dữ liệu lần trước: '+(e&&e.message||e), true); }
   };
   document.getElementById('dismissSnapshot').onclick=adwHideRestoreBanner;
 }
@@ -3273,7 +3331,9 @@ function refreshAccountFilter(){
   const prevSelected = new Set(getSelectedAccounts());
   container.innerHTML='';
 
-  const ids=Array.from(new Set(enriched.map(r=>String(r.account_id)))).sort();
+  const ids = (Array.isArray(loadedAccountIds) && loadedAccountIds.length)
+    ? loadedAccountIds.slice()
+    : Array.from(new Set(enriched.map(r=>String(r.account_id)))).sort();
   ids.forEach((id,idx)=>{
     const name = getAccountNameForId(id);
     const labelText = `${name} (${id})`;
@@ -3638,17 +3698,11 @@ async function computeCubeFor(params){
   try{
     if(dashWorker.available()){
       const res = await dashWorker.cube(params);
-      if(res && res.cube){
-        try{ window.__beacon && window.__beacon('cube-worker', JSON.stringify({rows:res.cube.meta&&res.cube.meta.rows, diag:res.__diag})); }catch(_){}
-        return res.cube;
-      }
+      if(res && res.cube) return res.cube;
     }
-  }catch(e){ console.warn('dashWorker.cube lỗi, fallback main-thread:', e && e.message);
-    try{ window.__beacon && window.__beacon('cube-worker-fail', String(e && e.message || e)); }catch(_){} }
-  try{ const c = buildCube(enriched, params);
-    try{ window.__beacon && window.__beacon('cube-mainthread', JSON.stringify({rows:c && c.meta && c.meta.rows})); }catch(_){}
-    return c;
-  }catch(e){ console.warn('buildCube lỗi:', e); return null; }
+  }catch(e){ console.warn('dashWorker.cube lỗi, fallback main-thread:', e && e.message); }
+  try{ return buildCube(enriched, params); }
+  catch(e){ console.warn('buildCube lỗi:', e); return null; }
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
@@ -5530,9 +5584,25 @@ function renderAdvancedAlerts(rows){
 
 
 // ---------- Main ----------
+// enriched: phần dữ liệu (tối đa MAIN_ROW_CAP dòng) luồng chính giữ cho biểu đồ
+// chi tiết + bảng. Toàn bộ dòng nằm trong worker -> cube/KPI luôn đúng.
 let rawData=[]; let enriched=[]; let lastFiltered=[];
+let loadedAccountIds=null;   // danh sách account id lấy từ worker (đủ, không bị cap)
+let loadedRowTotal=0;        // tổng số dòng thật (kể cả phần không gửi về main)
 // Phạm vi ngày thực sự có trong dữ liệu đang nạp (để cảnh báo khi Bộ lọc chính vượt ra ngoài).
 let loadedDataRange=null;
+
+function setLoadedRowCap(shown, total){
+  loadedRowTotal = total || shown || 0;
+  const capped = (total||0) > (shown||0);
+  const el = document.getElementById('rowCapNotice');
+  if(el){
+    el.hidden = !capped;
+    if(capped) el.textContent =
+      `Bộ dữ liệu ${Number(total).toLocaleString('vi-VN')} dòng — chỉ số & biểu đồ tổng hợp tính trên toàn bộ; `
+      + `vài biểu đồ chi tiết theo từng cuộc và bảng dữ liệu dựa trên ${Number(shown).toLocaleString('vi-VN')} dòng đầu.`;
+  }
+}
 
 function formatVnDate(iso){
   const parts=String(iso||'').split('-');
@@ -5590,19 +5660,6 @@ async function updateDashboardWithFilters(){
   const et = (document.getElementById('endTime')||{}).value || '23:59';
 
   const params = currentCubeParams(start, end, st, et, accParam);
-  try{
-    if(window.__beacon){
-      const s0=enriched[0], sN=enriched[enriched.length-1];
-      window.__beacon('cubeparams', JSON.stringify({
-        start, end, st, et, todayISO,
-        sMs: Date.parse(start+'T'+st+':00'), eMs: Date.parse(end+'T'+et+':59'),
-        tzoff: new Date().getTimezoneOffset(),
-        row0: s0 && {stamp:s0.start_stamp, ts:s0.start_ts, date:s0.date},
-        rowN: sN && {stamp:sN.start_stamp, ts:sN.start_ts, date:sN.date},
-        enrichedLen: enriched.length
-      }));
-    }
-  }catch(_){}
   // Khoá cache gồm cả config phụ (ccuScope/retry) để đổi chúng cũng tính lại cube.
   const filterKey = makeFilterKey(start, end, st, et, (accParam==='all') ? [] : accParam)
     + '|' + params.ccuScope + '|' + JSON.stringify(params.retry || 0);
@@ -5653,7 +5710,17 @@ async function updateDashboardWithFilters(){
 }
 
 
-function adjustDateRangeToData(rows){ const dates = (rows||[]).map(r=>r.date).filter(Boolean).sort(); if(!dates.length){ loadedDataRange = null; return; } const min = dates[0]; const max = dates[dates.length-1]; loadedDataRange = {min, max, rows: rows.length}; const sd = document.getElementById('startDate'); const ed = document.getElementById('endDate'); if(sd) sd.value = min; if(ed) ed.value = max; }
+function setDateRangeInputs(min, max, rowCount){
+  if(!min || !max){ loadedDataRange = null; return; }
+  loadedDataRange = {min, max, rows: rowCount||0};
+  const sd = document.getElementById('startDate'); const ed = document.getElementById('endDate');
+  if(sd) sd.value = min; if(ed) ed.value = max;
+}
+function adjustDateRangeToData(rows){
+  const dates = (rows||[]).map(r=>r.date).filter(Boolean).sort();
+  if(!dates.length){ loadedDataRange = null; return; }
+  setDateRangeInputs(dates[0], dates[dates.length-1], rows.length);
+}
 
 // File input
 
@@ -5696,10 +5763,14 @@ fileInput.addEventListener('change', async (e)=>{
     if(ingUp){
       enriched = ingUp.rows;
       removedDedup = (ingUp.meta && ingUp.meta.removed) || 0;
+      loadedAccountIds = (ingUp.meta && ingUp.meta.accountIds) || null;
+      setLoadedRowCap(enriched.length, (ingUp.meta && ingUp.meta.count) || enriched.length);
     }else{
       const ded = dedupByUUID(allRows);
       enriched = enrichData(ded.rows, accountNameMap);
       removedDedup = ded.removed;
+      loadedAccountIds = null;
+      setLoadedRowCap(enriched.length, enriched.length);
     }
     rawData = enriched;
 
@@ -5708,7 +5779,7 @@ adjustDateRangeToData(enriched);
     refreshAccountFilter();
     initBillingFilters(true);
     await updateDashboardWithFilters();
-    const total = rawData.length, fn = files.length;
+    const total = loadedRowTotal || rawData.length, fn = files.length;
     const removed = removedDedup + removedStream;
     adwHideRestoreBanner();
     snapshotSave(rawData,snapshotMetaFromRange());
@@ -5959,6 +6030,11 @@ function parseCSVInWorker(text){
   });
 }
 
+// Trần số dòng luồng CHÍNH giữ cho biểu đồ chi tiết + bảng. Toàn bộ dữ liệu vẫn
+// nằm trong worker nên KPI và biểu đồ tổng hợp (cube) luôn tính đúng trên mọi dòng;
+// chỉ vài biểu đồ vẽ theo từng cuộc là dựa trên phần đầu khi vượt trần.
+const MAIN_ROW_CAP=50000;
+
 // Worker bền: giữ dữ liệu đã enrich, dựng cube ngoài luồng UI (dashboard-csv-worker.js).
 // RPC promise theo id. Trả null khi không có Worker -> nơi gọi tự fallback main-thread.
 const dashWorker=(()=>{
@@ -6010,9 +6086,9 @@ const dashWorker=(()=>{
   }
   return {
     available:()=>!!ensure(),
-    ingest:(text,opts)=>call('ingest',{text,...opts},45000),
-    ingestRows:(rows,opts)=>call('ingestRows',{rows,...opts},45000),
-    reenrich:nameMap=>call('reenrich',{nameMap},30000),
+    ingest:(text,opts)=>call('ingest',{text,cap:MAIN_ROW_CAP,...opts},45000),
+    ingestRows:(rows,opts)=>call('ingestRows',{rows,cap:MAIN_ROW_CAP,...opts},45000),
+    reenrich:nameMap=>call('reenrich',{nameMap,cap:MAIN_ROW_CAP},30000),
     cube:params=>call('cube',{params},25000),
     billing:cfg=>call('billing',{cfg},20000),
     page:(offset,limit,params)=>call('page',{offset,limit,params},10000)
@@ -6053,46 +6129,51 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
       try{ const body=await res.json(); if(body.error) message=body.error; }catch(_){}
       throw new Error(message);
     }
-    const text = await res.text();
-    try{ window.__beacon && window.__beacon('phase','csv nhận '+text.length+' byte, worker='+dashWorker.available()); }catch(_){}
+    let text = await res.text();
     const isJSON = String(dataUrl).toLowerCase().endsWith('.json');
-    // Parse + normalize + dedup + enrich chạy trong worker (ngoài luồng UI).
-    let removedDup = 0, ing = null;
+    // Parse + normalize + dedup + enrich chạy trong worker. Worker giữ TOÀN BỘ
+    // dòng (cube/page luôn chính xác); luồng chính chỉ nhận tối đa MAIN_ROW_CAP.
+    let removedDup = 0, ing = null, total = 0;
     if(dashWorker.available()){
       try{ ing = await dashWorker.ingest(text, {isJSON, sourceLabel: dataUrl, nameMap: accountNameMap}); }
       catch(e){ console.warn('worker ingest lỗi, fallback main-thread:', e && e.message); }
     }
-    try{ window.__beacon && window.__beacon('phase','ingest xong, ing='+(ing?ing.rows.length+' dòng':'null -> fallback')); }catch(_){}
     if(ing){
-      enriched = ing.rows;
+      enriched = ing.rows; rawData = enriched;
       removedDup = (ing.meta && ing.meta.removed) || 0;
+      total = (ing.meta && ing.meta.count) || enriched.length;
+      loadedAccountIds = (ing.meta && ing.meta.accountIds) || null;
+      setLoadedRowCap(enriched.length, total);
+      if(!isJSON) snapshotSaveText(text, snapshotMetaFromRange(), total, dataUrl);
     }else{
       let rows = isJSON ? JSON.parse(text) : await parseCSVInWorker(text);
       if(!Array.isArray(rows)) rows = [];
       rows = normalizeCallRecords(rows);
       for(const row of rows) row.__source_file = dataUrl;
       const ded = dedupByUUID(rows);
-      enriched = enrichData(ded.rows, accountNameMap);
-      removedDup = ded.removed;
+      enriched = enrichData(ded.rows, accountNameMap); rawData = enriched;
+      removedDup = ded.removed; total = enriched.length;
+      loadedAccountIds = null;
+      setLoadedRowCap(enriched.length, total);
+      snapshotSave(rawData, snapshotMetaFromRange());
     }
-    // enrichData spread ...r nên enriched là superset của rawData cũ (đủ mọi cột gốc).
-    rawData = enriched;
+    text = null;  // giải phóng chuỗi CSV (tới ~15 MB) ngay
     resetDashboardCaches();
-    adjustDateRangeToData(enriched);
+    if(ing && ing.meta) setDateRangeInputs(ing.meta.dateMin, ing.meta.dateMax, total);
+    else adjustDateRangeToData(enriched);
     refreshAccountFilter();
     initBillingFilters(true);
-    try{ window.__beacon && window.__beacon('phase','truoc updateDashboardWithFilters, enriched='+enriched.length); }catch(_){}
     await updateDashboardWithFilters();
-    try{ window.__beacon && window.__beacon('phase','render xong, cube='+(dashState.cube?dashState.cube.meta.rows+' dòng':'null')); }catch(_){}
-    const sourceAccountCount = new Set(rawData.map(row=>String(row.account_id||'Unknown'))).size;
+    const sourceAccountCount = loadedAccountIds ? loadedAccountIds.length
+      : new Set(rawData.map(row=>String(row.account_id||'Unknown'))).size;
     const cacheState = res.headers.get('X-MPT-Cache');
     const cacheText = cacheState ? ` | MPT cache: ${cacheState}` : '';
-    const stat = `Auto loaded ${rawData.length} records / ${sourceAccountCount} account(s) (removed ${removedDup} duplicate uuid)${cacheText}.`;
+    const capText = total>enriched.length ? ` | chi tiết theo dòng: ${enriched.length.toLocaleString('vi-VN')}/${total.toLocaleString('vi-VN')}` : '';
+    const stat = `Auto loaded ${total} records / ${sourceAccountCount} account(s) (removed ${removedDup} duplicate uuid)${cacheText}${capText}.`;
     const statusEl = document.getElementById('uploadStatus');
     if(statusEl) statusEl.innerText = stat;
-    updateMptLoadedSummary(dataUrl,rawData.length,sourceAccountCount);
+    updateMptLoadedSummary(dataUrl,total,sourceAccountCount);
     adwHideRestoreBanner();
-    snapshotSave(rawData,snapshotMetaFromRange());
     setReportLoading(false);
     toast(stat);
     return true;
