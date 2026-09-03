@@ -245,10 +245,14 @@ class DashboardCoreModuleTests(unittest.TestCase):
             "const CONN_TYPES =",
             "const Fail_Hangup_cause =",
             "function mapPrefix(caller){",
+            # cụm tổng hợp overview -> dashboard-core.js (Milestone 1c)
+            "function computeCallCounts(rows){",
+            "function aggregateOverview(rows){",
+            "function minutesPerDay(rows){",
         ):
             self.assertNotIn(token, html, f"HTML vẫn còn định nghĩa trùng: {token}")
-        # nhưng phần dùng chúng thì vẫn còn
-        self.assertIn("function computeCallCounts(rows){", html)
+        # phần render vẫn ở HTML và vẫn gọi các hàm đó (giờ từ core)
+        self.assertIn("aggregateOverview(", html)
         self.assertIn("enrichData(rawData, accountNameMap)", html)
 
     def test_node_core_suite_passes(self):

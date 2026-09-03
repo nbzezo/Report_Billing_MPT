@@ -477,6 +477,173 @@ function dedupByUUID(rows) {
   return { rows: out, removed, kept: out.length };
 }
 
+// ---------- Cum tong hop 'overview' (Milestone 1c) ----------
+function computeCallCounts(rows){
+  const counts = emptyConnCounts();
+  (rows||[]).forEach(r=>{
+    const ct = r.connType || classifyCall(r);
+    counts[ct] = (counts[ct]||0) + 1;
+  });
+  return counts;
+}
+
+function computeASRExcludingFail(rowsOrCounts){
+  const counts = Array.isArray(rowsOrCounts) ? computeCallCounts(rowsOrCounts) : (rowsOrCounts||{});
+  const connected = counts.Connected || 0;
+  const noAnswer = counts['No Answer'] || 0;
+  return (connected + noAnswer) ? +(connected/(connected+noAnswer)*100).toFixed(2) : 0;
+}
+
+function computeConnectRate(rowsOrCounts){
+  const counts = Array.isArray(rowsOrCounts) ? computeCallCounts(rowsOrCounts) : (rowsOrCounts||{});
+  const total = (counts.Fail||0) + (counts['No Answer']||0) + (counts.Cancelled||0)
+              + (counts.Connected||0) + (counts.Unknown||0);
+  return total ? +((counts.Connected||0)/total*100).toFixed(2) : 0;
+}
+
+function computeBillsecMetrics(rows, shortThreshold=10){
+  let totalBillsec = 0, connectedBillsec = 0, connected = 0, shortCalls = 0;
+  (rows||[]).forEach(r=>{
+    const bs = Number(r.billsec||0);
+    totalBillsec += bs;
+    if(isConnectedStrict(r)){
+      connected++;
+      connectedBillsec += bs;
+      if(bs < shortThreshold) shortCalls++;
+    }
+  });
+  return {
+    totalBillsec,
+    totalMinutes: +(totalBillsec/60).toFixed(2),
+    avgBillsecConnected: connected ? +(connectedBillsec/connected).toFixed(2) : 0,
+    shortCallRate: connected ? +(shortCalls/connected*100).toFixed(2) : 0,
+    shortCalls,
+    connected
+  };
+}
+
+function computeDestinationQualityMetrics(rows){
+  const dns = (rows||[]).map(r=>String(r.destination_number||'').trim()).filter(Boolean);
+  const total = (rows||[]).length;
+  const unique = new Set(dns).size;
+  const invalid = dns.reduce((s,dn)=> s + (!isLikelyPhoneNumber(dn) ? 1 : 0), 0);
+  const repeatedRows = dns.length - unique;
+  return {
+    total,
+    destinationCount: dns.length,
+    uniqueDestination: unique,
+    repeatedDestinationRows: repeatedRows,
+    repeatedDestinationRate: dns.length ? +(repeatedRows/dns.length*100).toFixed(2) : 0,
+    invalidDestination: invalid,
+    invalidDestinationRate: dns.length ? +(invalid/dns.length*100).toFixed(2) : 0
+  };
+}
+
+function computeRequiredColumnHealth(rows){
+  const required = ['account_id','caller_id_number','destination_number','start_stamp','end_stamp','duration','billsec','hangup_cause','uuid'];
+  const list = rows || [];
+  const n = list.length;
+  const present = Object.create(null), filled = Object.create(null);
+  required.forEach(c=>{ present[c]=0; filled[c]=0; });
+
+  let billsecPositive = 0, durationPositive = 0;
+  for(const r of list){
+    for(const c of required){
+      if(!(c in r)) continue;
+      present[c]++;
+      const v = r[c];
+      if(v!==null && v!==undefined && String(v).trim()!=='') filled[c]++;
+    }
+    if(Number(r.billsec||0) > 0)  billsecPositive++;
+    if(Number(r.duration||0) > 0) durationPositive++;
+  }
+
+  const missing = required.filter(c=> present[c]===0);
+  const sparse  = required.filter(c=> present[c]>0 && n>0 && filled[c] < n*0.8)
+                          .map(c=> `${c} (${Math.round(100*(n-filled[c])/n)}% trống)`);
+  const critical = [];
+  if(n>0 && billsecPositive===0 && !missing.includes('billsec'))
+    critical.push('Toàn bộ billsec = 0 → không cuộc nào được tính là Connected. Kiểm tra lại nguồn xuất dữ liệu.');
+  if(n>0 && durationPositive===0 && !missing.includes('duration'))
+    critical.push('Toàn bộ duration = 0 → mọi cuộc không xác định được nguyên nhân sẽ rơi về Fail.');
+
+  return {required, missing, sparse, critical, rows:n, billsecPositive, durationPositive};
+}
+
+function computeTimeAnomalyMetrics(rows){
+  let endBeforeStart = 0, durationLessThanBillsec = 0, answer1970WithBillsec = 0;
+  (rows||[]).forEach(r=>{
+    const s = r.start_ts ?? Date.parse(String(r.start_stamp||'').replace(' ','T'));
+    const e = r.end_ts ?? Date.parse(String(r.end_stamp||'').replace(' ','T'));
+    if(isFinite(s) && isFinite(e) && e < s) endBeforeStart++;
+    if(Number(r.duration||0) < Number(r.billsec||0)) durationLessThanBillsec++;
+    // Mẫu cũ dùng epoch 1970 cho "chưa nghe"; mẫu mới để trống -> tính cả 2 kiểu
+    const ans = String(r.answer_stamp||'').trim();
+    if((ans==='' || ans.startsWith('1970-01-01')) && Number(r.billsec||0)>0) answer1970WithBillsec++;
+  });
+  return {endBeforeStart, durationLessThanBillsec, answer1970WithBillsec};
+}
+
+function aggregateOverview(rows){
+  return __getAgg(rows, 'aggregateOverview', ()=>{ const counts=computeCallCounts(rows);
+    const total = counts.Fail + counts['No Answer'] + counts.Cancelled + counts.Connected + counts.Unknown;
+    const pct={Fail:0,NoAnswer:0,Cancelled:0,Connected:0};
+    if(total>0){
+      pct.Fail      = +(counts.Fail/total*100).toFixed(2);
+      pct.NoAnswer  = +(counts['No Answer']/total*100).toFixed(2);
+      pct.Cancelled = +(counts.Cancelled/total*100).toFixed(2);
+      pct.Connected = +(counts.Connected/total*100).toFixed(2);
+    } const billsecMetrics = computeBillsecMetrics(rows); const answerRate = computeASRExcludingFail(counts); const connectRate = computeConnectRate(counts); const destinationQuality = computeDestinationQualityMetrics(rows); return {counts,pct,totalMinutes: billsecMetrics.totalMinutes,totalCalls:total,answerRate,connectRate,billsecMetrics,destinationQuality}; 
+  });
+}
+
+function aggByPrefix(rows){
+  return __getAgg(rows, 'aggByPrefix', ()=>{ 
+	const out={}; 
+	rows.forEach(r=>{ 
+		const p=r.prefix||'Other'; 
+			if (p === 'Other') return; // bỏ trường hợp Other khỏi kết quả
+		out[p]=out[p]||{Fail:0,'No Answer':0,Cancelled:0,Connected:0,total:0};
+		out[p][r.connType]=(out[p][r.connType]||0)+1; out[p].total++;
+		}); 
+	return out; 
+	
+  });
+}
+
+function minutesPerDay(rows){
+  return __getAgg(rows, 'minutesPerDay', ()=>{ const map={}; rows.forEach(r=>{ const d=r.date||'Unknown'; map[d]=(map[d]||0)+Number(r.billsec||0); }); const dates=Object.keys(map).sort(); return {dates,minutes:dates.map(d=>+(map[d]/60).toFixed(2))}; 
+  });
+}
+
+// ---------- buildCube: dựng dữ liệu tổng hợp gọn cho dashboard ----------
+// Milestone 1c: mới phủ phần 'overview' + renderCommon. Các tab khác bổ sung sau.
+// params: {startDate,endDate,account,startTime,endTime} (account: 'all' | mảng id)
+function buildCube(enrichedRows, params) {
+  params = params || {};
+  const rows = filterData(
+    enrichedRows,
+    params.startDate, params.endDate,
+    params.account || 'all',
+    params.startTime, params.endTime
+  );
+  const dates = rows.map(r => r.date).filter(d => d && d !== 'Unknown').sort();
+  return {
+    meta: {
+      rows: rows.length,
+      accounts: new Set(rows.map(r => String(r.account_id || 'Unknown'))).size,
+      dateMin: dates.length ? dates[0] : null,
+      dateMax: dates.length ? dates[dates.length - 1] : null
+    },
+    overview: aggregateOverview(rows),
+    byPrefix: aggByPrefix(rows),
+    minutesPerDay: minutesPerDay(rows),
+    columnHealth: computeRequiredColumnHealth(rows),
+    timeAnomaly: computeTimeAnomalyMetrics(rows)
+  };
+}
+
+
 // ==========================================================================
 // Xuất ra: gán vào global (self trong worker, window/globalThis trong trang)
 // + module.exports cho Node test.
@@ -493,7 +660,9 @@ const __exports = {
   normalizeTimestamp, addSecondsToStamp, hash32,
   createNormalizeContext, normalizeCallRecord, normalizeCallRecords,
   enrichData, filterData, dedupByUUID,
-  __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax
+  __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax,
+  computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
+  buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }
 if (typeof module !== 'undefined' && module.exports) module.exports = __exports;

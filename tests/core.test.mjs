@@ -80,6 +80,55 @@ test('dedupByUUID', () => {
   assert.equal(r.removed, 1);
 });
 
+test('buildCube — overview trên dữ liệu mẫu 2 định dạng', () => {
+  const raw = core.normalizeCallRecords([
+    // mẫu cũ
+    { account_id: '351', caller_id_number: '0987654321', destination_number: '0912000001',
+      start_stamp: '2026-09-03 08:00:00', end_stamp: '2026-09-03 08:02:00',
+      duration: 120, billsec: 90, hangup_cause: 'NORMAL_CLEARING', uuid: 'c1', telco: 'VIETTEL' },
+    { account_id: '351', caller_id_number: '0333000000', destination_number: '0912000002',
+      start_stamp: '2026-09-03 09:30:00', end_stamp: '2026-09-03 09:30:00',
+      duration: 0, billsec: 0, hangup_cause: 'USER_BUSY', uuid: 'c2', telco: 'VIETTEL' },
+    // mẫu mới
+    { Account: '351', Caller: '0912345678', Destination: '0912000003', 'Call type': 'Outbound',
+      'Start time': '9/3/2026 10:15', 'End time': '9/3/2026 10:15', Duration: '45',
+      Billsec: '30', 'Hangup Cause': 'NORMAL_CLEARING' },
+    // ngoài ngày lọc -> phải bị loại
+    { account_id: '351', caller_id_number: '0987000000', start_stamp: '2026-09-04 08:00:00',
+      end_stamp: '2026-09-04 08:01:00', duration: 60, billsec: 60, hangup_cause: 'NORMAL_CLEARING', uuid: 'c4' }
+  ]);
+  const enriched = core.enrichData(raw, { '351': 'VCLASS BOT' });
+  const cube = core.buildCube(enriched, {
+    startDate: '2026-09-03', endDate: '2026-09-03', account: 'all',
+    startTime: '00:00', endTime: '23:59'
+  });
+
+  assert.equal(cube.meta.rows, 3, 'lọc bỏ cuộc ngày 04');
+  assert.equal(cube.meta.dateMin, '2026-09-03');
+  assert.equal(cube.overview.totalCalls, 3);
+  assert.deepEqual(cube.overview.counts,
+    { Fail: 0, 'No Answer': 1, Cancelled: 0, Connected: 2, Unknown: 0 });
+  assert.equal(cube.overview.answerRate, +(2 / 3 * 100).toFixed(2)); // ASR = Connected/(Connected+NoAnswer)
+  assert.equal(cube.overview.billsecMetrics.totalBillsec, 120);      // 90 + 0 + 30
+  assert.equal(cube.minutesPerDay.dates[0], '2026-09-03');
+  assert.equal(cube.minutesPerDay.minutes[0], +(120 / 60).toFixed(2));
+  assert.ok(cube.byPrefix && typeof cube.byPrefix === 'object');
+  assert.ok(cube.columnHealth && Array.isArray(cube.columnHealth.required));
+  assert.ok(cube.timeAnomaly && typeof cube.timeAnomaly.endBeforeStart === 'number');
+});
+
+test('buildCube — account filter (mảng id)', () => {
+  const enriched = core.enrichData(core.normalizeCallRecords([
+    { account_id: 'A', caller_id_number: '09', start_stamp: '2026-09-03 08:00:00', end_stamp: '2026-09-03 08:01:00', duration: 60, billsec: 20, hangup_cause: 'NORMAL_CLEARING', uuid: 'a' },
+    { account_id: 'B', caller_id_number: '09', start_stamp: '2026-09-03 08:00:00', end_stamp: '2026-09-03 08:01:00', duration: 60, billsec: 20, hangup_cause: 'NORMAL_CLEARING', uuid: 'b' }
+  ]), {});
+  const cube = core.buildCube(enriched, {
+    startDate: '2026-09-03', endDate: '2026-09-03', account: ['A'], startTime: '00:00', endTime: '23:59'
+  });
+  assert.equal(cube.meta.rows, 1);
+  assert.equal(cube.meta.accounts, 1);
+});
+
 test('dashboard-core.js không tham chiếu DOM', () => {
   const raw = require('node:fs').readFileSync(path.join(ROOT, 'dashboard-core.js'), 'utf8');
   // Bỏ comment để không bắt nhầm phần mô tả.
