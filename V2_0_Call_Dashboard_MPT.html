@@ -1762,19 +1762,7 @@ function loadRetryConfig(){
   }catch(e){}
 }
 
-function retryTimestamp(row){
-  const value=row && row.start_ts!==undefined ? Number(row.start_ts) : Date.parse(String((row&&row.start_stamp)||'').replace(' ','T'));
-  return Number.isFinite(value) ? value : null;
-}
-
-function retryDelayBucket(minutes){
-  if(minutes<=1) return '0–1 phút';
-  if(minutes<=3) return '1–3 phút';
-  if(minutes<=5) return '3–5 phút';
-  if(minutes<=15) return '5–15 phút';
-  if(minutes<=30) return '15–30 phút';
-  return '30–60 phút';
-}
+// retryTimestamp / retryDelayBucket -> dashboard-core.js
 
 function computeRetryPattern(rows,windowMinutes=5,scope='account'){
   const windowMs=windowMinutes*60*1000;
@@ -2350,7 +2338,7 @@ function adwHideRestoreBanner(){
 
 function applyLoadedRows(rows){
   rawData=rows;
-  enriched=enrichData(rawData);
+  enriched=enrichData(rawData, accountNameMap);
   resetDashboardCaches();
   adjustDateRangeToData(enriched);
   refreshAccountFilter();
@@ -2554,16 +2542,7 @@ function adwPlotTheme(){
 
 <script>
 // ---------- Utilities ----------
-function localISODate(d=new Date()){
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
-}
-function localISODateTime(value){
-  const d = value instanceof Date ? value : new Date(value);
-  return `${localISODate(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}`;
-}
+// localISODate / localISODateTime -> dashboard-core.js
 const todayISO = localISODate();
 const MAP_STORAGE_KEY = 'account-name-map';
 
@@ -2628,97 +2607,20 @@ function renderMapTable(){ const tb = document.getElementById('mapTbody'); if(!t
 // ---------- Data helpers ----------
 function readJSONFile(file, cb){ const fr=new FileReader(); fr.onload = ()=>{ try{ const parsed=JSON.parse(fr.result); cb(null,parsed); }catch(e){ cb(e); } }; fr.onerror= ()=> cb(new Error('File read error')); fr.readAsText(file); }
 
-function mapPrefix(caller){
-  const s = String(caller||'').trim();
-  if(s.length < 2) return 'Other';
-  const p2 = s.slice(0,2);
-  const p3 = s.length>=3 ? s.slice(0,3) : '';
-  const p4 = s.length>=4 ? s.slice(0,4) : '';
+// mapPrefix -> dashboard-core.js
 
-  // Cố Định
-  if(p4 === '8424'|| p2 === '24'|| p3 === '024') return '_024';
-  if(p4 === '8428'|| p2 === '28'|| p3 === '028') return '_028';
-  
-  // GTell
-  if(p3 === '099' || p2 === '99') return '_099';
-  if(p3 === '059' || p2 === '59') return '_059';
-  
-  // Vietnammobile
-  if(p3 === '092' || p2 === '92') return '_092';
-  if(p3 === '058' || p2 === '58') return '_058';
-
-  // Voice BrandName
-  //const vbn2 = new Set(['90','91','93','94','97','98','88','32','33','34','35','36']);
-  //const vbn3 = new Set(['090','091','093','094','097','098']);
-  //if(vbn2.has(p2) || vbn3.has(p3)) return 'VBN';
-  
-	const viettel2 = new Set(['32','33','34','35','36','37','38','39','86','96','97','98']);
-	const vinaphone2 = new Set(['81','82','83','84','85','88','91','94']);
-	const mobifone2 = new Set(['70','76','77','78','79','89','90','93']);
-
-	const viettel3 = new Set(['032','033','034','035','036','037','038','039','086','096','097','098']);
-	const vinaphone3 = new Set(['081','082','083','084','085','088','091','094']);
-	const mobifone3 = new Set(['070','076','077','078','079','089','090','093']);
-
-	if (viettel2.has(p2) || viettel3.has(p3)) return 'vbn_vt';
-	if (vinaphone2.has(p2) || vinaphone3.has(p3)) return 'vbn_vina';
-	if (mobifone2.has(p2) || mobifone3.has(p3)) return 'vbn_mobi';
-
-  return 'Other';
-}
-
-// Fail hangup causes (business rule override)
-const Fail_Hangup_cause = new Set([
-  "NO_ROUTE_DESTINATION",
-  "UNALLOCATED_NUMBER",
-  "INVALID_NUMBER_FORMAT",
-  "DESTINATION_OUT_OF_ORDER",
-  "NORMAL_TEMPORARY_FAILURE",
-  "NETWORK_OUT_OF_ORDER",
-  "SWITCH_CONGESTION",
-  "CONGESTION",
-  "RECOVERY_ON_TIMER_EXPIRE",
-  "MANDATORY_IE_MISSING",
-  "INCOMPATIBLE_DESTINATION",
-  "BEARERCAPABILITY_NOTAVAIL",
-  "SERVICE_NOT_IMPLEMENTED",
-  "FACILITY_NOT_IMPLEMENTED",
-  "MEDIA_TIMEOUT",
-  "MEDIA_ERROR",
-  "INTERWORKING",
-  "CALL_BLOCKED",
-  "OUTGOING_CALL_BARRED",
-  "INCOMING_CALL_BARRED",
-  "REQUESTED_CHAN_UNAVAIL",
-  "UNKNOWN",
-  "UNSPECIFIED",
-  "CRASH",
-  "SYSTEM_SHUTDOWN"
-]);
+// Fail_Hangup_cause -> dashboard-core.js
 
 /* Thuê bao CÓ phản hồi nhưng cuộc gọi không thành — không phải lỗi mạng.
    Trước đây nhóm này chỉ được nhận ra gián tiếp qua "duration>0 && billsec===0",
    nên các cuộc kết thúc trong cùng một giây (duration=0) bị quy oan thành Fail:
    NO_USER_RESPONSE bị chia 405 "No Answer" + 16 "Fail", USER_BUSY 358 + 1. */
-const NoAnswer_Hangup_cause = new Set([
-  "NO_USER_RESPONSE",
-  "NO_ANSWER",
-  "USER_BUSY",
-  "CALL_REJECTED",
-  "USER_NOT_REGISTERED",
-  "SUBSCRIBER_ABSENT",
-  "NORMAL_UNSPECIFIED"
-]);
+// NoAnswer_Hangup_cause -> dashboard-core.js
 
 /* Cuộc gọi do PHÍA MÌNH chủ động huỷ trước khi thuê bao kịp trả lời.
    Đây không phải "khách không nghe máy" mà là hành vi của hệ thống gọi ra,
    nên tách riêng để không làm loãng mẫu số ASR. */
-const Cancelled_Hangup_cause = new Set([
-  "ORIGINATOR_CANCEL",
-  "LOSE_RACE",
-  "MANAGER_REQUEST",
-  "BLIND_TRANSFER"
-]);
+// Cancelled_Hangup_cause -> dashboard-core.js
 
 /**
  * Đã nghe máy hay chưa.
@@ -2729,11 +2631,9 @@ const Cancelled_Hangup_cause = new Set([
  * (Các tên cột thay thế call_duration/bill_secs... đã bỏ: normalizeCallRecord
  * chỉ sinh ra duration/billsec.)
  */
-function isConnectedStrict(rec){
-  return Number(rec && rec.billsec || 0) > 0;
-}
+// isConnectedStrict -> dashboard-core.js
 /** Thứ tự hiển thị chuẩn của các nhóm phân loại — dùng chung cho mọi biểu đồ. */
-const CONN_TYPES = ['Fail','No Answer','Cancelled','Connected'];
+// CONN_TYPES -> dashboard-core.js
 /** Màu của từng nhóm theo bảng màu đang chọn. */
 function connTypeColor(ct, colors){
   colors = colors || {};
@@ -2743,9 +2643,7 @@ function connTypeColor(ct, colors){
   if(ct==='Connected') return colors.Connected || '#4e79a7';
   return '#bab0ac';
 }
-function emptyConnCounts(){
-  return {Fail:0, 'No Answer':0, Cancelled:0, Connected:0, Unknown:0};
-}
+// emptyConnCounts -> dashboard-core.js
 function computeCallCounts(rows){
   const counts = emptyConnCounts();
   (rows||[]).forEach(r=>{
@@ -2868,30 +2766,8 @@ function computeTimeAnomalyMetrics(rows){
  * ưu tiên 2 nên đè lên ý nghĩa của hangup_cause: cùng một nguyên nhân bị xếp
  * vào hai nhóm khác nhau chỉ vì cuộc gọi kết thúc trong cùng một giây.
  */
-function classifyCall(rec){
-  const duration = Number(rec.duration||0);
-  const billsec  = Number(rec.billsec||0);
-  const hangup   = (rec.hangup_cause || "").toString().trim().toUpperCase();
-
-  // 1. Fail theo nguyên nhân ngắt máy (business rule override, giữ nguyên).
-  if(Fail_Hangup_cause.has(hangup)) return "Fail";
-
-  // 2. Đã nghe máy thì là Connected, bất kể kết thúc ra sao.
-  if(billsec > 0) return "Connected";
-
-  // 3. Phía mình chủ động huỷ — tách khỏi "No Answer" để không làm loãng ASR.
-  if(Cancelled_Hangup_cause.has(hangup)) return "Cancelled";
-
-  // 4. Thuê bao có phản hồi nhưng không thành cuộc.
-  if(NoAnswer_Hangup_cause.has(hangup)) return "No Answer";
-
-  // 5. Không còn tín hiệu nào khác -> suy đoán từ duration.
-  if(duration > 0) return "No Answer";
-  if(duration === 0) return "Fail";
-
-  return "Unknown";
-}
-function dateKey(ts){ if(!ts) return 'Unknown'; return String(ts).slice(0,10); }
+// classifyCall -> dashboard-core.js
+// dateKey -> dashboard-core.js
 
 /* ==========================================================================
    [SECTION] SCHEMA NORMALIZATION
@@ -2912,307 +2788,63 @@ function dateKey(ts){ if(!ts) return 'Unknown'; return String(ts).slice(0,10); }
    ========================================================================== */
 
 /** Chuẩn hoá tên cột: bỏ dấu cách/gạch dưới/ký tự đặc biệt + lowercase. */
-function normalizeHeaderKey(key){
-  return String(key||'').toLowerCase().replace(/[^a-z0-9]/g, '');
-}
+// normalizeHeaderKey -> dashboard-core.js
 
 /** Bảng ánh xạ tên cột (đã chuẩn hoá) -> tên trường nội bộ. */
-const CSV_HEADER_ALIASES = {
-  // Định danh
-  accountid:'account_id', account:'account_id', tenant:'account_id',
-  accountname:'account_name',
-  calleridnumber:'caller_id_number', caller:'caller_id_number',
-  callernumber:'caller_id_number', callerid:'caller_id_number',
-  fromnumber:'caller_id_number', outnumber:'caller_id_number',
-  destinationnumber:'destination_number', destination:'destination_number',
-  destnumber:'destination_number', called:'destination_number', tonumber:'destination_number',
-  ani:'ani',
-  uuid:'uuid', calluuid:'uuid', callid:'uuid',
-  // Thời gian
-  startstamp:'start_stamp', starttime:'start_stamp', calldate:'start_stamp',
-  answerstamp:'answer_stamp', answertime:'answer_stamp',
-  endstamp:'end_stamp', endtime:'end_stamp',
-  // Số liệu cuộc gọi
-  duration:'duration', callduration:'duration',
-  billsec:'billsec', billsecs:'billsec', billseconds:'billsec',
-  // Phân loại
-  hangupcause:'hangup_cause', cause:'hangup_cause',
-  statuscode:'status_code', sipcode:'status_code',
-  telco:'telco', carrier:'telco', operator:'telco',
-  direction:'direction',
-  calltype:'calltype',
-  // Chất lượng thoại (chỉ có ở mẫu mới)
-  mos:'mos',
-  quality:'quality_pct', qualitypercent:'quality_pct',
-  jitterminms:'jitter_min', jittermin:'jitter_min',
-  jittermaxms:'jitter_max', jittermax:'jitter_max',
-  jitterlossrate:'jitter_loss_rate',
-  packetcount:'packet_count', skippacketcount:'skip_packet_count',
-  rtcppacketcount:'rtcp_packet_count',
-  rtcprttms:'rtcp_rtt', rtcprtt:'rtcp_rtt'
-};
+// CSV_HEADER_ALIASES -> dashboard-core.js;
 
 /** Các trường phải là số (mẫu mới xuất kiểu "28,159.72"). */
-const NUMERIC_FIELDS = ['duration','billsec','status_code','mos','quality_pct',
-  'jitter_min','jitter_max','jitter_loss_rate','packet_count','skip_packet_count',
-  'rtcp_packet_count','rtcp_rtt'];
+// NUMERIC_FIELDS -> dashboard-core.js
 
-function toNumberLoose(v){
-  if(v===null || v===undefined) return null;
-  if(typeof v === 'number') return isFinite(v) ? v : null;
-  const s = String(v).trim().replace(/^"|"$/g,'').replace(/,/g,'');
-  if(s==='') return null;
-  const n = Number(s);
-  return isFinite(n) ? n : null;
-}
+// toNumberLoose -> dashboard-core.js
 
-function pad2(n){ return String(n).padStart(2,'0'); }
+// pad2 -> dashboard-core.js
 
 /**
  * Đưa timestamp về dạng "YYYY-MM-DD HH:mm:ss".
  * Trả về {value, hasSeconds} — hasSeconds=false nghĩa là nguồn chỉ có độ
  * chính xác tới phút (mẫu mới: "7/28/2026 17:46").
  */
-function normalizeTimestamp(raw){
-  const s = String(raw===null||raw===undefined ? '' : raw).trim().replace(/^"|"$/g,'');
-  if(!s) return {value:'', hasSeconds:false};
-
-  // ISO hoặc "YYYY-MM-DD HH:mm[:ss]"
-  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
-  if(m){
-    return {
-      value:`${m[1]}-${pad2(+m[2])}-${pad2(+m[3])} ${pad2(+m[4])}:${m[5]}:${m[6]||'00'}`,
-      hasSeconds: m[6]!==undefined
-    };
-  }
-  // Chỉ có ngày "YYYY-MM-DD"
-  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
-  if(m) return {value:`${m[1]}-${pad2(+m[2])}-${pad2(+m[3])} 00:00:00`, hasSeconds:false};
-
-  // "M/D/YYYY H:mm[:ss] [AM|PM]" (mẫu mới) — tự nhận D/M nếu phần đầu > 12
-  m = s.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?)?$/);
-  if(m){
-    let month = +m[1], day = +m[2];
-    if(month > 12 && day <= 12){ month = +m[2]; day = +m[1]; }
-    let h = m[4]!==undefined ? +m[4] : 0;
-    const ap = (m[7]||'').toLowerCase();
-    if(ap==='pm' && h<12) h += 12;
-    if(ap==='am' && h===12) h = 0;
-    return {
-      value:`${m[3]}-${pad2(month)}-${pad2(day)} ${pad2(h)}:${m[5]||'00'}:${m[6]||'00'}`,
-      hasSeconds: m[6]!==undefined
-    };
-  }
-
-  const t = Date.parse(s);
-  if(!isNaN(t)) return {value: localISODateTime(new Date(t)), hasSeconds:true};
-  return {value:s, hasSeconds:/\d{1,2}:\d{2}:\d{2}/.test(s)};
-}
+// normalizeTimestamp -> dashboard-core.js
 
 /** Cộng thêm giây vào timestamp dạng "YYYY-MM-DD HH:mm:ss". */
-function addSecondsToStamp(stamp, seconds){
-  const m = String(stamp||'').match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
-  if(!m) return stamp;
-  const d = new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]);
-  d.setSeconds(d.getSeconds() + Math.max(0, Math.round(seconds||0)));
-  return localISODateTime(d);
-}
+// addSecondsToStamp -> dashboard-core.js
 
 /** FNV-1a 32-bit — dùng sinh uuid ổn định cho file không có cột uuid. */
-function hash32(str){
-  let h = 0x811c9dc5;
-  for(let i=0;i<str.length;i++){
-    h ^= str.charCodeAt(i);
-    h = (h + ((h<<1)+(h<<4)+(h<<7)+(h<<8)+(h<<24))) >>> 0;
-  }
-  return h.toString(16).padStart(8,'0');
-}
+// hash32 -> dashboard-core.js
 
 /** Bối cảnh chuẩn hoá theo từng file (để sinh uuid không đụng nhau giữa các dòng trùng nội dung). */
-function createNormalizeContext(){ return {sigCount: Object.create(null)}; }
+// createNormalizeContext -> dashboard-core.js
 
 /**
  * Chuẩn hoá 1 bản ghi thô (từ CSV hoặc JSON) về schema nội bộ.
  * Giữ nguyên các cột lạ để vẫn xuất được ra CSV/JSON.
  */
-function normalizeCallRecord(raw, ctx){
-  if(!raw || typeof raw !== 'object') return null;
-  ctx = ctx || createNormalizeContext();
-
-  const out = {};
-  for(const key of Object.keys(raw)){
-    if(key === '__source_file'){ out.__source_file = raw[key]; continue; }
-    const mapped = CSV_HEADER_ALIASES[normalizeHeaderKey(key)];
-    if(mapped){
-      const cur = out[mapped];
-      if(cur===undefined || cur===null || cur==='') out[mapped] = raw[key];
-    }else{
-      out[key] = raw[key]; // cột không nhận diện được: giữ nguyên
-    }
-  }
-
-  // Mẫu mới chỉ có "Call type" mang giá trị Outbound/Inbound -> dùng làm direction
-  if((out.direction===undefined || out.direction==='') && out.calltype!==undefined){
-    out.direction = out.calltype;
-  }
-
-  // Số: bỏ dấu phẩy hàng nghìn, chuỗi rỗng -> null (duration/billsec -> 0)
-  for(const f of NUMERIC_FIELDS){
-    if(out[f]===undefined) continue;
-    const n = toNumberLoose(out[f]);
-    out[f] = (n===null && (f==='duration' || f==='billsec')) ? 0 : n;
-  }
-  if(out.duration===undefined) out.duration = 0;
-  if(out.billsec===undefined) out.billsec = 0;
-
-  // Thời gian
-  const st = normalizeTimestamp(out.start_stamp);
-  const en = normalizeTimestamp(out.end_stamp);
-  out.start_stamp  = st.value;
-  out.end_stamp    = en.value;
-  out.answer_stamp = normalizeTimestamp(out.answer_stamp).value;
-
-  // Mẫu mới chỉ ghi thời gian tới phút -> end_stamp bị làm tròn, sai lệch tới ~60s.
-  // Duration là số giây chính xác nên tái tạo end = start + duration để giữ đúng
-  // độ dài cuộc gọi (quan trọng cho biểu đồ concurrent calls).
-  if(!st.hasSeconds && !en.hasSeconds && st.value && Number(out.duration) > 0){
-    out.end_stamp_raw = en.value;
-    out.end_stamp = addSecondsToStamp(st.value, Number(out.duration));
-    out.__end_derived = true;
-  }
-
-  // Telco: mẫu mới viết hoa (VIETTEL/MOBI/VINA/FIXED) -> đưa về tên chuẩn
-  out.telco = normalizeTelcoName(out.telco);
-
-  // uuid: mẫu mới không có -> sinh khoá ổn định theo nội dung dòng,
-  // có hậu tố lần xuất hiện để 2 cuộc gọi trùng nội dung không bị dedupe nhầm.
-  if(!String(out.uuid===undefined||out.uuid===null ? '' : out.uuid).trim()){
-    const sig = [out.account_id, out.caller_id_number, out.destination_number,
-      out.start_stamp, out.end_stamp, out.duration, out.billsec, out.hangup_cause].join('|');
-    const seq = (ctx.sigCount[sig] = (ctx.sigCount[sig]||0) + 1);
-    out.uuid = 'gen-' + hash32(sig) + '-' + seq;
-    out.__uuid_generated = true;
-  }
-
-  return out;
-}
+// normalizeCallRecord -> dashboard-core.js
 
 /** Chuẩn hoá cả mảng bản ghi của 1 file. */
-function normalizeCallRecords(rows){
-  const ctx = createNormalizeContext();
-  const out = [];
-  for(const r of (rows||[])){
-    const rec = normalizeCallRecord(r, ctx);
-    if(rec) out.push(rec);
-  }
-  return out;
-}
+// normalizeCallRecords -> dashboard-core.js
 
-function enrichData(arr){
-  return arr.map(r=>{
-    const acc = (r.account_id===undefined || r.account_id===null) ? 'Unknown' : String(r.account_id);
-    const mappedName = (r.account_name && String(r.account_name).trim())
-      || (typeof accountNameMap!=='undefined' ? accountNameMap[acc] : null)
-      || acc;
-
-    // Precompute timestamps once for fast filtering/aggregation
-    const start_ts = (()=>{ const v=String(r.start_stamp||''); const t=Date.parse(v.replace(' ','T')); return isNaN(t)? null : t; })();
-    const end_ts   = (()=>{ const v=String(r.end_stamp||''); if(!v) return null; const t=Date.parse(v.replace(' ','T')); return isNaN(t)? null : t; })();
-
-    return {
-      ...r,
-      account_id: acc,
-      account_name: mappedName,
-      prefix: mapPrefix(r.caller_id_number),
-      connType: classifyCall(r),
-      date: dateKey(r.start_stamp),
-      hour: (r.start_stamp||'').slice(11,13),
-      start_ts,
-      end_ts
-    };
-  });
-}
+// enrichData -> dashboard-core.js
 
 // ===== Performance helpers: aggregate cache + downsample =====
-const __aggCache = new WeakMap(); // rows[] -> Map(key -> value)
+// __aggCache -> dashboard-core.js // rows[] -> Map(key -> value)
 /**
  * Cache expensive aggregations by the filtered rows array identity.
  * Safe because filterData returns a new array for each filterKey (unless reused from cache).
  */
-function __getAgg(rows, key, computeFn){
-  if(!rows) return computeFn();
-  let m = __aggCache.get(rows);
-  if(!m){
-    m = new Map();
-    __aggCache.set(rows, m);
-  }
-  if(m.has(key)) return m.get(key);
-  const v = computeFn();
-  m.set(key, v);
-  return v;
-}
-function __getAggIfPresent(rows, key){
-  const m = rows ? __aggCache.get(rows) : null;
-  return (m && m.has(key)) ? m.get(key) : null;
-}
+// __getAgg -> dashboard-core.js
+// __getAggIfPresent -> dashboard-core.js
 /**
  * Downsample a monotonic time-series (x[]) by picking the max y within each bucket.
  * Avoids expensive Date parsing; preserves peaks; speeds up Plotly rendering.
  */
-function downsampleSeriesMax(x, y, maxPoints=1500){
-  const n = (x && x.length) ? x.length : 0;
-  if(n<=maxPoints) return {x, y};
-  const step = Math.ceil(n / maxPoints);
-  const outX = [];
-  const outY = [];
-  for(let i=0;i<n;i+=step){
-    const end = Math.min(n, i+step);
-    let max = -Infinity;
-    let maxIdx = i;
-    for(let j=i;j<end;j++){
-      const v = y[j];
-      if(v>max){ max=v; maxIdx=j; }
-    }
-    outX.push(x[maxIdx]);
-    outY.push(max);
-  }
-  return {x: outX, y: outY};
-}
+// downsampleSeriesMax -> dashboard-core.js
 
 
 
 
-function filterData(rows, startDate, endDate, account, startTime, endTime){
-  // Backward-compatible: if time inputs are not provided, default to full day.
-  const st = (startTime && String(startTime).trim()) ? String(startTime).trim() : '00:00';
-  const et = (endTime && String(endTime).trim()) ? String(endTime).trim() : '23:59';
-
-  // Inclusive range (ms)
-  const sMs = Date.parse(startDate + 'T' + st + ':00');
-  const eMs = Date.parse(endDate   + 'T' + et + ':59');
-
-  return rows.filter(r=>{
-    // Prefer precomputed ms; fallback compute once & cache on row for future calls
-    let t = (r.start_ts!==undefined) ? r.start_ts : null;
-    if(t===undefined || t===null){
-      const v = String(r.start_stamp||'');
-      const x = Date.parse(v.replace(' ','T'));
-      t = isNaN(x) ? null : x;
-      r.start_ts = t;
-    }
-    if(t===null) return false;
-    if(t < sMs || t > eMs) return false;
-
-    if(account && account!=='all'){
-      if(Array.isArray(account)){
-        if(account.length>0 && !account.includes(String(r.account_id))) return false;
-      } else {
-        if(String(r.account_id)!==String(account)) return false;
-      }
-    }
-    return true;
-  });
-}
+// filterData -> dashboard-core.js
 
 
 function aggregateOverview(rows){
@@ -3828,17 +3460,7 @@ function plotTelcoConnStacked(rows, colors){
 }
 
 // ---------- Utils: Deduplicate by UUID ----------
-function dedupByUUID(rows){
-  if(!Array.isArray(rows) || rows.length===0) return {rows:[], removed:0, kept:0};
-  const seen = new Set(); const out=[]; let removed=0;
-  for(const r of rows){
-    const key = String(r.uuid || r.UUID || r.Uuid || '').trim();
-    if(!key){ out.push(r); continue; }
-    if(seen.has(key)){ removed++; continue; }
-    seen.add(key); out.push(r);
-  }
-  return {rows:out, removed, kept:out.length};
-}
+// dedupByUUID -> dashboard-core.js
 
 // ---------- Large file CSV streaming (no external lib) ----------
 
@@ -5637,41 +5259,8 @@ function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
 
 
 // ---------- Telco normalization & resolver ----------
-function normalizeTelcoName(raw){
-  const v = String(raw||'').trim();
-  if(!v) return 'Unknown';
-  const key = v.toLowerCase().replace(/\s+/g,'').replace(/[^a-z0-9]/g,'');
-  const map = {
-    'vina':'VinaPhone','vinaphone':'VinaPhone','vnpt':'VinaPhone','vinaphon':'VinaPhone',
-    'viettel':'Viettel','vt':'Viettel',
-    'mobi':'MobiFone','mobifone':'MobiFone','mobiphone':'MobiFone','mphone':'MobiFone',
-    'vietnamobile':'Vietnamobile','vietnammobile':'Vietnamobile','vnmobile':'Vietnamobile','vnmobi':'Vietnamobile',
-    'gmobile':'Gmobile','beeline':'Gmobile','gtel':'Gmobile',
-    // Mẫu mới có thêm nhóm cố định / nhà mạng ảo
-    'fixed':'Cố định','landline':'Cố định','pstn':'Cố định',
-    'itel':'Itel','wintel':'Wintel','reddi':'Reddi','vnsky':'VNSKY','local':'Cố định'
-  };
-  return map[key] || v;
-}
-function getTelco(r){
-  const prefer = ['telco'];
-  const candidates = [' telco','Telco','TELCO','dest_telco','dst_telco','telco_dest','telcol','telco_operator','operator','carrier'];
-  for(const k of prefer){
-    if(r && Object.prototype.hasOwnProperty.call(r,k)){ const v = String(r[k]??'').trim(); if(v) return normalizeTelcoName(v); }
-  }
-  for(const k of candidates){
-    if(r && Object.prototype.hasOwnProperty.call(r,k)){ const v = String(r[k]??'').trim(); if(v) return normalizeTelcoName(v); }
-  }
-  if(r){
-    for(const k of Object.keys(r)){
-      const kl = String(k).toLowerCase().trim();
-      if(kl==='telco' || kl==='telcol' || kl==='dest_telco' || kl==='dst_telco' || kl.includes('telco')){
-        const v = String(r[k]??'').trim(); if(v) return normalizeTelcoName(v);
-      }
-    }
-  }
-  return 'Unknown';
-}
+// normalizeTelcoName -> dashboard-core.js
+// getTelco -> dashboard-core.js
 // ---------- Concurrent by Telco (absolute + percent, with labels) ----------
 // Quét sự kiện dùng chung __computeConcurrency() ở trên.
 function plotConcurrentByTelco(rows, colors, mode='percent'){
@@ -6264,12 +5853,7 @@ function renderCallbackTopTable(rows, topN=30, minAttempts=3){
 }
 
 // 7) Data quality (invalid / duplicate)
-function isLikelyPhoneNumber(x){
-  const s=String(x||'').trim();
-  if(!s) return false;
-  if(!/^\d+$/.test(s)) return false;
-  return (s.length>=9 && s.length<=12);
-}
+// isLikelyPhoneNumber -> dashboard-core.js
 function renderDataQuality(rows){
   const sum = document.getElementById('dataQualitySummary');
   const tb  = document.querySelector('#dataQualityTopDup tbody');
@@ -6608,7 +6192,7 @@ fileInput.addEventListener('change', async (e)=>{
     if(allRows.length===0){ toast('Không đọc được dữ liệu từ các file đã chọn', true); return; }
     const ded = dedupByUUID(allRows);
     rawData = ded.rows;
-    enriched = enrichData(rawData);
+    enriched = enrichData(rawData, accountNameMap);
     
     
     resetDashboardCaches();
@@ -6637,7 +6221,7 @@ document.getElementById('loadSample').addEventListener('click', ()=>{ const samp
   // Mẫu mới (Title Case + M/D/YYYY H:mm + telco viết hoa + không có uuid)
   {"Account":"lab-D","Caller":"02479923672","Destination":"0906904857","Ani":"7000000054","Call type":"Outbound","Start time":"9/10/2025 17:46","Answer time":"","End time":"9/10/2025 17:46","Duration":"39","Billsec":"0","Telco":"MOBI","Hangup Cause":"NO_USER_RESPONSE","Status Code":"480","MOS":"4.38","Quality (%)":"92","Jitter Min (ms)":"28,159.72","Jitter Max (ms)":"1,306,800.00","Jitter Loss Rate (%)":"0","Packet Count":"951","Skip Packet Count":"1022","RTCP Packet Count":"0","RTCP RTT (ms)":""},
   {"Account":"lab-D","Caller":"02479924050","Destination":"0966312373","Ani":"7000000054","Call type":"Outbound","Start time":"9/10/2025 09:12","Answer time":"9/10/2025 09:12","End time":"9/10/2025 09:13","Duration":"75","Billsec":"61","Telco":"VIETTEL","Hangup Cause":"NORMAL_CLEARING","Status Code":"200","MOS":"4.5","Quality (%)":"100","Jitter Min (ms)":"0","Jitter Max (ms)":"0","Jitter Loss Rate (%)":"0","Packet Count":"1200","Skip Packet Count":"3","RTCP Packet Count":"12","RTCP RTT (ms)":"45"}
-]; rawData=normalizeCallRecords(sample); enriched=enrichData(rawData); resetDashboardCaches(); adjustDateRangeToData(enriched); refreshAccountFilter(); initBillingFilters(true); updateDashboardWithFilters(); document.getElementById('uploadStatus').innerText = 'Sample loaded'; toast('Sample loaded'); });
+]; rawData=normalizeCallRecords(sample); enriched=enrichData(rawData, accountNameMap); resetDashboardCaches(); adjustDateRangeToData(enriched); refreshAccountFilter(); initBillingFilters(true); updateDashboardWithFilters(); document.getElementById('uploadStatus').innerText = 'Sample loaded'; toast('Sample loaded'); });
 
 document.getElementById('applyFilter').addEventListener('click', ()=> updateDashboardWithFilters());
 
@@ -6914,7 +6498,7 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     for(const row of rows) row.__source_file = dataUrl;
     const ded = dedupByUUID(rows);
     rawData = ded.rows;
-    enriched = enrichData(rawData);
+    enriched = enrichData(rawData, accountNameMap);
     resetDashboardCaches();
     adjustDateRangeToData(enriched);
     refreshAccountFilter();

@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import shutil
+import subprocess
 import sys
 import tempfile
 import types
@@ -199,6 +200,7 @@ class ServerSafetyTests(unittest.TestCase):
     def test_static_allowlist_blocks_sensitive_and_backup_files(self):
         dashboard = "V2_0_Call_Dashboard_MPT.html"
         self.assertTrue(SERVER.is_allowed_static_path(f"/{dashboard}", dashboard))
+        self.assertTrue(SERVER.is_allowed_static_path("/dashboard-core.js", dashboard))
         self.assertTrue(SERVER.is_allowed_static_path("/dashboard-csv-worker.js", dashboard))
         for path in ("/config/profiles.json", "/logs/server.log", "/README.md", "/backup.html", "/.git/config"):
             self.assertFalse(SERVER.is_allowed_static_path(path, dashboard), path)
@@ -207,6 +209,58 @@ class ServerSafetyTests(unittest.TestCase):
         self.assertEqual(SERVER.normalize_domain("example.com/path"), "https://example.com")
         self.assertEqual(SERVER.normalize_domain(" https://example.com/a "), "https://example.com")
         self.assertEqual(SERVER.normalize_domain(""), "")
+
+
+class DashboardCoreModuleTests(unittest.TestCase):
+    """dashboard-core.js là nguồn duy nhất cho logic normalize/classify/enrich."""
+
+    CORE = ROOT / "dashboard-core.js"
+    HTML = ROOT / "V2_0_Call_Dashboard_MPT.html"
+    WORKER = ROOT / "dashboard-csv-worker.js"
+
+    def test_core_module_exists_and_is_dom_free(self):
+        src = self.CORE.read_text(encoding="utf-8")
+        no_comments = __import__("re").sub(r"/\*.*?\*/|(^|[^:])//.*$", r"\1",
+                                          src, flags=__import__("re").S | __import__("re").M)
+        for bad in ("document.", "localStorage.", "getElementById", "Plotly.", "window."):
+            self.assertNotIn(bad, no_comments, f"dashboard-core.js chứa {bad}")
+
+    def test_html_loads_core_before_the_main_script(self):
+        html = self.HTML.read_text(encoding="utf-8")
+        self.assertIn('<script src="/dashboard-core.js"></script>', html)
+        self.assertLess(html.index('src="/dashboard-core.js"'),
+                        html.rindex("function updateDashboardWithFilters"))
+
+    def test_worker_imports_core(self):
+        self.assertIn("importScripts('/dashboard-core.js')", self.WORKER.read_text(encoding="utf-8"))
+
+    def test_foundation_defs_moved_out_of_html(self):
+        html = self.HTML.read_text(encoding="utf-8")
+        for token in (
+            "function classifyCall(rec){",
+            "function enrichData(arr",
+            "function filterData(rows,",
+            "function normalizeCallRecord(raw",
+            "function dedupByUUID(rows){",
+            "const CONN_TYPES =",
+            "const Fail_Hangup_cause =",
+            "function mapPrefix(caller){",
+        ):
+            self.assertNotIn(token, html, f"HTML vẫn còn định nghĩa trùng: {token}")
+        # nhưng phần dùng chúng thì vẫn còn
+        self.assertIn("function computeCallCounts(rows){", html)
+        self.assertIn("enrichData(rawData, accountNameMap)", html)
+
+    def test_node_core_suite_passes(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node không có sẵn")
+        proc = subprocess.run(
+            [node, "--test", str(ROOT / "tests" / "core.test.mjs")],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            encoding="utf-8", errors="replace", cwd=str(ROOT),
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout or "<no output>")
 
 
 class ExportProgressTests(unittest.TestCase):
