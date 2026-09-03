@@ -384,6 +384,7 @@ def is_allowed_static_path(path, dashboard):
     return path in {
         f"/{dashboard}",
         "/mpt_filter.html",
+        "/dashboard-core.js",
         "/dashboard-csv-worker.js",
         "/vendor/plotly-2.24.2.min.js",
         "/vendor/UbuntuSans-variable.woff2",

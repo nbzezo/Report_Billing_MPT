@@ -6,9 +6,10 @@ config/
 *.log
 .codegraph/
 __pycache__/
-# Bản đóng gói portable
+# Bản đóng gói portable + dữ liệu runtime của app native
 dist/
 build/_pyi/
+data/
 # Dữ liệu cuộc gọi thật (có số điện thoại khách hàng) — không đưa vào repo
 calldata-*.csv
 # Bản backup thủ công: lịch sử git đã đảm nhiệm vai trò này

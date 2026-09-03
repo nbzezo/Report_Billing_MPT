@@ -23,6 +23,7 @@ if (-not (Test-Path $appDir)) { throw "PyInstaller không tạo được $appDir
 # Dashboard + tài nguyên đi kèm dạng file rời cạnh .exe (sửa nóng được).
 Copy-Item (Join-Path $root 'V2_0_Call_Dashboard_MPT.html') $appDir
 Copy-Item (Join-Path $root 'mpt_filter.html')             $appDir
+Copy-Item (Join-Path $root 'dashboard-core.js')           $appDir
 Copy-Item (Join-Path $root 'dashboard-csv-worker.js')     $appDir
 Copy-Item (Join-Path $root 'vendor')                      $appDir -Recurse -Force
 

@@ -1,5 +1,10 @@
 'use strict';
 
+// Logic thuần dùng chung với trang và Node test (normalize/classify/enrich…).
+// Milestone 1a: nạp sẵn ở đây để xác nhận chạy được trong worker; worker sẽ
+// dùng tới nó ở milestone kế (enrich + buildCube trong worker).
+try { importScripts('/dashboard-core.js'); } catch (e) { /* worker vẫn parse CSV được nếu thiếu */ }
+
 function splitCSVRespectQuotes(line){
   const out=[];
   let current='';
