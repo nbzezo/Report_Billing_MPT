@@ -1,0 +1,4 @@
+# Runtime dependencies (chạy từ mã nguồn).
+#   python -m pip install -r requirements.txt
+cryptography>=42          # mã hóa mật khẩu profile bằng keyfile (AES-256-GCM)
+pywebview>=4.4            # cửa sổ native cho scripts/mpt_dashboard_app.py (Windows: WebView2)

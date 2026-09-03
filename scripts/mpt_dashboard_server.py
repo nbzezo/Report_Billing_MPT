@@ -9,6 +9,7 @@ import mimetypes
 import os
 import posixpath
 import re
+import sys
 import uuid
 import urllib.error
 import urllib.parse
@@ -26,53 +27,110 @@ class _DataBlob(ctypes.Structure):
 
 
 class SecretProtector:
-    """Protect saved passwords with Windows DPAPI for this machine."""
+    """Encrypt saved passwords with a keyfile that travels with the app folder.
 
-    PREFIX = "dpapi-machine:"
-    LEGACY_PREFIX = "dpapi:"
+    The portable build is copied between machines as a plain folder, so a secret
+    can no longer be tied to one Windows install through DPAPI. Instead a random
+    32-byte key lives next to ``profiles.json`` (``config/secret.key``) and is
+    used with AES-256-GCM. Anyone who can read the folder can therefore read the
+    passwords - a deliberate trade-off for "copy the folder and it runs".
 
-    def __init__(self):
-        if os.name == "nt":
-            ctypes.windll.kernel32.LocalFree.argtypes = [ctypes.c_void_p]
-            ctypes.windll.kernel32.LocalFree.restype = ctypes.c_void_p
+    Legacy ``dpapi:`` / ``dpapi-machine:`` values are still decrypted (only on
+    the machine that wrote them) so older profiles migrate on first launch.
+    """
 
+    PREFIX = "portable-gcm:"
+    LEGACY_PREFIXES = ("dpapi-machine:", "dpapi:")
+    KEY_BYTES = 32
+
+    def __init__(self, key_path):
+        self.key_path = Path(key_path)
+        self._key = None
+
+    # -- keyfile -----------------------------------------------------------
+    def _key_material(self, create=False):
+        if self._key is None:
+            if self.key_path.exists():
+                key = base64.b64decode(self.key_path.read_text(encoding="ascii").strip())
+                if len(key) != self.KEY_BYTES:
+                    raise RuntimeError("config/secret.key không hợp lệ (cần 32 byte).")
+                self._key = key
+            elif create:
+                self._key = os.urandom(self.KEY_BYTES)
+                self.key_path.parent.mkdir(parents=True, exist_ok=True)
+                self.key_path.write_text(
+                    base64.b64encode(self._key).decode("ascii"), encoding="ascii"
+                )
+                self._lock_down(self.key_path)
+            else:
+                raise RuntimeError("Thiếu config/secret.key để giải mã mật khẩu đã lưu.")
+        return self._key
+
+    @staticmethod
+    def _lock_down(path):
+        """Best-effort: chỉ tài khoản hiện tại đọc được keyfile."""
+        if os.name != "nt":
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+            return
+        user = os.environ.get("USERNAME")
+        if not user:
+            return
+        try:
+            import subprocess
+
+            subprocess.run(
+                ["icacls", str(path), "/inheritance:r", "/grant:r", f"{user}:F"],
+                capture_output=True,
+                check=False,
+            )
+        except Exception:
+            pass
+
+    # -- API -------------------------------------------------------------------
+    def protect(self, value):
+        if not value:
+            return ""
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        nonce = os.urandom(12)
+        blob = AESGCM(self._key_material(create=True)).encrypt(
+            nonce, value.encode("utf-8"), None
+        )
+        return self.PREFIX + base64.b64encode(nonce + blob).decode("ascii")
+
+    def unprotect(self, value):
+        if not value:
+            return ""
+        if value.startswith(self.PREFIX):
+            from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+            raw = base64.b64decode(value[len(self.PREFIX):])
+            return (
+                AESGCM(self._key_material())
+                .decrypt(raw[:12], raw[12:], None)
+                .decode("utf-8")
+            )
+        for prefix in self.LEGACY_PREFIXES:
+            if value.startswith(prefix):
+                return self._dpapi_unprotect(value[len(prefix):])
+        return value
+
+    # -- legacy DPAPI (read-only, original machine only) ----------------------
     @staticmethod
     def _blob(data):
         buffer = ctypes.create_string_buffer(data)
         blob = _DataBlob(len(data), ctypes.cast(buffer, ctypes.POINTER(ctypes.c_byte)))
         return blob, buffer
 
-    def protect(self, value):
-        if not value:
-            return ""
-        if os.name != "nt":
-            raise RuntimeError("Lưu mật khẩu an toàn hiện chỉ hỗ trợ Windows.")
-        source, source_buffer = self._blob(value.encode("utf-8"))
-        output = _DataBlob()
-        ok = ctypes.windll.crypt32.CryptProtectData(
-            ctypes.byref(source), "MPT Dashboard", None, None, None, 0x05, ctypes.byref(output)
-        )
-        if not ok:
-            raise ctypes.WinError()
-        try:
-            encrypted = ctypes.string_at(output.pbData, output.cbData)
-            return self.PREFIX + base64.b64encode(encrypted).decode("ascii")
-        finally:
-            ctypes.windll.kernel32.LocalFree(output.pbData)
-
-    def unprotect(self, value):
-        if not value:
-            return ""
-        if value.startswith(self.PREFIX):
-            encoded = value[len(self.PREFIX):]
-        elif value.startswith(self.LEGACY_PREFIX):
-            encoded = value[len(self.LEGACY_PREFIX):]
-        else:
-            return value
+    def _dpapi_unprotect(self, encoded):
         if os.name != "nt":
             raise RuntimeError("Không thể đọc mật khẩu DPAPI bên ngoài Windows.")
-        encrypted = base64.b64decode(encoded)
-        source, source_buffer = self._blob(encrypted)
+        ctypes.windll.kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+        ctypes.windll.kernel32.LocalFree.restype = ctypes.c_void_p
+        source, _buffer = self._blob(base64.b64decode(encoded))
         output = _DataBlob()
         ok = ctypes.windll.crypt32.CryptUnprotectData(
             ctypes.byref(source), None, None, None, None, 0x01, ctypes.byref(output)
@@ -112,7 +170,7 @@ class ProfileStore:
         self.root = Path(root)
         self.config_dir = self.root / "config"
         self.path = self.config_dir / "profiles.json"
-        self.secrets = SecretProtector()
+        self.secrets = SecretProtector(self.config_dir / "secret.key")
         self._migrate_plaintext_passwords()
         self._migrate_legacy_encryption()
 
@@ -161,7 +219,7 @@ class ProfileStore:
         changed = False
         for profile in profiles:
             protected = profile.get("passwordEncrypted", "")
-            if not protected.startswith(self.secrets.LEGACY_PREFIX):
+            if not protected.startswith(self.secrets.LEGACY_PREFIXES):
                 continue
             try:
                 profile["password"] = self.secrets.unprotect(protected)
@@ -683,30 +741,54 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         return mimetypes.guess_type(path)[0] or "application/octet-stream"
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        description="MPT Call Dashboard with filter page."
-    )
-    parser.add_argument("--root", default=str(Path(__file__).resolve().parents[1]))
-    parser.add_argument("--dashboard", default="V2_0_Call_Dashboard_MPT.html")
-    parser.add_argument("--host", default="127.0.0.1")
-    parser.add_argument("--port", type=int, default=8787)
-    args = parser.parse_args()
+def app_root():
+    """Folder holding the dashboard files plus the writable ``config/`` + ``logs/``.
 
-    server = ThreadingHTTPServer((args.host, args.port), DashboardHandler)
-    server.root = args.root
-    server.dashboard = args.dashboard
-    server.profile_store = ProfileStore(args.root)
+    Frozen (PyInstaller portable build): the folder next to the ``.exe`` - so the
+    whole app, saved profiles included, moves by copying that one folder.
+    From source: the repository root.
+    """
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parents[1]
+
+
+def create_server(host="127.0.0.1", port=8787, root=None,
+                  dashboard="V2_0_Call_Dashboard_MPT.html"):
+    root = str(root if root is not None else app_root())
+    server = ThreadingHTTPServer((host, port), DashboardHandler)
+    server.root = root
+    server.dashboard = dashboard
+    server.profile_store = ProfileStore(root)
     server.clients = {}
     server.export_cache = OrderedDict()
     server.export_cache_lock = Lock()
     server.export_progress = {}
     server.export_progress_lock = Lock()
+    return server
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="MPT Call Dashboard with filter page."
+    )
+    parser.add_argument("--root", default=str(app_root()))
+    parser.add_argument("--dashboard", default="V2_0_Call_Dashboard_MPT.html")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8787)
+    args = parser.parse_args()
+
+    server = create_server(args.host, args.port, args.root, args.dashboard)
 
     url = f"http://{args.host}:{args.port}/"
     print(f"Filter page: {url}")
     print("Press Ctrl+C to stop.")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.shutdown()
 
 
 if __name__ == "__main__":

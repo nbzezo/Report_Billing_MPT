@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import shutil
+import sys
 import tempfile
 import types
 import unittest
@@ -78,6 +80,119 @@ class ProfileStoreTests(unittest.TestCase):
             store = SERVER.ProfileStore(directory)
             self.assertEqual(store.get("old")["password"], "legacy-secret")
             self.assertNotIn("legacy-secret", path.read_text(encoding="utf-8"))
+
+
+class PortableSecretTests(unittest.TestCase):
+    """Secrets must travel with the app folder, not be bound to one machine."""
+
+    def test_keyfile_is_created_next_to_profiles_and_round_trips(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.ProfileStore(directory)
+            saved = store.upsert({
+                "name": "A",
+                "domain": "example.com",
+                "username": "u",
+                "password": "p@ss-word",
+            })
+            keyfile = Path(directory) / "config" / "secret.key"
+            self.assertTrue(keyfile.exists())
+            raw = json.loads((Path(directory) / "config" / "profiles.json").read_text("utf-8"))
+            self.assertTrue(raw["profiles"][0]["passwordEncrypted"].startswith("portable-gcm:"))
+            # A fresh process (new objects, same folder) still decrypts.
+            reopened = SERVER.ProfileStore(directory)
+            self.assertEqual(reopened.get(saved["id"])["password"], "p@ss-word")
+
+    def test_secret_survives_copying_the_folder_to_another_location(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as dest:
+            store = SERVER.ProfileStore(source)
+            saved = store.upsert({
+                "name": "A",
+                "domain": "example.com",
+                "username": "u",
+                "password": "copied-secret",
+            })
+            (Path(dest) / "config").mkdir()
+            for name in ("profiles.json", "secret.key"):
+                shutil.copy(Path(source) / "config" / name, Path(dest) / "config" / name)
+            moved = SERVER.ProfileStore(dest)
+            self.assertEqual(moved.get(saved["id"])["password"], "copied-secret")
+
+    def test_profiles_without_the_matching_keyfile_are_flagged_not_fatal(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as dest:
+            store = SERVER.ProfileStore(source)
+            saved = store.upsert({
+                "name": "A",
+                "domain": "example.com",
+                "username": "u",
+                "password": "orphan",
+            })
+            (Path(dest) / "config").mkdir()
+            shutil.copy(
+                Path(source) / "config" / "profiles.json",
+                Path(dest) / "config" / "profiles.json",
+            )  # keyfile deliberately left behind
+            moved = SERVER.ProfileStore(dest)
+            public = next(p for p in moved.public_profiles() if p["id"] == saved["id"])
+            self.assertFalse(public["credentialAvailable"])
+            fresh = moved.upsert({
+                "name": "B",
+                "domain": "example.org",
+                "username": "u2",
+                "password": "works",
+            })
+            self.assertEqual(moved.get(fresh["id"])["password"], "works")
+
+    def test_a_foreign_keyfile_cannot_decrypt_the_blob(self):
+        with tempfile.TemporaryDirectory() as source, tempfile.TemporaryDirectory() as dest:
+            saved = SERVER.ProfileStore(source).upsert({
+                "name": "A",
+                "domain": "example.com",
+                "username": "u",
+                "password": "secret",
+            })
+            (Path(dest) / "config").mkdir()
+            shutil.copy(
+                Path(source) / "config" / "profiles.json",
+                Path(dest) / "config" / "profiles.json",
+            )
+            # A different machine would have generated its own key.
+            SERVER.SecretProtector(Path(dest) / "config" / "secret.key").protect("anything")
+            moved = SERVER.ProfileStore(dest)
+            self.assertEqual(moved.get(saved["id"])["password"], "")
+
+
+class AppRootTests(unittest.TestCase):
+    def test_app_root_is_the_repo_root_when_running_from_source(self):
+        self.assertEqual(SERVER.app_root(), ROOT)
+
+    def test_app_root_follows_the_executable_when_frozen(self):
+        original_frozen = getattr(sys, "frozen", None)
+        original_exe = sys.executable
+        try:
+            sys.frozen = True
+            sys.executable = str(Path(tempfile.gettempdir()) / "MPT Call Dashboard.exe")
+            self.assertEqual(SERVER.app_root(), Path(sys.executable).resolve().parent)
+        finally:
+            if original_frozen is None:
+                if hasattr(sys, "frozen"):
+                    del sys.frozen
+            else:
+                sys.frozen = original_frozen
+            sys.executable = original_exe
+
+
+class CreateServerTests(unittest.TestCase):
+    def test_create_server_binds_an_ephemeral_port_and_wires_dependencies(self):
+        with tempfile.TemporaryDirectory() as directory:
+            server = SERVER.create_server(host="127.0.0.1", port=0, root=directory)
+            try:
+                self.assertGreater(server.server_address[1], 0)
+                self.assertIsInstance(server.profile_store, SERVER.ProfileStore)
+                self.assertEqual(len(server.export_cache), 0)
+                self.assertTrue(hasattr(server, "export_cache_lock"))
+                self.assertEqual(server.dashboard, "V2_0_Call_Dashboard_MPT.html")
+            finally:
+                server.server_close()
 
 
 class ServerSafetyTests(unittest.TestCase):

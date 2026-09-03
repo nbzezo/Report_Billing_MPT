@@ -19,6 +19,28 @@ Script se:
 - Mo Dashboard tren trinh duyet
 - Khong hoi password o terminal nua
 
+## Ung dung Windows (ban portable)
+
+Dong goi thanh mot thu muc chay doc lap, **khong can cai Python**, copy sang may khac la chay.
+
+```powershell
+python -m pip install -r build\requirements-build.txt
+.\build\build.ps1
+```
+
+Ket qua: `dist\MPT Call Dashboard\` — chay `MPT Call Dashboard.exe`. Cua so native (WebView2),
+khong con tab trinh duyet, khong cua so terminal. Lan chay dau tu tao `config\`, `logs\`,
+`data\webview2\` ngay trong thu muc do.
+
+**Chep sang may khac:** copy ca thu muc `MPT Call Dashboard\` (ke ca `config\`) — mat khau MPT
+da luu van dung duoc vi `config\secret.key` di kem. May dich can Windows 10 (1803+)/11 co
+**Microsoft Edge WebView2 Runtime** (gan nhu may nao cung co san).
+
+Chi tiet + luu y ky ich: [`build/README.md`](build/README.md).
+
+Chay cua so native tu ma nguon (dev): `python -m pip install -r requirements.txt` roi
+`.\scripts\run-app.ps1`.
+
 ## Flow su dung
 
 1. Mo Dashboard tai `http://127.0.0.1:8787/`
@@ -42,18 +64,27 @@ Profiles duoc luu cuc bo tai:
 
 `config/profiles.json`
 
-File nay da nam trong `.gitignore`.
+Mat khau duoc ma hoa bang `config/secret.key` (AES-256-GCM). Ca thu muc `config/` nam trong
+`.gitignore`. Vi khoa di kem thu muc nen ban portable copy sang may khac van dung duoc mat khau —
+doi lai, ai doc duoc thu muc deu giai ma duoc (xem **Bao mat**).
 
 ## File chinh
 
 - `V2_0_Call_Dashboard_MPT.html` - Dashboard chinh
 - `mpt_filter.html` - Trang filter cu, duoc giu lai de tuong thich
 - `scripts/mpt_dashboard_server.py` - Server noi bo (proxy MPT API)
-- `scripts/run-dashboard.ps1` - Lenh chay
+- `scripts/mpt_dashboard_app.py` - Cua so native (dung cho ban portable)
+- `scripts/run-dashboard.ps1` - Chay tren trinh duyet
+- `scripts/run-app.ps1` - Chay cua so native tu ma nguon
+- `build/` - Spec + script dong goi ban portable
 
 ## Bao mat
 
 Khong commit/chia se thu muc `config/` vi trong do co profile dang nhap da luu.
+
+Ban portable danh doi bao mat lay tinh tien loi: khoa giai ma (`config/secret.key`) nam ngay
+canh `profiles.json`, nen **bat ky ai doc duoc thu muc app (hoac USB chua no) deu giai ma duoc
+mat khau MPT**. Dung dat thu muc portable len o dia/USB dung chung cong khai.
 
 ## Giao diện
 
@@ -86,7 +117,7 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
   không nằm trong allowlist nên mở qua server không chạy. Vẫn còn Export/Import JSON.
 - CSV thông thường được parse bằng Web Worker; CSV trên 20 MB tiếp tục dùng parser streaming.
 - Plotly nằm trong `vendor/`, nên biểu đồ vẫn hoạt động khi mất Internet.
-- Mật khẩu profile được mã hóa bằng Windows DPAPI theo máy để dùng ổn định giữa shortcut, terminal và tiến trình Codex. Dữ liệu cũ tự động được chuyển đổi ở lần khởi động tiếp theo.
+- Mật khẩu profile được mã hóa bằng keyfile `config/secret.key` (AES-256-GCM) đi kèm thư mục, nên bản portable copy sang máy khác vẫn dùng được. Profile cũ mã hóa bằng Windows DPAPI vẫn đọc được trên đúng máy đã tạo và tự chuyển sang scheme mới ở lần khởi động kế tiếp; sang máy khác thì cần nhập lại mật khẩu.
 - Server chỉ phục vụ file giao diện cần thiết; `config/`, `logs/`, backup và mã nguồn bị chặn qua HTTP.
 
 ## Kiểm thử
@@ -95,4 +126,4 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 python -m unittest discover -s tests -v
 ```
 
-Bộ test kiểm tra profile encryption/migration, static-file allowlist, ngày local, thứ tự khởi tạo biểu đồ, loading/accessibility và Web Worker.
+Bộ test kiểm tra profile encryption/migration (keyfile + DPAPI cũ), keyfile portable đi theo thư mục, `app_root()`/`create_server()`, static-file allowlist, ngày local, thứ tự khởi tạo biểu đồ, loading/accessibility và Web Worker.
