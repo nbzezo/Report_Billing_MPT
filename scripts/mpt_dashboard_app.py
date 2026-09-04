@@ -91,7 +91,7 @@ def _profile_windows_alive(marker):
         )
         return (out.stdout or "").strip() not in ("", "0")
     except Exception:
-        return False
+        return True  # lỗi poll -> coi như còn sống, không tắt server nhầm
 
 
 def main():
@@ -146,14 +146,19 @@ def main():
         return
 
     try:
-        started = time.monotonic()
-        proc.wait()
-        # Edge/Chrome đôi khi bàn giao cho tiến trình khác rồi thoát ngay. Nếu
-        # thoát quá nhanh, theo dõi cho tới khi không còn cửa sổ nào của profile.
-        if time.monotonic() - started < 4:
-            time.sleep(1.5)
-            while _profile_windows_alive(str(profile)):
-                time.sleep(2)
+        # KHÔNG tin proc.wait(): Edge/Chrome hay bàn giao URL cho tiến trình sẵn
+        # có rồi thoát ngay. Poll tiến trình theo --user-data-dir; cần 3 lần "chết"
+        # liên tiếp mới tắt server, lỗi poll coi như còn sống.
+        try:
+            proc.wait()
+        except Exception:
+            pass
+        marker = str(profile)
+        time.sleep(4)  # để cửa sổ kịp mở và tiến trình con xuất hiện
+        misses = 0
+        while misses < 3:
+            misses = 0 if _profile_windows_alive(marker) else misses + 1
+            time.sleep(3)
     finally:
         shutdown()
         del guard
