@@ -107,7 +107,8 @@ def main():
         return
 
     port = server.server_address[1]
-    url = f"http://127.0.0.1:{port}/"
+    debug_env = str(os.environ.get("MPT_DASHBOARD_DEBUG", "")).strip() not in ("", "0")
+    url = f"http://127.0.0.1:{port}/" + ("?diag" if debug_env else "")
     threading.Thread(target=server.serve_forever, name="mpt-server", daemon=True).start()
 
     def shutdown():
@@ -132,7 +133,12 @@ def main():
         "--no-first-run",
         "--no-default-browser-check",
         "--disable-background-mode",
-        "--disable-features=Translate,msEdgeSplitScreen",
+        # Không nạp tiện ích mở rộng / thành phần thừa của Edge — chúng hay chèn
+        # lớp phủ hoặc bắt sự kiện chuột làm hỏng nút bấm của dashboard.
+        "--disable-extensions",
+        "--disable-component-extensions-with-background-pages",
+        "--disable-features=Translate,msEdgeSplitScreen,MSShopping,EdgeCollections,"
+        "EdgeSidebarUI,msWebOOUI,msEdgeSidebarV2,EdgeDiscoverFeatureSettings",
         "--window-size=1440,920",
     ]
     if str(os.environ.get("MPT_DASHBOARD_DEBUG", "")).strip() not in ("", "0"):
