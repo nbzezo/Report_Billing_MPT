@@ -496,6 +496,12 @@ class FrontendRegressionTests(unittest.TestCase):
         ):
             self.assertIn(token, self.dashboard_html)
 
+    def test_mpt_panel_closes_with_dialog_close_not_open_attribute(self):
+        # Panel mở bằng showModal(); đóng bằng .open=false chỉ ẩn dialog mà KHÔNG
+        # gỡ top-layer/::backdrop/inert -> cả trang nuốt click dù biểu đồ vẫn hiện.
+        self.assertIn("if(success) adwCloseDialog('mptSourcePanel');", self.dashboard_html)
+        self.assertNotIn("mptEl('mptSourcePanel').open=false", self.dashboard_html)
+
     def test_loading_overlay_can_be_dismissed_after_a_failure(self):
         for token in (
             'id="closeReportLoad"',

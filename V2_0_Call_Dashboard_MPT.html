@@ -2514,12 +2514,20 @@ function adwPlotTheme(){
       }
       return 'PE:none @ none-found';
     }
+    // Dialog mở bằng showModal() rồi đóng SAI bằng .open=false: :modal vẫn khớp
+    // dù không còn [open] -> top-layer/inert chưa gỡ -> cả trang nuốt click.
+    function leakedModals(){
+      return [].slice.call(document.querySelectorAll('dialog')).filter(function(d){
+        try{ return d.matches(':modal') && !d.hasAttribute('open'); }catch(_){ return false; }
+      }).map(function(d){ return d.id||'(no id)'; });
+    }
     function probe(tag){
       try{
         var b=document.body, h=document.documentElement;
         window.__mark('probe['+tag+'] peBody='+getComputedStyle(b).pointerEvents
           +' peHtml='+getComputedStyle(h).pointerEvents
           +' '+firstPENone()
+          +' leakedModal['+leakedModals()+']'
           +' | '+hitOk('#adwSidebar [data-tab]:nth-child(2)')
           +' | '+hitOk('.adw-headerbar')
           +' | '+hitOk('#reportGrid .card')
@@ -2528,27 +2536,18 @@ function adwPlotTheme(){
       }catch(e){ try{ window.__mark('probe err '+e.message); }catch(_){} }
     }
     window.__probe=probe;
-    // Mỗi lần bấm chuột: ghi lại phần tử ở TRÊN CÙNG tại điểm bấm + các lớp phủ
-    // fixed che gần hết màn hình (thủ phạm điển hình khi "nút không ăn").
+    // Mỗi lần bấm chuột: phần tử ở điểm bấm + dialog modal bị "rò".
     document.addEventListener('pointerdown',function(ev){
       try{
-        var top=document.elementFromPoint(ev.clientX,ev.clientY);
-        var desc=top? (top.tagName+'#'+top.id+'.'+(''+top.className).slice(0,40)) : 'null';
-        var overlays=[].slice.call(document.querySelectorAll('*')).filter(function(el){
-          var s=getComputedStyle(el);
-          return (s.position==='fixed'||s.position==='absolute') && s.pointerEvents!=='none'
-            && el.offsetWidth>innerWidth*0.6 && el.offsetHeight>innerHeight*0.6
-            && s.visibility!=='hidden' && s.display!=='none';
-        }).map(function(el){ return '#'+el.id+'.'+(''+el.className).slice(0,30)+' z'+getComputedStyle(el).zIndex; });
-        var dlg=[].slice.call(document.querySelectorAll('dialog[open]')).map(function(d){return d.id;});
-        var peB=getComputedStyle(document.body).pointerEvents, peH=getComputedStyle(document.documentElement).pointerEvents;
-        // đi từ elementFromPoint xuống sâu nhất tại điểm bấm (bỏ qua pointer-events)
-        var deep=null; try{ document.body.style.pointerEvents='auto'; deep=document.elementFromPoint(ev.clientX,ev.clientY); }catch(_){}
-        var deepDesc=deep?(deep.tagName+'#'+deep.id+'.'+(''+deep.className).slice(0,40)):'null';
-        var bodyStyle=(document.body.getAttribute('style')||'').slice(0,120);
-        window.__mark('click@'+ev.clientX+','+ev.clientY+' top='+desc+' deep='+deepDesc
-          +' peBody='+peB+' peHtml='+peH+' bodyStyle["'+bodyStyle+'"] dlg['+dlg+'] fixed['+overlays.join(',')+']');
-      }catch(_){}
+        var x=ev.clientX,y=ev.clientY;
+        var stack=(document.elementsFromPoint(x,y)||[]).slice(0,6).map(function(el){
+          return el.tagName+'#'+(el.id||'')+'.'+(''+el.className).slice(0,20);
+        });
+        var openDlg=[].slice.call(document.querySelectorAll('dialog[open]')).map(function(d){return d.id;});
+        window.__mark('CLK@'+x+','+y+' stack=['+stack.join(' > ')+']'
+          +' openDialogs['+openDlg+'] leakedModal['+leakedModals()+']'
+          +' peBody='+getComputedStyle(document.body).pointerEvents);
+      }catch(e){ try{ window.__mark('CLK err '+e.message); }catch(_){} }
     },true);
   }
 })();
@@ -6244,7 +6243,17 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     adwHideRestoreBanner();
     setReportLoading(false);
     toast(stat);
-    await updateDashboardWithFilters();
+    // Dữ liệu đã về + màn chờ đã đóng. Lỗi khi VẼ không được ném lên catch bên
+    // dưới nữa — catch đó bật lại lớp phủ toàn màn hình (z-index 100000) khiến
+    // "tải xong biểu đồ nhưng bấm không được". Vẽ lỗi -> báo toast, UI vẫn dùng.
+    try{
+      await updateDashboardWithFilters();
+    }catch(rErr){
+      console.error('updateDashboardWithFilters lỗi sau khi tải dữ liệu:', rErr);
+      try{ if(window.__beacon) window.__beacon('renderAfterLoad',(rErr&&rErr.stack)||String(rErr),''); }catch(_){}
+      toast('Dữ liệu đã tải xong; một số biểu đồ lỗi khi vẽ: '+((rErr&&rErr.message)||rErr), true);
+    }
+    try{ if(window.__probe){ window.__probe('afterLoad0'); setTimeout(function(){window.__probe('afterLoad3');},3000); setTimeout(function(){window.__probe('afterLoad8');},8000); } }catch(_){}
     return true;
   }catch(e){
     if(e && e.name==='AbortError'){
@@ -6517,7 +6526,11 @@ async function mptRunReport(){
   mptSaveRecentScope();
   try{
     const success=await loadReportDataUrl(mptBuildDataUrl(),true);
-    if(success) mptEl('mptSourcePanel').open=false;
+    // Phải dùng dialog.close() (qua adwCloseDialog) chứ KHÔNG set .open=false:
+    // panel mở bằng showModal(), gán .open=false chỉ ẩn dialog mà KHÔNG gỡ
+    // top-layer/::backdrop/inert -> cả trang bị chặn click dù biểu đồ vẫn hiện
+    // ("tải xong biểu đồ nhưng bấm không được").
+    if(success) adwCloseDialog('mptSourcePanel');
   }finally{
     button.textContent=original;
     mptSetRunEnabled();
