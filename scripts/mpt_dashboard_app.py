@@ -38,6 +38,9 @@ MUTEX_NAME = "Global\\MPTCallDashboard.SingleInstance"
 _ERROR_ALREADY_EXISTS = 183
 _MB_ICONERROR = 0x10
 _MB_ICONINFO = 0x40
+# Chạy powershell mà KHÔNG bật cửa sổ console — nếu không, vòng poll đóng cửa sổ
+# (gọi powershell mỗi vài giây) sẽ làm cửa sổ terminal nhấp nháy liên tục.
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 
 
 def _message(text, flags):
@@ -101,6 +104,7 @@ def _kill_stale_windows(marker):
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
             capture_output=True, timeout=15,
             env=dict(os.environ, MPT_EDGE_MARKER=marker),
+            creationflags=_NO_WINDOW,
         )
         time.sleep(1.0)
     except Exception:
@@ -122,6 +126,7 @@ def _profile_windows_alive(marker):
         out = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
             capture_output=True, text=True, timeout=15, env=env,
+            creationflags=_NO_WINDOW,
         )
         return (out.stdout or "").strip() not in ("", "0")
     except Exception:
