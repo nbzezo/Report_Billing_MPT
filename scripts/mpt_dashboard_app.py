@@ -131,7 +131,7 @@ def main():
 
     port = server.server_address[1]
     debug_env = str(os.environ.get("MPT_DASHBOARD_DEBUG", "")).strip() not in ("", "0")
-    url = f"http://127.0.0.1:{port}/" + ("?diag" if debug_env else "")
+    url = f"http://127.0.0.1:{port}/"
     threading.Thread(target=server.serve_forever, name="mpt-server", daemon=True).start()
 
     def shutdown():
@@ -164,7 +164,7 @@ def main():
         "EdgeSidebarUI,msWebOOUI,msEdgeSidebarV2,EdgeDiscoverFeatureSettings",
         "--window-size=1440,920",
     ]
-    if str(os.environ.get("MPT_DASHBOARD_DEBUG", "")).strip() not in ("", "0"):
+    if debug_env:
         args.append("--auto-open-devtools-for-tabs")
 
     _kill_stale_windows(str(profile))

@@ -2483,73 +2483,6 @@ function adwPlotTheme(){
     var r=e && e.reason; beacon('unhandledrejection', (r && (r.stack||r.message))||r, '');
   });
   window.__beacon=beacon;
-  // Mốc chẩn đoán (không chặn). Bật khi có ?diag hoặc localStorage mpt-diag=1.
-  var diagOn=false;
-  try{ diagOn = /[?&]diag\b/.test(location.search) || localStorage.getItem('mpt-diag')==='1'; }catch(_){}
-  window.__mark=function(tag){
-    if(!diagOn) return;
-    try{ navigator.sendBeacon && navigator.sendBeacon('/api/clientlog', JSON.stringify({kind:'mark',message:tag})); }catch(_){}
-  };
-  if(diagOn){
-    // Tự soi trạng thái tương tác sau khi trang ổn định (không cần người bấm).
-    function elDesc(el){ return el ? (el.tagName+'#'+el.id+'.'+(''+el.className).slice(0,25)) : 'null'; }
-    // Với 1 element: nó có nằm ĐÚNG chỗ nó vẽ không? (hit-test tại tâm rect của nó)
-    function hitOk(sel){
-      var el=document.querySelector(sel); if(!el) return sel+'=missing';
-      var r=el.getBoundingClientRect();
-      if(r.width<2||r.height<2) return sel+'=0size';
-      var hit=document.elementFromPoint(Math.round(r.left+r.width/2), Math.round(r.top+Math.min(r.height/2,20)));
-      var ok = hit && (hit===el || el.contains(hit) || hit.contains(el));
-      var blk = document.elementFromPoint(0,0);
-      return sel+(ok?'=OK':('=BLOCKED by '+elDesc(hit)));
-    }
-    function firstPENone(){
-      // đi từ 1 nút thật lên trên, tìm tổ tiên đầu tiên pointer-events:none
-      var el=document.querySelector('#adwSidebar [data-tab], .adw-headerbar button, button');
-      var chain=[];
-      while(el && el!==document.documentElement){
-        var pe=getComputedStyle(el).pointerEvents;
-        if(pe==='none') return 'PE:none @ '+elDesc(el);
-        el=el.parentElement;
-      }
-      return 'PE:none @ none-found';
-    }
-    // Dialog mở bằng showModal() rồi đóng SAI bằng .open=false: :modal vẫn khớp
-    // dù không còn [open] -> top-layer/inert chưa gỡ -> cả trang nuốt click.
-    function leakedModals(){
-      return [].slice.call(document.querySelectorAll('dialog')).filter(function(d){
-        try{ return d.matches(':modal') && !d.hasAttribute('open'); }catch(_){ return false; }
-      }).map(function(d){ return d.id||'(no id)'; });
-    }
-    function probe(tag){
-      try{
-        var b=document.body, h=document.documentElement;
-        window.__mark('probe['+tag+'] peBody='+getComputedStyle(b).pointerEvents
-          +' peHtml='+getComputedStyle(h).pointerEvents
-          +' '+firstPENone()
-          +' leakedModal['+leakedModals()+']'
-          +' | '+hitOk('#adwSidebar [data-tab]:nth-child(2)')
-          +' | '+hitOk('.adw-headerbar')
-          +' | '+hitOk('#reportGrid .card')
-          +' | overlay@0,0='+elDesc(document.elementFromPoint(0,0))
-          +' bodyClass["'+(b.className||'').slice(0,80)+'"]');
-      }catch(e){ try{ window.__mark('probe err '+e.message); }catch(_){} }
-    }
-    window.__probe=probe;
-    // Mỗi lần bấm chuột: phần tử ở điểm bấm + dialog modal bị "rò".
-    document.addEventListener('pointerdown',function(ev){
-      try{
-        var x=ev.clientX,y=ev.clientY;
-        var stack=(document.elementsFromPoint(x,y)||[]).slice(0,6).map(function(el){
-          return el.tagName+'#'+(el.id||'')+'.'+(''+el.className).slice(0,20);
-        });
-        var openDlg=[].slice.call(document.querySelectorAll('dialog[open]')).map(function(d){return d.id;});
-        window.__mark('CLK@'+x+','+y+' stack=['+stack.join(' > ')+']'
-          +' openDialogs['+openDlg+'] leakedModal['+leakedModals()+']'
-          +' peBody='+getComputedStyle(document.body).pointerEvents);
-      }catch(e){ try{ window.__mark('CLK err '+e.message); }catch(_){} }
-    },true);
-  }
 })();
 </script>
 <!-- Logic thuần (không DOM) dùng chung với Web Worker và Node test. Phải nạp trước script chính. -->
@@ -6253,7 +6186,6 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
       try{ if(window.__beacon) window.__beacon('renderAfterLoad',(rErr&&rErr.stack)||String(rErr),''); }catch(_){}
       toast('Dữ liệu đã tải xong; một số biểu đồ lỗi khi vẽ: '+((rErr&&rErr.message)||rErr), true);
     }
-    try{ if(window.__probe){ window.__probe('afterLoad0'); setTimeout(function(){window.__probe('afterLoad3');},3000); setTimeout(function(){window.__probe('afterLoad8');},8000); } }catch(_){}
     return true;
   }catch(e){
     if(e && e.name==='AbortError'){
