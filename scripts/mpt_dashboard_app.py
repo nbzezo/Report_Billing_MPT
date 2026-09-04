@@ -20,6 +20,17 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+# pythonw.exe và bản đóng gói --windowed KHÔNG có console: sys.stdout/stderr là
+# None. http.server ghi một dòng log mỗi request ra stderr; nếu stderr là None
+# thread xử lý request sẽ chết giữa chừng -> trình duyệt báo "response ended
+# prematurely". Gắn devnull để server chạy bình thường khi không có console.
+for _stream in ("stdout", "stderr"):
+    if getattr(sys, _stream, None) is None:
+        try:
+            setattr(sys, _stream, open(os.devnull, "w", encoding="utf-8"))
+        except OSError:
+            pass
+
 from mpt_dashboard_server import app_root, create_server  # noqa: E402
 
 APP_TITLE = "MPT Call Dashboard"
