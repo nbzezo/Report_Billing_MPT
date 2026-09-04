@@ -73,6 +73,29 @@ def _find_browser():
     return None
 
 
+def _kill_stale_windows(marker):
+    """Đóng mọi cửa sổ Edge/Chrome đang mở hồ sơ này (từ lần chạy trước) để
+    không còn cửa sổ trỏ vào server đã chết — Edge --app cùng --user-data-dir
+    sẽ mở thêm cửa sổ trong tiến trình cũ thay vì tiến trình mới."""
+    if not sys.platform.startswith("win"):
+        return
+    ps = (
+        "Get-CimInstance Win32_Process -Filter \"name='msedge.exe' or name='chrome.exe'\" "
+        "-ErrorAction SilentlyContinue | "
+        "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($env:MPT_EDGE_MARKER) } | "
+        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+    )
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, timeout=15,
+            env=dict(os.environ, MPT_EDGE_MARKER=marker),
+        )
+        time.sleep(1.0)
+    except Exception:
+        pass
+
+
 def _profile_windows_alive(marker):
     """True while a browser process still has our --user-data-dir open."""
     if not sys.platform.startswith("win"):
@@ -143,6 +166,8 @@ def main():
     ]
     if str(os.environ.get("MPT_DASHBOARD_DEBUG", "")).strip() not in ("", "0"):
         args.append("--auto-open-devtools-for-tabs")
+
+    _kill_stale_windows(str(profile))
 
     try:
         proc = subprocess.Popen(args)
