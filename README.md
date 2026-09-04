@@ -42,6 +42,11 @@ Chi tiet + luu y ky ich: [`build/README.md`](build/README.md).
 Chay cua so native tu ma nguon (dev): `python -m pip install -r requirements.txt` roi
 `.\scripts\run-app.ps1`.
 
+Loi tat Desktop cho cua so native: tao shortcut tro toi
+`pythonw.exe "<repo>\scripts\mpt_dashboard_app.py"` (workdir = thu muc repo).
+`pythonw.exe` khong hien cua so terminal; server da tu gan stdout/stderr vao
+devnull khi khong co console nen van chay binh thuong.
+
 ## Flow su dung
 
 1. Mo Dashboard tai `http://127.0.0.1:8787/`
