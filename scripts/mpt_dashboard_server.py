@@ -641,6 +641,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 account_ids = [x for x in params.get("account_id", "").split(",") if x and x != "0"]
                 profile_id = params.get("profile_id", "")
                 client = self.get_export_client(profile_id)
+                names = self.account_names(profile_id)
                 if len(account_ids) <= 1:
                     data = client.export_csv(params)
                 else:
@@ -651,8 +652,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                         progress=lambda done, current: self.set_export_progress(
                             job_id, done, len(account_ids), current
                         ),
-                        names=self.account_names(profile_id),
+                        names=names,
                     )
+                data = self.inject_account_names(data, names)
                 self.cache_export(params, data)
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
@@ -720,6 +722,40 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         writer.writerow(header)
         writer.writerows(rows)
         return output.getvalue().encode("utf-8-sig")
+
+    # MPT chỉ trả account_id trong CSV. Ghép thêm cột account_name (từ danh sách
+    # tài khoản đã lưu) để dashboard hiển thị TÊN thay vì id — áp cho cả luồng
+    # 1 account lẫn "tất cả".
+    _ACCOUNT_ID_HEADERS = ("accountid", "account", "tenant")
+
+    @staticmethod
+    def inject_account_names(csv_bytes, names):
+        if not names or not csv_bytes:
+            return csv_bytes
+        text = csv_bytes.decode("utf-8-sig", errors="replace")
+        parsed = list(csv.reader(io.StringIO(text)))
+        if not parsed or not parsed[0]:
+            return csv_bytes
+        header = parsed[0]
+        norm = [re.sub(r"[^a-z0-9]", "", h.lower()) for h in header]
+        if "accountname" in norm:
+            return csv_bytes
+        try:
+            acc_idx = next(
+                i for i, h in enumerate(norm)
+                if h in DashboardHandler._ACCOUNT_ID_HEADERS
+            )
+        except StopIteration:
+            return csv_bytes
+        out = io.StringIO(newline="")
+        writer = csv.writer(out, lineterminator="\n")
+        writer.writerow(header + ["account_name"])
+        for row in parsed[1:]:
+            if not row or not any(row):
+                continue
+            acc = row[acc_idx].strip() if len(row) > acc_idx else ""
+            writer.writerow(row + [names.get(acc, "")])
+        return out.getvalue().encode("utf-8-sig")
 
     def handle_dashboard(self, parsed):
         qs = urllib.parse.urlparse(self.path).query

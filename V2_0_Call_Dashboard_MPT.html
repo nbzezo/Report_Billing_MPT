@@ -175,6 +175,12 @@ if(!window.Plotly){
     .dropdown-list .controls-row button{padding:6px 8px}
     .acc-item{display:block;padding:2px 4px}
     .acc-item input{margin-right:8px}
+    /* Theo theme sáng/tối — nếu không, chữ trắng trên nền trắng ở chế độ tối. */
+    body.adw .dropdown-list{background:var(--card-bg);border-color:var(--border);color:var(--text);box-shadow:var(--shadow-pop,0 10px 30px rgba(0,0,0,.25))}
+    body.adw .dropdown-list .acc-item{color:var(--text);border-radius:6px}
+    body.adw .dropdown-list .acc-item:hover{background:var(--hover)}
+    body.adw .dropdown-list .controls-row button{background:var(--card-bg);color:var(--text);border:1px solid var(--border)}
+    body.adw .dropdown-list input[type="text"]{background:var(--view-bg);color:var(--text);border:1px solid var(--border)}
 
     /* Account mapping panel */
     .mapping-panel{display:none;margin-top:12px}
@@ -3326,21 +3332,34 @@ function summarizeSelected(ids){
   return `${firstName} +${ids.length-1} ▾`;
 }
 
+// Ghi nhớ danh sách Account đang xem (Bộ lọc chính) giữa các lần mở app.
+const ACCOUNT_FILTER_KEY = 'main-account-filter-v1';
+function saveAccountFilterIds(ids){
+  try{ localStorage.setItem(ACCOUNT_FILTER_KEY, JSON.stringify(Array.from(ids||[]))); }catch(e){}
+}
+function loadAccountFilterIds(){
+  try{ const a = JSON.parse(localStorage.getItem(ACCOUNT_FILTER_KEY)||'[]'); return Array.isArray(a) ? a.map(String) : []; }catch(e){ return []; }
+}
+
 function refreshAccountFilter(){
   const container=document.getElementById('accountListCheckboxes'); if(!container) return;
-  const prevSelected = new Set(getSelectedAccounts());
+  let prevSelected = new Set(getSelectedAccounts());
+  // Chưa chọn gì trong phiên này -> khôi phục lựa chọn đã ghi nhớ lần trước.
+  if(prevSelected.size===0) prevSelected = new Set(loadAccountFilterIds());
   container.innerHTML='';
 
   const ids = (Array.isArray(loadedAccountIds) && loadedAccountIds.length)
     ? loadedAccountIds.slice()
     : Array.from(new Set(enriched.map(r=>String(r.account_id)))).sort();
   ids.forEach((id,idx)=>{
-    const name = getAccountNameForId(id);
-    const labelText = `${name} (${id})`;
+    const name = String(getAccountNameForId(id));
+    // Hiển thị TÊN account; chỉ rơi về id khi chưa có tên. id vẫn xem được khi di chuột.
+    const labelText = (name && name !== String(id)) ? name : String(id);
     const inputId = 'acc_cb_'+idx;
     const label = document.createElement('label');
     label.className='acc-item';
-    label.innerHTML = `<input type="checkbox" class="acc-checkbox" id="${inputId}" value="${id}"/> <span>${labelText}</span>`;
+    label.title = String(id);
+    label.innerHTML = `<input type="checkbox" class="acc-checkbox" id="${inputId}" value="${reportTableEscape(id)}"/> <span>${reportTableEscape(labelText)}</span>`;
     container.appendChild(label);
   });
 
@@ -3368,7 +3387,7 @@ function refreshAccountFilter(){
   if(search){ search.addEventListener('input', ()=>{ const q = search.value.trim().toLowerCase(); Array.from(document.querySelectorAll('#accountListCheckboxes .acc-item')).forEach(item=>{ const text = item.textContent.trim().toLowerCase(); item.style.display = text.indexOf(q) === -1 ? 'none' : 'block'; }); }); }
   if(selectAllBtn){ selectAllBtn.addEventListener('click', ()=>{ Array.from(document.querySelectorAll('.acc-checkbox')).forEach(cb=>{ if(cb.parentElement.style.display!=='none') cb.checked=true; }); }); }
   if(clearAllBtn){ clearAllBtn.addEventListener('click', ()=>{ Array.from(document.querySelectorAll('.acc-checkbox')).forEach(cb=> cb.checked=false); }); }
-  if(applyBtn){ applyBtn.addEventListener('click', ()=>{ const sel = getSelectedAccounts(); const btn=document.getElementById('accountDropdownBtn'); const countEl=document.getElementById('accountCount'); if(btn) btn.innerText = summarizeSelected(sel); if(countEl) countEl.innerText = ''; document.getElementById('accountDropdownList').style.display='none'; updateDashboardWithFilters(); }); }
+  if(applyBtn){ applyBtn.addEventListener('click', ()=>{ const sel = getSelectedAccounts(); saveAccountFilterIds(sel); const btn=document.getElementById('accountDropdownBtn'); const countEl=document.getElementById('accountCount'); if(btn) btn.innerText = summarizeSelected(sel); if(countEl) countEl.innerText = ''; document.getElementById('accountDropdownList').style.display='none'; updateDashboardWithFilters(); }); }
 })();
 
 // ---------- Mapping panel events ----------
@@ -3471,9 +3490,11 @@ function plotMinutesByAccount(rows, colors, topN=10){
   });
   let arr = Object.keys(agg).map(acc=>{
     const row = rows.find(x=>String(x.account_id)===acc) || {};
-    const label = (row.account_name && String(row.account_name).trim()) || accountNameMap[acc] || acc;
+    let label = (row.account_name && String(row.account_name).trim()) || accountNameMap[acc] || acc;
+    label = String(label);
+    if(label.length > 28) label = label.slice(0,27) + '…';
     const minutes = +(agg[acc]/60).toFixed(2);
-    return {acc,label:String(label),minutes};
+    return {acc,label,minutes};
   });
   // sort desc by minutes
   arr.sort((a,b)=> b.minutes - a.minutes);
@@ -3495,8 +3516,9 @@ function plotMinutesByAccount(rows, colors, topN=10){
     bargap:0.35,
     title:`Tổng số phút gọi theo Account — Top ${_topN>0?_topN:'All'} (cao nhất ở trên)`,
     height: Math.max(220, labels.length*32),
+    margin:{l:170, r:30, t:64, b:56},
     xaxis:{title:'Phút'},
-    yaxis:{automargin:true, type:'category', categoryorder:'array', categoryarray: labels, autorange:'reversed'}
+    yaxis:{automargin:true, type:'category', tickfont:{size:11}, categoryorder:'array', categoryarray: labels, autorange:'reversed'}
   };
   Plotly.react('chart_minutes_account', data, layout, {responsive:true});
 }

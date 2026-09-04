@@ -437,6 +437,21 @@ class ExportProgressTests(unittest.TestCase):
         self.assertEqual(events[2][1], "Account 3")
         self.assertIn("u3,3", data.decode("utf-8-sig"))
 
+    def test_inject_account_names_adds_a_name_column_from_the_id_map(self):
+        inject = SERVER.DashboardHandler.inject_account_names
+        names = {"388": "VCLASS BOT", "421": "SALE OUTBOUND"}
+        # MPT "new format" header uses "Account" for the id column.
+        src = "Account,Destination\r\n388,09xx\r\n421,08yy\r\n999,07zz\r\n".encode("utf-8-sig")
+        out = inject(src, names).decode("utf-8-sig")
+        lines = [ln for ln in out.splitlines() if ln]
+        self.assertEqual(lines[0], "Account,Destination,account_name")
+        self.assertEqual(lines[1], "388,09xx,VCLASS BOT")
+        self.assertEqual(lines[2], "421,08yy,SALE OUTBOUND")
+        self.assertEqual(lines[3], "999,07zz,")  # id không có trong map -> để trống
+        # Không có map / đã có cột name -> giữ nguyên.
+        self.assertEqual(inject(src, {}), src)
+        self.assertEqual(inject(out.encode("utf-8-sig"), names).decode("utf-8-sig"), out)
+
     def test_job_id_is_removed_before_the_export_cache_key_is_built(self):
         source = SERVER_PATH.read_text(encoding="utf-8")
         self.assertLess(
