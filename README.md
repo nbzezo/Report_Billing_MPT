@@ -84,9 +84,15 @@ doi lai, ai doc duoc thu muc deu giai ma duoc (xem **Bao mat**).
 - `mpt_filter.html` - Trang filter cu, duoc giu lai de tuong thich
 - `scripts/mpt_dashboard_server.py` - Server noi bo (proxy MPT API)
 - `scripts/mpt_dashboard_app.py` - Cua so native (dung cho ban portable)
+- `scripts/routing_events.py` - Thu thap lich su Block/Reactive CID tu trang MPT
+  `routing/reports` (scrape theo tung ngay, cache cuon trong `.cache/`)
 - `scripts/run-dashboard.ps1` - Chay tren trinh duyet
 - `scripts/run-app.ps1` - Chay cua so native tu ma nguon
+- `scripts/run-worktree.py` - Chay tu git worktree, dung lai `config/` cua checkout chinh
 - `build/` - Spec + script dong goi ban portable
+- `docs/cid-lifecycle-analysis.md` - **Ghi chep phan tich tab Vong doi CID**: so
+  lieu do duoc, cac quyet dinh va **cac gia thuyet DA THU VA THAT BAI**. Doc truoc
+  khi danh gia lai hoac bo sung tab nay de khoi phan tich lai tu dau.
 
 ## Bao mat
 
