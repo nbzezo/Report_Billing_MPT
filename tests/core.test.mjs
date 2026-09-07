@@ -470,3 +470,25 @@ test('computeRoutingLeaks — CID dang bi VT chan van goi MB thi khong tinh la t
   assert.equal(res.hits.length, 0);      // khoa VT khong anh huong cuoc goi MB
   assert.equal(res.outside.calls, 1);
 });
+
+test('timeline va CDR phai parse gio trong CUNG mot he — khong duoc lech mui gio', () => {
+  // Log block ghi "2026-09-01 10:00:00" (gio dia phuong, khong co offset) va CDR
+  // cung vay. Neu mot ben parse UTC con ben kia local thi lech 7 tieng va moi
+  // cuoc goi se roi nham nhom ma khong bao loi gi.
+  const end = Date.parse('2026-09-02T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+    E('0901', 'VT', '2026-09-01 14:00:00', 'reactive'),
+  ], { windowEnd: end });
+
+  const rows = core.enrichData(core.normalizeCallRecords([
+    { caller_id_number: '0901', telco: 'Viettel', start_stamp: '2026-09-01 12:00:00',
+      billsec: 10, hangup_cause: 'NORMAL_CLEARING' },
+  ]), {});
+  // moc cua CDR va cua timeline phai cung he quy chieu
+  assert.equal(rows[0].start_ts, core.parseEventTs('2026-09-01 12:00:00'));
+
+  const res = core.computeRoutingLeaks(tl, rows, { windowEnd: end });
+  assert.equal(res.inClosed.calls, 1);   // 12:00 nam giua 10:00 va 14:00
+  assert.equal(res.outside.calls, 0);
+});

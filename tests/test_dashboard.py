@@ -798,3 +798,36 @@ class RoutingOptionsTests(unittest.TestCase):
             cache.prune(RE.day_range(5, date(2026, 9, 7)))
             self.assertEqual(cache.read_routings(), [{"id": "1", "name": "R"}])
             self.assertIsNone(cache.read_day("2020-01-01"))
+
+
+class CidTabTests(unittest.TestCase):
+    """Tab Vong doi CID: markup, dispatch render va cac the bao cao."""
+
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_tab_va_cac_the_bao_cao_co_mat(self):
+        self.assertIn('data-tab="cid"', self.HTML)
+        self.assertIn("<span>Vòng đời CID</span>", self.HTML)
+        for card in ("panel_cid_coverage", "chart_cid_availability", "chart_cid_mttr",
+                     "table_cid_mttr_telco", "table_cid_duty", "panel_cid_waste"):
+            self.assertIn(f'id="{card}"', self.HTML, f"thiếu thẻ {card}")
+
+    def test_render_duoc_noi_vao_ensure_tab_rendered(self):
+        self.assertIn("else if(tabName==='cid') renderCidTab();", self.HTML)
+        self.assertIn("cid:true};", self.HTML)   # tab moi hien tat ca the
+
+    def test_tab_luoi_nap_qua_api_rieng_khong_an_theo_bo_loc_CDR(self):
+        self.assertIn("fetch('/api/cid-events?'", self.HTML)
+        self.assertIn("function loadCidEvents(sync)", self.HTML)
+        # chi goi mang khi bam nut, khong nap theo moi lan doi filter
+        self.assertIn("t.id === 'cidLoadBtn'", self.HTML)
+        self.assertIn("t.id === 'cidSyncBtn'", self.HTML)
+
+    def test_moc_cua_so_lay_tu_meta_chu_khong_suy_tu_du_lieu(self):
+        # neu suy tu su kien dau tien thi mau so duty cycle se co gian theo du lieu
+        self.assertIn("function cidWindowBounds()", self.HTML)
+        self.assertIn("computeCidDutyCycle(cidState.timeline, cidWindowBounds())", self.HTML)
+
+    def test_mau_so_kha_dung_lay_tu_CDR_de_khong_bi_quan(self):
+        self.assertIn("function cidUniverseFromCdr(rows)", self.HTML)
+        self.assertIn("universeByTelco: universe", self.HTML)

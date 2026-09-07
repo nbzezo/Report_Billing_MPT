@@ -1037,6 +1037,7 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="time"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Vận hành</span></button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="advanced"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="2.3" y="3" width="11.4" height="10" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2.3 6.6h11.4M6.4 6.6V13" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Dữ liệu &amp; Tài khoản</span></button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="billing"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="2" y="4.2" width="12" height="7.6" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>Cước phí</span></button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="cid"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.4 4.5h11.2M2.4 8h7.2M2.4 11.5h9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="11.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Vòng đời CID</span></button>
     <span class="muted adw-sidebar-note">Mẹo: kéo thả thẻ biểu đồ để sắp xếp, tự động lưu</span>
   </div>
 <div id="reportGrid" class="grid report-grid">
@@ -1512,6 +1513,51 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
           <tbody></tbody>
         </table>
       </div>
+    </div>
+
+    <div id="panel_cid_coverage" class="card full" data-tab="cid" draggable="true">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0 0 6px 0">Lịch sử khoá số (Block / Reactive)</h3>
+          <div class="muted" id="cidWindowNote">Chưa tải.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="cidLoadBtn">Tải từ cache</button>
+          <button id="cidSyncBtn">Đồng bộ từ MPT</button>
+        </div>
+      </div>
+      <div id="cidCoverageBody" style="margin-top:10px"></div>
+    </div>
+
+    <div id="chart_cid_availability" class="card large" data-tab="cid" draggable="true"></div>
+    <div id="chart_cid_mttr" class="card small" data-tab="cid" draggable="true"></div>
+
+    <div id="table_cid_mttr_telco" class="card full" data-tab="cid" draggable="true">
+      <h3 style="margin:0 0 6px 0">Thời gian hồi phục theo nhà mạng</h3>
+      <div class="muted">Block = MPT gắn cờ nghi ngờ; Reactive = tool tự mở lại. Cột <b>Chết (24h)</b> theo quy tắc vận hành, cột <b>Hồi phục muộn</b> là phần quy tắc đó đếm nhầm.</div>
+      <table id="cidMttrTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Lượt khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đã mở lại</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Còn khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Chết (24h)</th><th style="text-align:right;border:1px solid #eee;padding:6px">Hồi phục muộn</th><th style="text-align:right;border:1px solid #eee;padding:6px">MTTR</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+
+    <div id="table_cid_duty" class="card full" data-tab="cid" draggable="true">
+      <h3 style="margin:0 0 6px 0">Duty cycle từng CID</h3>
+      <div class="muted">Sống bao nhiêu % thời gian, theo từng cặp <b>CID × nhà mạng</b> — một số có thể đang bị VT chặn mà vẫn gọi MB bình thường. Sắp xếp tệ nhất lên đầu, hiển thị tối đa 200 dòng.</div>
+      <table id="cidDutyTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">CID</th><th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Uptime</th><th style="text-align:right;border:1px solid #eee;padding:6px">Số lần khoá</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Giờ bị khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">MTTR</th><th style="text-align:left;border:1px solid #eee;padding:6px">Trạng thái</th><th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+
+    <div id="panel_cid_waste" class="card full" data-tab="cid" draggable="true">
+      <h3 style="margin:0 0 6px 0">Cuộc gọi vào số đang bị khoá</h3>
+      <div class="muted">Đối chiếu dữ liệu cuộc gọi đang lọc với timeline khoá số. Cần dữ liệu cuộc gọi nằm trong cửa sổ lịch sử thì mới tính được.</div>
+      <div id="cidWasteBody" style="margin-top:10px"></div>
     </div>
 
     <div id="table_card" class="card full" data-tab="advanced">
@@ -3807,7 +3853,7 @@ const PRIMARY_REPORTS={
 function savedReportExpanded(tab){
   try{ return localStorage.getItem(`reports-expanded-${tab}`)==='1'; }catch(e){ return false; }
 }
-const tabReportExpanded={overview:true,quality:savedReportExpanded('quality'),time:savedReportExpanded('time'),advanced:savedReportExpanded('advanced'),billing:true};
+const tabReportExpanded={overview:true,quality:savedReportExpanded('quality'),time:savedReportExpanded('time'),advanced:savedReportExpanded('advanced'),billing:true,cid:true};
 
 function applyDashboardV2Layout(){
   document.body.classList.add('adw');
@@ -4632,6 +4678,267 @@ function exportBillingDetail(){
   on('billExportDetail', exportBillingDetail);
 })();
 
+/* ==========================================================================
+   [SECTION] Vòng đời CID — lịch sử Block/Reactive lấy từ trang MPT
+   `routing/reports` qua /api/cid-events.
+
+   Dữ liệu này ĐỘC LẬP với bộ lọc CDR (nó là lịch sử của kho số, không phải của
+   cuộc gọi) nên nạp riêng một lần và giữ trong bộ nhớ, không nạp lại mỗi lần
+   đổi filter. Tab này lười nạp: chỉ gọi mạng khi người dùng bấm nút.
+   ========================================================================== */
+const cidState = { loaded:false, loading:false, error:'',
+                   events:[], routings:[], meta:null, timeline:null };
+
+function cidFmtHours(min){
+  if(min == null) return '—';
+  const h = min/60;
+  return h >= 48 ? (h/24).toFixed(1)+' ngày' : h.toFixed(1)+'h';
+}
+function cidPct(v){ return (v==null || isNaN(v)) ? '—' : v.toFixed(1)+'%'; }
+
+/* Mốc cửa sổ lấy từ meta.days (khoảng ta CHỦ ĐỊNH quan sát), không suy từ sự
+   kiện đầu tiên có trong dữ liệu — nếu không, mẫu số của duty cycle sẽ co giãn
+   theo dữ liệu và hai lần chạy khác nhau cho ra tỷ lệ khác nhau. */
+function cidWindowBounds(){
+  const days = (cidState.meta && cidState.meta.days) || [];
+  if(!days.length) return {};
+  return {
+    windowStart: Date.parse(days[0] + 'T00:00:00'),
+    windowEnd: Math.min(Date.now(), Date.parse(days[days.length-1] + 'T23:59:59'))
+  };
+}
+
+async function loadCidEvents(sync){
+  if(cidState.loading) return;
+  const pid = (typeof mptActiveProfileId !== 'undefined') ? mptActiveProfileId : '';
+  if(!pid){ cidState.error = 'Hãy chọn kết nối MPT trước (Nguồn dữ liệu MPT).'; renderCidTab(); return; }
+  cidState.loading = true; cidState.error = ''; renderCidTab();
+  try{
+    const qs = new URLSearchParams({ profile_id: pid });
+    if(sync) qs.set('sync', '1');
+    const res = await fetch('/api/cid-events?' + qs.toString());
+    const d = await res.json();
+    if(d && d.error) throw new Error(d.error);
+    cidState.events = d.events || [];
+    cidState.routings = d.routings || [];
+    cidState.meta = d.meta || null;
+    cidState.timeline = buildCidTimeline(cidState.events);
+    cidState.loaded = true;
+  }catch(e){
+    cidState.error = String((e && e.message) || e);
+  }finally{
+    cidState.loading = false;
+    renderCidTab();
+  }
+}
+
+/* Mẫu số thật cho tỷ lệ khả dụng: đếm CID riêng biệt theo nhà mạng TỪ CDR đang
+   lọc. Không có nó thì mẫu số rơi về "số đã từng bị khoá" — một cận dưới làm
+   tỷ lệ trông bi quan hơn thực tế. */
+function cidUniverseFromCdr(rows){
+  const m = {};
+  (rows||[]).forEach(r=>{
+    const code = telcoBlockCode(getTelco(r));
+    const cid = normalizeCidNational(r.caller_id_number);
+    if(!code || !cid) return;
+    (m[code] || (m[code] = new Set())).add(cid);
+  });
+  const out = {};
+  Object.keys(m).forEach(k=> out[k] = m[k].size);
+  return out;
+}
+
+function renderCidCoverage(){
+  const el = document.getElementById('cidCoverageBody');
+  const note = document.getElementById('cidWindowNote');
+  if(!el) return;
+  if(cidState.loading){ el.innerHTML = '<div class="muted">Đang tải lịch sử khoá số…</div>'; return; }
+  if(cidState.error){ el.innerHTML = '<div style="color:#c0392b">'+cidState.error+'</div>'; return; }
+  if(!cidState.loaded){
+    el.innerHTML = '<div class="muted">Bấm <b>Tải từ cache</b> để xem lịch sử đã lưu, hoặc <b>Đồng bộ từ MPT</b> để kéo bổ sung các ngày còn thiếu.</div>';
+    return;
+  }
+  const m = cidState.meta || {};
+  const days = m.days || [];
+  if(note){
+    note.textContent = days.length
+      ? days[0]+' → '+days[days.length-1]+' · '+(m.eventCount||0).toLocaleString('vi-VN')
+        +' sự kiện · '+cidState.routings.length+' routing'
+      : 'Chưa có dữ liệu trong cửa sổ.';
+  }
+  const accounts = (typeof mptAccounts !== 'undefined' && mptAccounts) ? mptAccounts : [];
+  const cov = buildCidCoverage({ routings: cidState.routings, accounts, events: cidState.events });
+  const warn = [];
+  if((m.missingDays||[]).length) warn.push(m.missingDays.length+' ngày chưa tải — bấm Đồng bộ từ MPT.');
+  if((m.truncatedDays||[]).length) warn.push(m.truncatedDays.length+' ngày chạm trần 2.000 dòng của MPT nên có thể thiếu sự kiện.');
+  if((cov.stats.eventRoutingsNotListed||[]).length) warn.push(cov.stats.eventRoutingsNotListed.length+' routing có sự kiện nhưng không có trong danh sách routing.');
+
+  const box = (label, value, hint, tone) =>
+    '<div style="flex:1 1 150px;min-width:150px;padding:10px 12px;border:1px solid var(--border,#e1e8f2);border-radius:10px">'
+    + '<div style="font-size:20px;font-weight:700;'+(tone?'color:'+tone:'')+'">'+value+'</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:2px">'+label+'</div>'
+    + '<div class="muted" style="font-size:11px;margin-top:3px">'+hint+'</div></div>';
+
+  el.innerHTML =
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + box('Có block', cov.stats.withBlocks, 'account có routing và có sự kiện khoá', '')
+    + box('Sạch thật', cov.stats.clean, '0 block — quan sát được nên con số này đáng tin', '#2e7d32')
+    + box('Ngoài phạm vi', cov.stats.unobservable, 'không có routing nào — "0 block" chỉ là KHÔNG THẤY',
+          cov.stats.unobservable ? '#c0392b' : '')
+    + box('Routing lẻ', cov.routingWithoutAccount.length, 'routing không có account trùng tên', '')
+    + '</div>'
+    + (cov.unobservable.length
+        ? '<div style="margin-top:10px;padding:8px 10px;border-left:3px solid #c0392b;background:rgba(192,57,43,.06)">'
+          + '<b>Không quan sát được:</b> ' + cov.unobservable.map(x=>x.name).join(', ')
+          + '. Với các account này, "0 block" không có nghĩa là tốt.</div>'
+        : '')
+    + (warn.length
+        ? '<div style="margin-top:10px;padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+          + warn.join('<br>') + '</div>'
+        : '');
+}
+
+function plotCidAvailability(){
+  const id = 'chart_cid_availability';
+  if(!cidState.loaded || !cidState.timeline) return showNoData(id, 'Chưa tải lịch sử khoá số');
+  const universe = cidUniverseFromCdr((typeof dashState!=='undefined' && dashState && dashState.filtered) || []);
+  const series = computeCidAvailability(cidState.timeline,
+    Object.assign({ universeByTelco: universe }, cidWindowBounds()));
+  const keys = Object.keys(series).sort((a,b)=> series[b].peakBlocked - series[a].peakBlocked);
+  if(!keys.length) return showNoData(id, 'Không có khoảng bị khoá nào');
+  const lowerBound = keys.some(k=> series[k].universeIsLowerBound);
+  const data = keys.map(t=>({
+    type:'scatter', mode:'lines', name:t, line:{ shape:'hv', width:2 },
+    x: series[t].times.map(ms=> new Date(ms)),
+    y: series[t].availablePct,
+    hovertemplate:'%{x}<br>'+t+': %{y:.1f}% khả dụng<extra></extra>'
+  }));
+  const layout = {
+    title: 'Tỷ lệ kho số khả dụng theo thời gian'
+      + (lowerBound ? ' — mẫu số là CẬN DƯỚI, thực tế cao hơn' : ''),
+    height: 420, yaxis:{ title:'% khả dụng', rangemode:'tozero' }, xaxis:{ title:'' },
+    legend:{ orientation:'h', y:-0.18 }
+  };
+  Plotly.react(id, data, layout, { responsive:true });
+}
+
+function plotCidMttr(){
+  const id = 'chart_cid_mttr';
+  if(!cidState.loaded || !cidState.timeline) return showNoData(id, 'Chưa tải lịch sử khoá số');
+  const ivs = cidState.timeline.intervals.filter(iv=> iv.recovered);
+  if(!ivs.length) return showNoData(id, 'Chưa có lượt mở lại nào');
+  const buckets = [
+    ['<1h', 0, 60], ['1–3h', 60, 180], ['3–6h', 180, 360], ['6–12h', 360, 720],
+    ['12–24h', 720, 1440], ['1–3 ngày', 1440, 4320], ['>3 ngày', 4320, Infinity]
+  ];
+  const counts = buckets.map(b=> ivs.filter(iv=> iv.durationMin >= b[1] && iv.durationMin < b[2]).length);
+  const over = buckets.map(b=> b[1] >= 1440);
+  Plotly.react(id, [{
+    type:'bar', x: buckets.map(b=> b[0]), y: counts,
+    marker:{ color: over.map(o=> o ? '#c0392b' : '#3584e4') },
+    hovertemplate:'%{x}: %{y} lượt<extra></extra>'
+  }], {
+    title:'Thời gian hồi phục (đỏ = quá mốc 24h)', height:400,
+    yaxis:{ title:'Số lượt' }
+  }, { responsive:true });
+}
+
+function renderCidMttrTable(){
+  const tb = document.querySelector('#cidMttrTable tbody');
+  if(!tb) return;
+  if(!cidState.loaded || !cidState.timeline){
+    tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:6px">Chưa tải lịch sử khoá số.</td></tr>'; return; }
+  const m = computeBlockMttr(cidState.timeline);
+  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
+  const n = v => v.toLocaleString('vi-VN');
+  tb.innerHTML = m.byTelco.map(b=>
+    '<tr><td style="border:1px solid #eee;padding:6px"><b>'+b.telco+'</b></td>'
+    + '<td '+td+'>'+n(b.total)+'</td>'
+    + '<td '+td+'>'+n(b.recovered)+'</td>'
+    + '<td '+td+'>'+n(b.total-b.recovered)+'</td>'
+    + '<td '+td+'>'+n(b.presumedDead)+'</td>'
+    + '<td '+td+'>'+n(b.lateRecovery)+'</td>'
+    + '<td '+td+'>'+cidFmtHours(b.mttrMin)+'</td></tr>').join('')
+    + '<tr style="font-weight:700;background:rgba(0,0,0,.03)">'
+    + '<td style="border:1px solid #eee;padding:6px">Tổng</td>'
+    + '<td '+td+'>'+n(m.count)+'</td>'
+    + '<td '+td+'>'+n(m.recovered)+'</td>'
+    + '<td '+td+'>'+n(m.stillBlocked)+'</td>'
+    + '<td '+td+'>'+n(m.presumedDead)+'</td>'
+    + '<td '+td+'>'+n(m.lateRecovery)+' ('+m.lateRecoveryPct.toFixed(1)+'%)</td>'
+    + '<td '+td+'>p50 '+cidFmtHours(m.p50)+'</td></tr>';
+}
+
+function renderCidDutyTable(){
+  const tb = document.querySelector('#cidDutyTable tbody');
+  if(!tb) return;
+  if(!cidState.loaded || !cidState.timeline){
+    tb.innerHTML = '<tr><td colspan="8" class="muted" style="padding:6px">Chưa tải lịch sử khoá số.</td></tr>'; return; }
+  const duty = computeCidDutyCycle(cidState.timeline, cidWindowBounds());
+  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
+  const tl = 'style="border:1px solid #eee;padding:6px"';
+  tb.innerHTML = duty.slice(0, 200).map(d=>
+    '<tr><td '+tl+'><code>'+d.cid+'</code></td>'
+    + '<td '+tl+'>'+d.telco+'</td>'
+    + '<td '+td+'><b'+(d.uptimePct < 50 ? ' style="color:#c0392b"' : '')+'>'+cidPct(d.uptimePct)+'</b></td>'
+    + '<td '+td+'>'+d.blockCount+'</td>'
+    + '<td '+td+'>'+d.blockedHours.toFixed(0)+'</td>'
+    + '<td '+td+'>'+cidFmtHours(d.mttrMin)+'</td>'
+    + '<td '+tl+'>'+(d.currentlyBlocked ? '<span style="color:#c0392b">đang khoá</span>' : 'đang sống')+'</td>'
+    + '<td '+tl+' class="muted">'+d.routings.join(', ')+'</td></tr>').join('')
+    || '<tr><td colspan="8" class="muted" style="padding:6px">Không có dữ liệu.</td></tr>';
+}
+
+function renderCidWaste(){
+  const el = document.getElementById('cidWasteBody');
+  if(!el) return;
+  if(!cidState.loaded || !cidState.timeline){ el.innerHTML = '<div class="muted">Chưa tải lịch sử khoá số.</div>'; return; }
+  const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
+  if(!rows.length){
+    el.innerHTML = '<div class="muted">Chưa có dữ liệu cuộc gọi. Tải báo cáo ở <b>Nguồn dữ liệu MPT</b> trước.</div>'; return; }
+  const r = computeRoutingLeaks(cidState.timeline, rows);
+  if(!r.checked){
+    el.innerHTML = '<div class="muted">Không có cuộc gọi nào đủ trường (CID, nhà mạng, thời điểm) để đối chiếu.</div>'; return; }
+  const cell = 'border:1px solid #eee;padding:6px';
+  const line = (label, g, tone, hint) =>
+    '<tr><td style="'+cell+'">'+label+'</td>'
+    + '<td style="text-align:right;'+cell+'">'+g.calls.toLocaleString('vi-VN')+'</td>'
+    + '<td style="text-align:right;'+cell+';'+(tone?'color:'+tone+';font-weight:700':'')+'">'+cidPct(g.connectRate)+'</td>'
+    + '<td style="'+cell+'" class="muted">'+hint+'</td></tr>';
+  el.innerHTML =
+    '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'
+    + '<th style="text-align:left;'+cell+'">Trạng thái CID lúc gọi</th>'
+    + '<th style="text-align:right;'+cell+'">Cuộc gọi</th>'
+    + '<th style="text-align:right;'+cell+'">Tỷ lệ kết nối</th>'
+    + '<th style="text-align:left;'+cell+'">Ý nghĩa</th></tr></thead><tbody>'
+    + line('Ngoài cửa sổ bị khoá', r.outside, '', 'nền để so sánh')
+    + line('Trong khoảng <b>đã mở lại</b>', r.inClosed, '', 'block chỉ là cờ nghi ngờ, không chặn route')
+    + line('Trong khoảng <b>chưa mở lại</b>', r.inCensored, '#c0392b', 'số đã chết mà vẫn bị quay — lãng phí')
+    + '</tbody></table>'
+    + (r.wastedCalls
+        ? '<div style="margin-top:10px;padding:8px 10px;border-left:3px solid #c0392b;background:rgba(192,57,43,.06)">'
+          + '<b>'+r.wastedCalls.toLocaleString('vi-VN')+' cuộc gọi</b> ('
+          + (100*r.wastedCalls/r.checked).toFixed(1)
+          + '% lưu lượng đang lọc) nhắm vào số đã bị khoá và chưa được mở lại.</div>'
+        : '');
+}
+
+function renderCidTab(){
+  renderCidCoverage();
+  renderCidMttrTable();
+  renderCidDutyTable();
+  renderCidWaste();
+  safePlot('chart_cid_availability', ()=> plotCidAvailability());
+  safePlot('chart_cid_mttr', ()=> plotCidMttr());
+}
+
+document.addEventListener('click', ev=>{
+  const t = ev.target;
+  if(!t || !t.id) return;
+  if(t.id === 'cidLoadBtn') loadCidEvents(false);
+  if(t.id === 'cidSyncBtn') loadCidEvents(true);
+});
+
 async function ensureTabRendered(tabName, force=false){
   if(!dashState) return;
   const filtered = dashState.filtered || [];
@@ -4649,6 +4956,7 @@ async function ensureTabRendered(tabName, force=false){
     else if(tabName==='time') await renderTimeTab(filtered, colors);
     else if(tabName==='advanced') await renderAdvancedTab(filtered, colors);
     else if(tabName==='billing') await renderBillingTab();
+    else if(tabName==='cid') renderCidTab();
     else if(tabName==='table') renderTableTab(filtered);
   }catch(e){
     console.warn('Render tab error:', tabName, e);
