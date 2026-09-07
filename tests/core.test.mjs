@@ -492,3 +492,91 @@ test('timeline va CDR phai parse gio trong CUNG mot he — khong duoc lech mui g
   assert.equal(res.inClosed.calls, 1);   // 12:00 nam giua 10:00 va 14:00
   assert.equal(res.outside.calls, 0);
 });
+
+// ===== Dot 3: ap luc chan, dot can quet, ton that =====
+
+test('computeBlockPressure — chi dem block, khong dem reactive', () => {
+  const pr = core.computeBlockPressure([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+    E('0901', 'VT', '2026-09-01 12:00:00', 'reactive'),   // khong duoc dem
+    E('0902', 'MB', '2026-09-01 11:00:00', 'block'),
+    E('0903', 'VT', '2026-09-02 10:00:00', 'block'),
+  ], { days: ['2026-09-01', '2026-09-02'] });
+  assert.deepEqual(pr.total, [2, 1]);
+  assert.deepEqual(pr.byTelco.VT, [1, 1]);
+  assert.deepEqual(pr.byTelco.MB, [1, 0]);
+  assert.equal(pr.peakDay, '2026-09-01');
+});
+
+test('computeBlockPressure — MA7 de null khi chua du 7 ngay', () => {
+  const days = Array.from({ length: 9 }, (_, i) => `2026-09-0${i + 1}`);
+  const ev = days.map((d, i) => E('090' + i, 'VT', d + ' 10:00:00', 'block'));
+  const pr = core.computeBlockPressure(ev, { days });
+  // 6 diem dau phai la null, khong duoc chia cho so ngay it hon
+  assert.deepEqual(pr.ma7.slice(0, 6), [null, null, null, null, null, null]);
+  assert.equal(pr.ma7[6], 1);
+});
+
+test('computeBlockBursts — bat cum dong, bo qua nen thua thot', () => {
+  const ev = [];
+  // nen: moi lat 1 su kien, rai deu
+  for (let i = 0; i < 40; i++) ev.push(E('09' + i, 'VT', `2026-09-01 ${String(i % 24).padStart(2, '0')}:03:00`, 'block'));
+  // dot can quet: 12 CID bi khoa trong cung 1 lat 5 phut
+  for (let i = 0; i < 12; i++) ev.push(E('088' + i, 'MB', '2026-09-02 09:31:0' + (i % 10), 'block'));
+
+  const r = core.computeBlockBursts(ev, { bucketMinutes: 5, minCount: 8 });
+  assert.equal(r.bursts.length, 1);
+  assert.equal(r.bursts[0].blocks, 12);
+  assert.equal(r.bursts[0].cids, 12);
+  assert.deepEqual(r.bursts[0].telcos, [{ telco: 'MB', count: 12 }]);
+});
+
+test('computeBlockBursts — noi ro nguong den tu san tuyet doi khi MAD=0', () => {
+  // phan bo lech (hau het lat co 1 su kien) -> MAD=0 -> nguong thong ke sup do
+  const ev = Array.from({ length: 30 }, (_, i) =>
+    E('09' + i, 'VT', `2026-09-01 ${String(i).padStart(2, '0')}:00:00`, 'block'));
+  const r = core.computeBlockBursts(ev, { bucketMinutes: 5, minCount: 8 });
+  assert.equal(r.mad, 0);
+  assert.equal(r.thresholdSource, 'floor');   // phai bao, khong duoc im lang
+  assert.equal(r.threshold, 8);
+});
+
+test('computeDeadNumberLoss — ton that la KET NOI mat, suy tu nen quan sat duoc', () => {
+  const end = Date.parse('2026-09-03T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0902', 'VT', '2026-09-01 10:00:00', 'block'),   // khong bao gio mo lai
+  ], { windowEnd: end });
+
+  const call = (caller, stamp, billsec) => ({
+    caller_id_number: caller, telco: 'Viettel', start_stamp: stamp, billsec,
+    hangup_cause: billsec ? 'NORMAL_CLEARING' : 'NO_USER_RESPONSE',
+  });
+  const rows = [];
+  // nen: 10 cuoc ngoai khoang khoa, 5 ket noi, moi cuoc 60s -> 50% & 60s
+  for (let i = 0; i < 10; i++) rows.push(call('0901', '2026-09-01 08:0' + i + ':00', i < 5 ? 60 : 0));
+  // 4 cuoc bam vao so da chet, khong cuoc nao ket noi
+  for (let i = 0; i < 4; i++) rows.push(call('0902', '2026-09-01 11:0' + i + ':00', 0));
+
+  const loss = core.computeDeadNumberLoss(tl, core.enrichData(core.normalizeCallRecords(rows), {}),
+                                          { minBaseCalls: 5 });
+  assert.equal(loss.wastedCalls, 4);
+  assert.equal(loss.baseCalls, 10);
+  assert.equal(loss.baseConnectRate, 50);
+  assert.equal(loss.baseAvgBillsec, 60);
+  assert.equal(loss.lostConnections, 2);      // 4 luot x 50%
+  assert.equal(loss.lostMinutes, 2);          // 2 ket noi x 60s
+  assert.equal(loss.reliable, true);
+});
+
+test('computeDeadNumberLoss — thieu mau nen thi phai bao khong dang tin', () => {
+  const end = Date.parse('2026-09-03T00:00:00');
+  const tl = core.buildCidTimeline([E('0902', 'VT', '2026-09-01 10:00:00', 'block')], { windowEnd: end });
+  const rows = core.enrichData(core.normalizeCallRecords([
+    { caller_id_number: '0902', telco: 'Viettel', start_stamp: '2026-09-01 11:00:00',
+      billsec: 0, hangup_cause: 'NO_USER_RESPONSE' },
+  ]), {});
+  const loss = core.computeDeadNumberLoss(tl, rows);
+  assert.equal(loss.wastedCalls, 1);
+  assert.equal(loss.baseCalls, 0);
+  assert.equal(loss.reliable, false);         // khong co nen -> khong duoc tin
+});

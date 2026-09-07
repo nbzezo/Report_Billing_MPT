@@ -1554,10 +1554,29 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       </table>
     </div>
 
+    <div id="chart_cid_pressure" class="card large" data-tab="cid" draggable="true"></div>
+
+    <div id="table_cid_bursts" class="card full" data-tab="cid" draggable="true">
+      <h3 style="margin:0 0 6px 0">Đợt khoá dồn dập</h3>
+      <div class="muted" id="cidBurstNote">Nhiều CID bị khoá trong vài phút thường là sự cố hoặc chính sách phía nhà mạng, không phải hành vi của từng số — cách xử lý khác hẳn.</div>
+      <table id="cidBurstTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Thời điểm</th><th style="text-align:right;border:1px solid #eee;padding:6px">Lượt khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Số CID</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">So với nền</th><th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+
     <div id="panel_cid_waste" class="card full" data-tab="cid" draggable="true">
       <h3 style="margin:0 0 6px 0">Cuộc gọi vào số đang bị khoá</h3>
       <div class="muted">Đối chiếu dữ liệu cuộc gọi đang lọc với timeline khoá số. Cần dữ liệu cuộc gọi nằm trong cửa sổ lịch sử thì mới tính được.</div>
       <div id="cidWasteBody" style="margin-top:10px"></div>
+    </div>
+
+    <div id="panel_cid_loss" class="card full" data-tab="cid" draggable="true">
+      <h3 style="margin:0 0 6px 0">Tổn thất do quay số vào số đã chết</h3>
+      <div class="muted">Ước lượng bằng <b>số lượt đã bấm × tỷ lệ kết nối nền</b>, cả hai đo từ chính dữ liệu đang lọc. Không dùng giả định nào từ bên ngoài.</div>
+      <div id="cidLossBody" style="margin-top:10px"></div>
     </div>
 
     <div id="table_card" class="card full" data-tab="advanced">
@@ -4923,13 +4942,103 @@ function renderCidWaste(){
         : '');
 }
 
+function plotCidPressure(){
+  const id = 'chart_cid_pressure';
+  if(!cidState.loaded) return showNoData(id, 'Chưa tải lịch sử khoá số');
+  const days = (cidState.meta && cidState.meta.days) || null;
+  const pr = computeBlockPressure(cidState.events, days ? { days } : {});
+  if(!pr.days.length) return showNoData(id, 'Không có lượt khoá nào');
+  const telcos = Object.keys(pr.byTelco);
+  const data = telcos.map(t=>({
+    type:'bar', name:t, x:pr.days, y:pr.byTelco[t],
+    hovertemplate:'%{x}<br>'+t+': %{y} lượt<extra></extra>'
+  }));
+  data.push({
+    type:'scatter', mode:'lines', name:'TB trượt 7 ngày',
+    x:pr.days, y:pr.ma7, line:{ color:'#111', width:2, dash:'dot' },
+    hovertemplate:'%{x}<br>TB7: %{y:.0f}<extra></extra>'
+  });
+  Plotly.react(id, data, {
+    title:'Áp lực chặn theo ngày (chỉ đếm lượt Block)',
+    barmode:'stack', height:420,
+    yaxis:{ title:'Lượt khoá' }, legend:{ orientation:'h', y:-0.18 }
+  }, { responsive:true });
+}
+
+function renderCidBurstTable(){
+  const tb = document.querySelector('#cidBurstTable tbody');
+  const note = document.getElementById('cidBurstNote');
+  if(!tb) return;
+  if(!cidState.loaded){
+    tb.innerHTML = '<tr><td colspan="6" class="muted" style="padding:6px">Chưa tải lịch sử khoá số.</td></tr>'; return; }
+  const r = computeBlockBursts(cidState.events);
+  if(note){
+    const src = r.thresholdSource === 'floor'
+      ? 'Ngưỡng lấy theo <b>sàn tuyệt đối</b> vì phân bố quá lệch (MAD = 0) — đây không phải ngưỡng thống kê chặt chẽ.'
+      : 'Ngưỡng = trung vị + 6·MAD (kháng ngoại lai, không bị chính các đợt càn quét che mất).';
+    note.innerHTML = 'Nhiều CID bị khoá trong vài phút thường là sự cố hoặc chính sách phía nhà mạng, '
+      + 'không phải hành vi của từng số — cách xử lý khác hẳn.<br>'
+      + 'Lát ' + r.bucketMinutes + ' phút · trung vị ' + r.median + ' lượt/lát · ngưỡng '
+      + r.threshold.toFixed(0) + '. ' + src;
+  }
+  if(!r.bursts.length){
+    tb.innerHTML = '<tr><td colspan="6" class="muted" style="padding:6px">Không phát hiện đợt khoá dồn dập nào.</td></tr>'; return; }
+  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
+  const tl = 'style="border:1px solid #eee;padding:6px"';
+  tb.innerHTML = r.bursts.slice(0, 60).map(b=>
+    '<tr><td '+tl+'>'+b.startISO+'</td>'
+    + '<td '+td+'><b>'+b.blocks+'</b></td>'
+    + '<td '+td+'>'+b.cids+'</td>'
+    + '<td '+td+'>'+(b.xMedian!=null ? '×'+b.xMedian.toFixed(0) : '—')+'</td>'
+    + '<td '+tl+'>'+b.telcos.map(t=> t.telco+':'+t.count).join(' ')+'</td>'
+    + '<td '+tl+' class="muted">'+b.routings.join(', ')+'</td></tr>').join('');
+}
+
+function renderCidLoss(){
+  const el = document.getElementById('cidLossBody');
+  if(!el) return;
+  if(!cidState.loaded || !cidState.timeline){ el.innerHTML = '<div class="muted">Chưa tải lịch sử khoá số.</div>'; return; }
+  const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
+  if(!rows.length){ el.innerHTML = '<div class="muted">Chưa có dữ liệu cuộc gọi để đối chiếu.</div>'; return; }
+  let billing = null;
+  try{ const c = getBillingConfig(); if(c && c.rate > 0) billing = c; }catch(e){}
+  const L = computeDeadNumberLoss(cidState.timeline, rows, billing ? { billing } : {});
+  if(!L.wastedCalls){
+    el.innerHTML = '<div class="muted">Không có cuộc gọi nào nhắm vào số đã chết trong phạm vi đang lọc — không có tổn thất để tính.</div>'; return; }
+  const n = v => Math.round(v).toLocaleString('vi-VN');
+  const box = (v, label, hint, tone) =>
+    '<div style="flex:1 1 160px;min-width:160px;padding:10px 12px;border:1px solid var(--border,#e1e8f2);border-radius:10px">'
+    + '<div style="font-size:20px;font-weight:700;'+(tone?'color:'+tone:'')+'">'+v+'</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:2px">'+label+'</div>'
+    + '<div class="muted" style="font-size:11px;margin-top:3px">'+hint+'</div></div>';
+  el.innerHTML =
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    + box(n(L.wastedCalls), 'Lượt bấm phí', L.wastedCallPct.toFixed(1)+'% lưu lượng đang lọc', '#c0392b')
+    + box(n(L.lostConnections), 'Kết nối mất', 'suy từ nền '+L.baseConnectRate.toFixed(1)+'% trên '+n(L.baseCalls)+' cuộc', '#c0392b')
+    + box(n(L.lostMinutes), 'Phút gọi mất', 'billsec nền '+L.baseAvgBillsec.toFixed(0)+'s/kết nối', '')
+    + (L.money != null
+        ? box(n(L.money)+' đ', 'Cước mất', 'theo đơn giá ở tab Cước phí', '')
+        : box('—', 'Cước mất', 'đặt đơn giá ở tab Cước phí để tính', ''))
+    + '</div>'
+    + (L.reliable
+        ? '<div class="muted" style="margin-top:10px;font-size:11.5px">Tiền chỉ tính phần cước thoại. '
+          + 'Giá trị nghiệp vụ của <b>'+n(L.lostConnections)+' cuộc trò chuyện không xảy ra</b> thường lớn hơn con số này nhiều — '
+          + 'đó mới là chỉ số nên dùng khi cân nhắc đầu tư xử lý.</div>'
+        : '<div style="margin-top:10px;padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+          + '<b>Mẫu nền quá nhỏ</b> ('+n(L.baseCalls)+' cuộc ngoài cửa sổ khoá) nên tỷ lệ kết nối nền chưa ổn định. '
+          + 'Hãy tải khoảng dữ liệu rộng hơn trước khi dùng các con số này.</div>');
+}
+
 function renderCidTab(){
   renderCidCoverage();
+  renderCidBurstTable();
+  renderCidLoss();
   renderCidMttrTable();
   renderCidDutyTable();
   renderCidWaste();
   safePlot('chart_cid_availability', ()=> plotCidAvailability());
   safePlot('chart_cid_mttr', ()=> plotCidMttr());
+  safePlot('chart_cid_pressure', ()=> plotCidPressure());
 }
 
 document.addEventListener('click', ev=>{

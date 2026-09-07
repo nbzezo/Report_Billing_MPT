@@ -831,3 +831,34 @@ class CidTabTests(unittest.TestCase):
     def test_mau_so_kha_dung_lay_tu_CDR_de_khong_bi_quan(self):
         self.assertIn("function cidUniverseFromCdr(rows)", self.HTML)
         self.assertIn("universeByTelco: universe", self.HTML)
+
+
+class CidDot3Tests(unittest.TestCase):
+    """Dot 3: ap luc chan, dot can quet, ton that."""
+
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+    CORE = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+
+    def test_the_bao_cao_moi_co_mat_va_duoc_ve(self):
+        for card in ("chart_cid_pressure", "table_cid_bursts", "panel_cid_loss"):
+            self.assertIn(f'id="{card}"', self.HTML, f"thiếu thẻ {card}")
+        self.assertIn("safePlot('chart_cid_pressure'", self.HTML)
+        self.assertIn("renderCidBurstTable();", self.HTML)
+        self.assertIn("renderCidLoss();", self.HTML)
+
+    def test_ap_luc_chi_dem_block_khong_dem_reactive(self):
+        # gop reactive vao se lam duong ap luc nhan doi mot cach vo nghia
+        self.assertIn("if(!ev || ev.kind !== 'block') return;", self.CORE)
+
+    def test_nguong_burst_dung_MAD_va_phai_noi_ro_nguon_nguong(self):
+        # trung binh + do lech chuan se bi chinh cac dot can quet thoi phong
+        self.assertIn("const mad = med(counts.map", self.CORE)
+        self.assertIn("thresholdSource", self.CORE)
+        self.assertIn("r.thresholdSource === 'floor'", self.HTML)
+
+    def test_ton_that_suy_tu_nen_quan_sat_duoc_va_canh_bao_khi_thieu_mau(self):
+        self.assertIn("lostConnections = wastedCalls * baseConnectRate", self.CORE)
+        self.assertIn("reliable:", self.CORE)
+        self.assertIn("Mẫu nền quá nhỏ", self.HTML)
+        # tien chi la cuoc thoai, khong phai gia tri nghiep vu
+        self.assertIn("Tiền chỉ tính phần cước thoại", self.HTML)

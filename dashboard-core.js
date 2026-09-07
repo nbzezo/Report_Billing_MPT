@@ -1743,6 +1743,182 @@ function computeRoutingLeaks(timeline, cdrRows, opts){
   };
 }
 
+/**
+ * A4 — áp lực chặn theo ngày: đếm lượt Block mỗi ngày, tách theo nhà mạng, kèm
+ * trung bình trượt 7 ngày.
+ *
+ * Chỉ đếm `block` chứ không đếm `reactive`: reactive là phản ứng của tool, gộp
+ * vào sẽ làm đường áp lực nhân đôi một cách vô nghĩa.
+ */
+function computeBlockPressure(events, opts){
+  const o = opts || {};
+  const days = o.days && o.days.length ? o.days.slice() : null;
+  const byDay = new Map();          // day -> Map(telco -> count)
+  const telcos = new Set();
+
+  (events||[]).forEach(ev=>{
+    if(!ev || ev.kind !== 'block') return;
+    const day = String(ev.ts || '').slice(0, 10);
+    if(!day) return;
+    const t = ev.telco || 'Unknown';
+    telcos.add(t);
+    if(!byDay.has(day)) byDay.set(day, new Map());
+    const m = byDay.get(day);
+    m.set(t, (m.get(t)||0) + 1);
+  });
+
+  const axis = days || Array.from(byDay.keys()).sort();
+  const series = {};
+  Array.from(telcos).sort().forEach(t=>{
+    series[t] = axis.map(d=> (byDay.get(d) && byDay.get(d).get(t)) || 0);
+  });
+  const total = axis.map(d=>{
+    const m = byDay.get(d);
+    if(!m) return 0;
+    let n = 0; m.forEach(v=> n += v); return n;
+  });
+
+  // Trung bình trượt 7 ngày — cửa sổ chưa đủ 7 ngày thì để null thay vì chia
+  // cho số ngày ít hơn (làm đầu đường cong vọt lên một cách giả tạo).
+  const ma7 = total.map((_, i)=>{
+    if(i < 6) return null;
+    let sum = 0;
+    for(let k = i-6; k <= i; k++) sum += total[k];
+    return sum/7;
+  });
+
+  const nonZero = total.filter(v=> v > 0);
+  return {
+    days: axis, byTelco: series, total, ma7,
+    peak: total.length ? Math.max.apply(null, total) : 0,
+    peakDay: total.length ? axis[total.indexOf(Math.max.apply(null, total))] : null,
+    mean: nonZero.length ? nonZero.reduce((a,b)=>a+b,0)/nonZero.length : 0,
+    quietDays: total.filter(v=> v === 0).length
+  };
+}
+
+/**
+ * A5 — phát hiện đợt càn quét: cụm Block dồn vào một khoảng ngắn.
+ *
+ * Nhiều CID bị khoá trong vài phút là sự cố/chính sách phía nhà mạng, KHÔNG
+ * phải hành vi của từng số — phản ứng phải khác hẳn, nên phải tách ra khỏi nền.
+ *
+ * Ngưỡng dùng median + k·MAD thay vì trung bình + k·độ lệch chuẩn: chính các
+ * đợt càn quét sẽ thổi phồng độ lệch chuẩn và tự che mất mình. MAD kháng ngoại
+ * lai nên không bị vậy. Kèm sàn tuyệt đối để ngày vắng không sinh báo động giả.
+ */
+function computeBlockBursts(events, opts){
+  const o = opts || {};
+  const bucketMin = o.bucketMinutes != null ? o.bucketMinutes : 5;
+  const k = o.k != null ? o.k : 6;
+  const minCount = o.minCount != null ? o.minCount : 8;
+  const bucketMs = bucketMin * 60000;
+
+  const buckets = new Map();        // bucketStart -> {cids:Set, routings:Set, telcos:Map}
+  (events||[]).forEach(ev=>{
+    if(!ev || ev.kind !== 'block') return;
+    const ts = parseEventTs(ev.ts);
+    if(ts == null) return;
+    const start = Math.floor(ts / bucketMs) * bucketMs;
+    if(!buckets.has(start)) buckets.set(start, { cids:new Set(), routings:new Set(), telcos:new Map(), n:0 });
+    const b = buckets.get(start);
+    b.n += 1;
+    if(ev.cid) b.cids.add(ev.cid);
+    if(ev.routing) b.routings.add(ev.routing);
+    const t = ev.telco || 'Unknown';
+    b.telcos.set(t, (b.telcos.get(t)||0) + 1);
+  });
+  if(!buckets.size) return { bursts: [], threshold: 0, median: 0, mad: 0,
+                             thresholdSource: 'floor', bucketMinutes: bucketMin };
+
+  const counts = Array.from(buckets.values(), b=> b.n).sort((a,b)=> a-b);
+  const med = arr => arr.length % 2 ? arr[(arr.length-1)/2]
+                                    : (arr[arr.length/2 - 1] + arr[arr.length/2]) / 2;
+  const median = med(counts);
+  const mad = med(counts.map(v=> Math.abs(v - median)).sort((a,b)=> a-b));
+  // Phân bố lệch mạnh (phần lớn lát chỉ 0-2 sự kiện) nên MAD thường bằng 0 —
+  // khi đó ngưỡng thống kê sụp về median và sẽ gắn cờ mọi thứ. Sàn tuyệt đối
+  // tiếp quản, và `thresholdSource` nói rõ ngưỡng đến từ đâu để người đọc không
+  // tưởng đây là một ngưỡng thống kê chặt chẽ.
+  const statThreshold = median + k * mad;
+  const threshold = Math.max(minCount, statThreshold);
+  const thresholdSource = statThreshold >= minCount ? 'mad' : 'floor';
+
+  const bursts = [];
+  buckets.forEach((b, start)=>{
+    if(b.n < threshold) return;
+    const telcos = Array.from(b.telcos, ([telco, count])=> ({ telco, count }))
+      .sort((x,y)=> y.count - x.count);
+    bursts.push({
+      startTs: start, startISO: localISODateTime(start),
+      bucketMinutes: bucketMin,
+      blocks: b.n, cids: b.cids.size,
+      routings: Array.from(b.routings).sort(),
+      telcos,
+      // gấp bao nhiêu lần nền — con số này mới nói được mức độ bất thường
+      xMedian: median ? b.n / median : null
+    });
+  });
+  bursts.sort((a,b)=> b.blocks - a.blocks);
+  return { bursts, threshold, median, mad, thresholdSource, bucketMinutes: bucketMin };
+}
+
+/**
+ * B2 — tổn thất do quay số vào CID đã chết.
+ *
+ * KHÔNG ước lượng theo kiểu "năng suất nền × thời gian treo". B1 cho thấy trong
+ * khoảng đã mở lại không mất gì (62,3% kết nối, cao hơn cả nền), còn trong
+ * khoảng chưa mở lại thì cuộc gọi VẪN được bấm — chỉ là 0% kết nối. Nên thứ mất
+ * đi không phải lượt gọi mà là KẾT NỐI đáng lẽ có:
+ *
+ *     kết nối mất = số lượt đã bấm vào số chết × tỷ lệ kết nối nền
+ *     phút mất    = kết nối mất × billsec trung bình nền
+ *
+ * Cả hai tham số nền đều đo từ chính tập dữ liệu đang lọc (các cuộc NGOÀI cửa
+ * sổ khoá), nên đây là phép nội suy chứ không phải giả định từ bên ngoài.
+ */
+function computeDeadNumberLoss(timeline, cdrRows, opts){
+  const o = opts || {};
+  const leaks = o.leaks || computeRoutingLeaks(timeline, cdrRows, o);
+  const rows = cdrRows || [];
+
+  // Nền: chỉ lấy cuộc NGOÀI mọi khoảng bị khoá, để không tự nhiễm bẩn bằng
+  // chính các cuộc đang xét.
+  const hitKey = new Set(leaks.hits.map(h=> h.cid + '|' + h.telco + '|' + h.callTs));
+  let baseCalls = 0, baseConnected = 0, baseBillsec = 0;
+  rows.forEach(r=>{
+    const cid = normalizeCidNational(r.caller_id_number);
+    const code = telcoBlockCode(getTelco(r));
+    const ts = r.start_ts != null ? r.start_ts : parseEventTs(r.start_stamp);
+    if(!cid || !code || ts == null) return;
+    if(hitKey.has(cid + '|' + code + '|' + ts)) return;
+    baseCalls += 1;
+    if(isConnectedStrict(r)){ baseConnected += 1; baseBillsec += Number(r.billsec)||0; }
+  });
+
+  const baseConnectRate = baseCalls ? baseConnected / baseCalls : 0;
+  const baseAvgBillsec = baseConnected ? baseBillsec / baseConnected : 0;
+  const wastedCalls = leaks.inCensored.calls;
+  const lostConnections = wastedCalls * baseConnectRate;
+  const lostBillsec = lostConnections * baseAvgBillsec;
+
+  let money = null;
+  if(o.billing && o.billing.rate){
+    const cfg = o.billing;
+    const billedPer = billedSecondsOf(baseAvgBillsec, cfg.firstBlock, cfg.nextBlock, false);
+    money = roundMoney(lostConnections * billedPer / 60 * cfg.rate, cfg.roundStep);
+  }
+
+  return {
+    wastedCalls,
+    wastedCallPct: leaks.checked ? 100 * wastedCalls / leaks.checked : 0,
+    baseCalls, baseConnectRate: 100 * baseConnectRate, baseAvgBillsec,
+    lostConnections, lostMinutes: lostBillsec / 60, money,
+    // Đủ mẫu nền thì con số mới đáng tin; thiếu thì giao diện phải nói rõ.
+    reliable: baseCalls >= (o.minBaseCalls != null ? o.minBaseCalls : 200) && wastedCalls > 0
+  };
+}
+
 /** Phân bố thời gian hồi phục + phần sai của quy tắc 24h. */
 function computeBlockMttr(timeline, opts){
   const o = opts || {};
@@ -1798,6 +1974,7 @@ const __exports = {
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
   normalizeCidNational, deriveRoutingAccountMap, telcoBlockCode,
   buildCidCoverage, computeRoutingLeaks,
+  computeBlockPressure, computeBlockBursts, computeDeadNumberLoss,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }
