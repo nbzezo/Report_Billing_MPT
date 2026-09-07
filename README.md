@@ -137,6 +137,7 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 - Lưu kết nối trùng domain + tên đăng nhập sẽ hỏi lại trước khi tạo thêm.
 - Bỏ nút *Lưu vào HTML* ở phần gán tên Account: mapping đã tự lưu trong trình duyệt, và file HTML tải về
   không nằm trong allowlist nên mở qua server không chạy. Vẫn còn Export/Import JSON.
+- **Báo cáo Random Number (RN)** trong tab *Dữ liệu & Tài khoản*. RN = số cuộc xen giữa hai lần dùng lại cùng `(account_id, out_number)`, nên RN thấp nghĩa là đầu số bị quay vòng dày. Hai mức xem: **theo số gọi ra** (số cuộc, min/median/avg/max RN) và **theo account** (p10/p25/median/p75). Ngưỡng RN thấp tự đặt — mặc định 2, khớp KPI *Median Random Number* — kèm ô tìm kiếm, sắp xếp theo cột và Export CSV (có BOM UTF-8 để Excel mở đúng tiếng Việt). Lần đầu một số xuất hiện không có RN nên không tính vào thống kê.
 - **Xử lý nặng chạy trong Web Worker.** Parse CSV, chuẩn hoá schema, phân loại cuộc gọi, enrich và toàn bộ ~40 phép tổng hợp (kể cả CCU/concurrency và tính cước) chạy trong `dashboard-csv-worker.js`, không khoá luồng giao diện. Trang chỉ nhận một "cube" gọn (`buildCube`) rồi vẽ. Với ~40.000 dòng: ingest ~0,85s + cube ~0,6s, đều ngoài luồng UI. Không có Worker thì tự chạy lại trên main thread (`buildCube(enriched, params)`).
 - **Vẽ biểu đồ tăng dần.** Mỗi tab vẽ từng biểu đồ rồi nhả luồng (`renderSteps`/`yieldFrame` — ưu tiên trước paint, fallback `setTimeout` khi cửa sổ ẩn), kèm tiến độ *Đang vẽ biểu đồ X/Y* trên màn chờ. Cửa sổ phản hồi liên tục trong lúc dựng ~20 biểu đồ.
 - CSV trên 20 MB tiếp tục dùng parser streaming.

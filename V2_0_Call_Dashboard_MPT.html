@@ -1743,6 +1743,33 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
       </div>
     </div>
 
+
+    <div id="report_rn_detail" class="card full" data-tab="advanced" draggable="true">
+      <h3 style="margin:0 0 6px 0">Báo cáo Random Number (RN)</h3>
+      <div class="muted" style="margin-bottom:8px">
+        RN = số cuộc xen giữa hai lần dùng lại cùng (account_id, out_number) — RN càng thấp thì số bị quay vòng càng dày.
+        Lần đầu tiên một số xuất hiện không có RN nên không tính vào thống kê.
+      </div>
+      <div class="rn-toolbar">
+        <div class="rn-seg" role="group" aria-label="Mức chi tiết báo cáo RN">
+          <button type="button" class="rn-seg-btn active" data-rnview="number">Theo số gọi ra</button>
+          <button type="button" class="rn-seg-btn" data-rnview="account">Theo account</button>
+        </div>
+        <label class="muted" for="rnLowThreshold">Ngưỡng RN thấp:
+          <input id="rnLowThreshold" type="number" min="1" step="1" value="2" style="width:70px">
+        </label>
+        <input id="rnReportSearch" type="search" placeholder="Lọc account / số gọi ra…" style="min-width:190px">
+        <button id="exportRNReport" class="primary-btn">Export CSV</button>
+        <span id="rnReportSummary" class="muted" style="margin-left:auto"></span>
+      </div>
+      <div class="rn-table-wrap">
+        <table id="rnReportTable">
+          <thead><tr></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
     <!-- ===== [GROUP 1 NEW] Nhóm 1: Chất lượng & ổn định cuộc gọi ===== -->
     <div id="chart_fail_streak_dist" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_fail_streak_timeline" class="card small" data-tab="quality" draggable="true"></div>
@@ -5173,6 +5200,7 @@ function renderCommon(filtered, ov, colors){
   }catch(e){ console.warn('annotateRandomNumberAndFail error', e); }
   updateRN_CF_KPIs(filtered);
   if(typeof renderRN_CF_ReportUnified==='function') renderRN_CF_ReportUnified(filtered);
+  if(typeof renderRNReport==='function') renderRNReport(filtered);
 }
 
 
@@ -5287,6 +5315,7 @@ function renderAdvancedTab(filtered, colors){
     ()=> safePlot('chart_rn_histogram', ()=> plotRNHistogram(filtered)),
     ()=> safePlot('chart_account_radar', ()=> plotAccountRadar(filtered, colors, 5)),
     ()=> { if(typeof renderRN_CF_ReportUnified==='function') renderRN_CF_ReportUnified(filtered); },
+    ()=> { if(typeof renderRNReport==='function') renderRNReport(filtered); },
     ()=> plotAgentPerformance(filtered, colors, 10),
     ()=> renderAgentPerfTable(filtered),
     ()=> renderGatewayFailTable(filtered),
@@ -9558,6 +9587,361 @@ function renderRN_CF_ReportUnified(rows){
     };
   }
 }
+</script>
+
+
+<!-- ==========================================
+     [SECTION] BÁO CÁO RANDOM NUMBER (RN) — theo out_number & phân phối theo account
+     ========================================== -->
+<style>
+  #report_rn_detail{--rn-line:var(--line,#e6ebf2)}
+  body.dark #report_rn_detail{--rn-line:#1f2937}
+  body.adw #report_rn_detail{--rn-line:var(--border)}
+  #report_rn_detail .rn-toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px}
+  #report_rn_detail .rn-seg{display:inline-flex;border:1px solid var(--rn-line);border-radius:6px;overflow:hidden}
+  #report_rn_detail .rn-seg-btn{border:0;background:transparent;padding:5px 12px;cursor:pointer;font:inherit;color:inherit}
+  #report_rn_detail .rn-seg-btn+.rn-seg-btn{border-left:1px solid var(--rn-line)}
+  #report_rn_detail .rn-seg-btn.active{background:var(--blue,#2563eb);color:#fff}
+  body.adw #report_rn_detail .rn-seg-btn.active{background:var(--accent);color:var(--accent-fg)}
+  #report_rn_detail .rn-table-wrap{overflow:auto;max-height:460px}
+  #report_rn_detail table{width:100%;border-collapse:collapse;font-size:12px}
+  #report_rn_detail th,#report_rn_detail td{border:1px solid var(--rn-line);padding:6px}
+  #report_rn_detail thead th{position:sticky;top:0;z-index:1;background:var(--card,#fff);cursor:pointer;white-space:nowrap;user-select:none;text-align:left}
+  #report_rn_detail thead th.num{text-align:right}
+  #report_rn_detail thead th .rn-arrow{opacity:.3;margin-left:4px}
+  #report_rn_detail thead th.sorted .rn-arrow{opacity:1}
+  #report_rn_detail td.num{text-align:right;font-variant-numeric:tabular-nums}
+  #report_rn_detail td.rn-warn{color:#c1121f;font-weight:600}
+  body.dark #report_rn_detail td.rn-warn{color:#ff7b63}
+</style>
+<script>
+/* Báo cáo Random Number: tổng hợp r.random_number (do annotateRandomNumberAndFail
+   gán) thành 2 view — theo từng (account_id, out_number) và phân phối theo account.
+   RN = số cuộc xen giữa hai lần dùng lại cùng một số; lần đầu xuất hiện có RN = null
+   nên bị loại khỏi mọi thống kê ở đây. */
+(function(){
+  'use strict';
+
+  var RN_LOW_DEFAULT = 2;    // khớp rnAlertMin của KPI "Median Random Number"
+  var RN_MAX_RENDER  = 1000; // chỉ vẽ tối đa ngần này dòng; Export CSV vẫn xuất đủ
+
+  var rnRows = [];           // rows đã lọc gần nhất
+  var rnView = 'number';
+  var rnSort = null;         // {key, dir} — null = thứ tự mặc định của view
+  var rnCache = {rowsRef:null, view:null, thr:null, data:null};
+  var rnExportData = null;
+  var rnSearchTimer = null;
+
+  function rnPercentile(sorted, p){
+    var n = sorted.length;
+    if(!n) return null;
+    var idx = (n-1)*p, lo = Math.floor(idx), hi = Math.ceil(idx);
+    if(lo===hi) return sorted[lo];
+    return sorted[lo] + (sorted[hi]-sorted[lo])*(idx-lo);
+  }
+  function rnRound1(v){ return (v==null) ? null : Math.round(v*10)/10; }
+
+  function rnValueOf(r){
+    var v = r && r.random_number;
+    if(v===null || v===undefined) return null;
+    var n = Number(v);
+    return (Number.isFinite(n) && n>=1) ? n : null;
+  }
+  function rnAccId(r){
+    return String(r.account_id != null ? r.account_id : (r.account != null ? r.account : ''));
+  }
+  function rnOutNum(r){
+    var v = (r.out_number != null) ? r.out_number
+          : (r.caller_id_number != null) ? r.caller_id_number
+          : (r.src != null) ? r.src : '';
+    return String(v);
+  }
+  function rnAccName(acc){
+    try{ return (typeof getAccountNameForId==='function') ? (getAccountNameForId(acc)||'') : ''; }
+    catch(e){ return ''; }
+  }
+  // vals đã sort tăng dần → nhị phân tìm biên "< thr"
+  function rnCountBelow(sorted, thr){
+    var lo = 0, hi = sorted.length, mid;
+    while(lo < hi){ mid = (lo+hi)>>1; if(sorted[mid] < thr) lo = mid+1; else hi = mid; }
+    return lo;
+  }
+
+  function computeRNByNumber(rows, thr){
+    var map = new Map(), i, r, acc, num, key, e;
+    rows = rows || [];
+    for(i=0;i<rows.length;i++){
+      r = rows[i]; acc = rnAccId(r); num = rnOutNum(r); key = acc+'|'+num;
+      e = map.get(key);
+      if(!e){ e = {acc:acc, num:num, calls:0, vals:[]}; map.set(key, e); }
+      e.calls++;
+      var v = rnValueOf(r);
+      if(v!=null) e.vals.push(v);
+    }
+    var out = [];
+    map.forEach(function(e){
+      e.vals.sort(function(a,b){ return a-b; });
+      var n = e.vals.length, low = rnCountBelow(e.vals, thr), sum = 0, j;
+      for(j=0;j<n;j++) sum += e.vals[j];
+      out.push({
+        account_id: e.acc,
+        account_name: rnAccName(e.acc),
+        out_number: e.num,
+        calls: e.calls,
+        rn_count: n,
+        rn_min: n ? e.vals[0] : null,
+        rn_median: n ? rnRound1(rnPercentile(e.vals, 0.5)) : null,
+        rn_avg: n ? rnRound1(sum/n) : null,
+        rn_max: n ? e.vals[n-1] : null,
+        low_count: low,
+        low_pct: n ? rnRound1(low*100/n) : null
+      });
+    });
+    return out;
+  }
+
+  function computeRNByAccount(rows, thr){
+    var map = new Map(), i, r, acc, e, num;
+    rows = rows || [];
+    for(i=0;i<rows.length;i++){
+      r = rows[i]; acc = rnAccId(r);
+      e = map.get(acc);
+      if(!e){ e = {acc:acc, calls:0, numbers:new Set(), vals:[]}; map.set(acc, e); }
+      e.calls++;
+      num = rnOutNum(r);
+      if(num) e.numbers.add(num);
+      var v = rnValueOf(r);
+      if(v!=null) e.vals.push(v);
+    }
+    var out = [];
+    map.forEach(function(e){
+      e.vals.sort(function(a,b){ return a-b; });
+      var n = e.vals.length, low = rnCountBelow(e.vals, thr);
+      out.push({
+        account_id: e.acc,
+        account_name: rnAccName(e.acc),
+        numbers: e.numbers.size,
+        calls: e.calls,
+        rn_count: n,
+        rn_p10: n ? rnRound1(rnPercentile(e.vals, 0.10)) : null,
+        rn_p25: n ? rnRound1(rnPercentile(e.vals, 0.25)) : null,
+        rn_median: n ? rnRound1(rnPercentile(e.vals, 0.50)) : null,
+        rn_p75: n ? rnRound1(rnPercentile(e.vals, 0.75)) : null,
+        low_count: low,
+        low_pct: n ? rnRound1(low*100/n) : null
+      });
+    });
+    return out;
+  }
+
+  var RN_VIEWS = {
+    number: {
+      file: 'report_rn_by_number.csv',
+      unit: 'đầu số',
+      compute: computeRNByNumber,
+      search: function(r){ return r.account_id+' '+r.account_name+' '+r.out_number; },
+      cols: [
+        {key:'account_id',   label:'account_id'},
+        {key:'account_name', label:'account_name'},
+        {key:'out_number',   label:'out_number'},
+        {key:'calls',        label:'Số cuộc',          num:true},
+        {key:'rn_count',     label:'Cuộc có RN',       num:true},
+        {key:'rn_min',       label:'Min RN',           num:true},
+        {key:'rn_median',    label:'Median RN',        num:true, warn:true},
+        {key:'rn_avg',       label:'Avg RN',           num:true},
+        {key:'rn_max',       label:'Max RN',           num:true},
+        {key:'low_count',    label:'Cuộc RN < ngưỡng', num:true},
+        {key:'low_pct',      label:'% RN < ngưỡng',    num:true, pct:true}
+      ]
+    },
+    account: {
+      file: 'report_rn_by_account.csv',
+      unit: 'account',
+      compute: computeRNByAccount,
+      search: function(r){ return r.account_id+' '+r.account_name; },
+      cols: [
+        {key:'account_id',   label:'account_id'},
+        {key:'account_name', label:'account_name'},
+        {key:'numbers',      label:'Số đầu số',        num:true},
+        {key:'calls',        label:'Số cuộc',          num:true},
+        {key:'rn_count',     label:'Cuộc có RN',       num:true},
+        {key:'rn_p10',       label:'p10',              num:true},
+        {key:'rn_p25',       label:'p25',              num:true},
+        {key:'rn_median',    label:'Median RN',        num:true, warn:true},
+        {key:'rn_p75',       label:'p75',              num:true},
+        {key:'low_count',    label:'Cuộc RN < ngưỡng', num:true},
+        {key:'low_pct',      label:'% RN < ngưỡng',    num:true, pct:true}
+      ]
+    }
+  };
+
+  function rnThreshold(){
+    var el = document.getElementById('rnLowThreshold');
+    var v = Number(el && el.value);
+    return (Number.isFinite(v) && v>=1) ? v : RN_LOW_DEFAULT;
+  }
+
+  function rnComputed(view, thr){
+    if(rnCache.data && rnCache.rowsRef===rnRows && rnCache.view===rnView && rnCache.thr===thr) return rnCache.data;
+    var data = view.compute(rnRows, thr);
+    rnCache = {rowsRef:rnRows, view:rnView, thr:thr, data:data};
+    return data;
+  }
+
+  function rnSortData(data, cols){
+    if(!rnSort){
+      return data.slice().sort(function(a,b){
+        return (b.low_pct||0)-(a.low_pct||0)
+            || (b.rn_count||0)-(a.rn_count||0)
+            || String(a.account_id).localeCompare(String(b.account_id));
+      });
+    }
+    var key = rnSort.key, dir = (rnSort.dir==='asc') ? 1 : -1, col = {};
+    cols.forEach(function(c){ if(c.key===key) col = c; });
+    return data.slice().sort(function(a,b){
+      if(col.num){
+        var an = (a[key]==null) ? -Infinity : Number(a[key]);
+        var bn = (b[key]==null) ? -Infinity : Number(b[key]);
+        return (an===bn) ? 0 : (an<bn ? -dir : dir);
+      }
+      return String(a[key]==null?'':a[key]).localeCompare(String(b[key]==null?'':b[key]))*dir;
+    });
+  }
+
+  function rnFmt(v, col){
+    if(v==null || v==='') return '—';
+    return col.pct ? (v+'%') : String(v);
+  }
+
+  function renderRNReport(rows){
+    var card = document.getElementById('report_rn_detail');
+    if(!card) return;
+    if(Array.isArray(rows)) rnRows = rows;
+    wireRNReport();
+
+    var thr  = rnThreshold();
+    var view = RN_VIEWS[rnView] || RN_VIEWS.number;
+    var all  = rnComputed(view, thr);
+    var qEl  = document.getElementById('rnReportSearch');
+    var q    = String((qEl && qEl.value) || '').trim().toLowerCase();
+    var data = q ? all.filter(function(r){ return view.search(r).toLowerCase().indexOf(q) >= 0; }) : all;
+    var sorted = rnSortData(data, view.cols);
+    rnExportData = {rows: sorted, view: view};
+
+    var tbl = document.getElementById('rnReportTable');
+    if(!tbl) return;
+    var thead = tbl.querySelector('thead'), tbody = tbl.querySelector('tbody');
+
+    // Header dựng lại mỗi lần vì bộ cột đổi theo view
+    var htr = document.createElement('tr');
+    view.cols.forEach(function(col){
+      var th = document.createElement('th');
+      if(col.num) th.className = 'num';
+      if(rnSort && rnSort.key===col.key) th.classList.add('sorted');
+      th.appendChild(document.createTextNode(col.label));
+      var sp = document.createElement('span');
+      sp.className = 'rn-arrow';
+      sp.textContent = (rnSort && rnSort.key===col.key) ? (rnSort.dir==='asc' ? '▲' : '▼') : '⇅';
+      th.appendChild(sp);
+      th.title = 'Bấm để sắp xếp theo ' + col.label;
+      th.addEventListener('click', function(){
+        if(rnSort && rnSort.key===col.key) rnSort.dir = (rnSort.dir==='asc') ? 'desc' : 'asc';
+        else rnSort = {key: col.key, dir: col.num ? 'desc' : 'asc'};
+        renderRNReport();
+      });
+      htr.appendChild(th);
+    });
+    thead.innerHTML = '';
+    thead.appendChild(htr);
+
+    // Body
+    var frag = document.createDocumentFragment();
+    var shown = Math.min(sorted.length, RN_MAX_RENDER), i;
+    for(i=0;i<shown;i++){
+      (function(r){
+        var tr = document.createElement('tr');
+        view.cols.forEach(function(col){
+          var td = document.createElement('td');
+          if(col.num) td.className = 'num';
+          var v = r[col.key];
+          if(col.warn && v!=null && Number(v) < thr) td.classList.add('rn-warn');
+          td.textContent = rnFmt(v, col);
+          tr.appendChild(td);
+        });
+        frag.appendChild(tr);
+      })(sorted[i]);
+    }
+    tbody.innerHTML = '';
+    if(!sorted.length){
+      var tr0 = document.createElement('tr'), td0 = document.createElement('td');
+      td0.colSpan = view.cols.length;
+      td0.style.textAlign = 'center';
+      td0.textContent = rnRows.length ? 'Không có dòng nào khớp bộ lọc' : 'Chưa có dữ liệu';
+      tr0.appendChild(td0);
+      tbody.appendChild(tr0);
+    }else{
+      tbody.appendChild(frag);
+    }
+
+    var lowRows = sorted.filter(function(r){ return r.rn_median!=null && r.rn_median < thr; }).length;
+    var sum = document.getElementById('rnReportSummary');
+    if(sum){
+      sum.textContent = sorted.length + ' ' + view.unit
+        + (shown < sorted.length ? (' (hiển thị ' + shown + ')') : '')
+        + ' • ' + lowRows + ' có median RN < ' + thr;
+    }
+  }
+
+  function rnCsvCell(v){
+    var s = (v==null) ? '' : String(v);
+    return /[",\r\n]/.test(s) ? ('"' + s.replace(/"/g,'""') + '"') : s;
+  }
+  function exportRNReport(){
+    if(!rnExportData || !rnExportData.rows || !rnExportData.rows.length){
+      if(typeof toast==='function') toast('Không có dữ liệu để xuất', true);
+      return;
+    }
+    var view = rnExportData.view;
+    var lines = [view.cols.map(function(c){ return c.key; }).join(',')];
+    rnExportData.rows.forEach(function(r){
+      lines.push(view.cols.map(function(c){ return rnCsvCell(r[c.key]); }).join(','));
+    });
+    // BOM + CRLF để Excel mở đúng tiếng Việt
+    var blob = new Blob(['﻿' + lines.join('\r\n')], {type:'text/csv;charset=utf-8'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = view.file;
+    a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); }, 1000);
+  }
+
+  function wireRNReport(){
+    var card = document.getElementById('report_rn_detail');
+    if(!card || card.dataset.rnWired) return;
+    card.dataset.rnWired = '1';
+
+    card.querySelectorAll('.rn-seg-btn').forEach(function(b){
+      b.addEventListener('click', function(){
+        rnView = b.dataset.rnview || 'number';
+        rnSort = null;
+        card.querySelectorAll('.rn-seg-btn').forEach(function(x){ x.classList.toggle('active', x===b); });
+        renderRNReport();
+      });
+    });
+    var thrEl = document.getElementById('rnLowThreshold');
+    if(thrEl) thrEl.addEventListener('change', function(){ renderRNReport(); });
+    var sEl = document.getElementById('rnReportSearch');
+    if(sEl) sEl.addEventListener('input', function(){
+      clearTimeout(rnSearchTimer);
+      rnSearchTimer = setTimeout(function(){ renderRNReport(); }, 200);
+    });
+    var ex = document.getElementById('exportRNReport');
+    if(ex) ex.addEventListener('click', exportRNReport);
+  }
+
+  window.renderRNReport = renderRNReport;
+  wireRNReport();
+})();
 </script>
 
 <!-- ==========================================
