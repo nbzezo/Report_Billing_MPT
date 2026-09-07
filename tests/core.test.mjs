@@ -180,3 +180,213 @@ test('dashboard-core.js không tham chiếu DOM', () => {
     assert.ok(!src.includes(bad), `dashboard-core.js chứa "${bad}" — phải giữ thuần logic`);
   }
 });
+
+// ===== CID lifecycle (Block/Reactive tu routing/reports) =====
+
+const E = (cid, telco, ts, kind, routing = 'R1', actor = '') =>
+  ({ cid, telco, ts, kind, routing, actor });
+
+test('buildCidTimeline — ghep block/reactive thanh khoang bi khoa', () => {
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+    E('0901', 'VT', '2026-09-01 14:00:00', 'reactive'),
+  ], { windowEnd: Date.parse('2026-09-02T00:00:00') });
+  assert.equal(tl.intervals.length, 1);
+  const iv = tl.intervals[0];
+  assert.equal(iv.recovered, true);
+  assert.equal(iv.censored, false);
+  assert.equal(iv.durationMin, 240);
+  assert.equal(iv.presumedDead, false);
+  assert.equal(iv.lateRecovery, false);
+});
+
+test('buildCidTimeline — khoa o cap (CID x routing x telco), khong phai cap CID', () => {
+  // cung mot so: VT chan, MB van song -> phai la 2 khoa doc lap
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+    E('0901', 'MB', '2026-09-01 11:00:00', 'block'),
+    E('0901', 'MB', '2026-09-01 11:30:00', 'reactive'),
+  ], { windowEnd: Date.parse('2026-09-01T12:00:00') });
+  assert.equal(tl.intervals.length, 2);
+  const vt = tl.intervals.find(i => i.telco === 'VT');
+  const mb = tl.intervals.find(i => i.telco === 'MB');
+  assert.equal(vt.recovered, false);   // VT con bi khoa
+  assert.equal(mb.recovered, true);    // MB da mo lai
+});
+
+test('buildCidTimeline — quy tac 24h: presumedDead vs lateRecovery tach bach', () => {
+  const end = Date.parse('2026-09-05T00:00:00');
+  const tl = core.buildCidTimeline([
+    // chua reactive va da qua 24h -> "chet" theo quy tac
+    E('0901', 'VT', '2026-09-01 00:00:00', 'block'),
+    // reactive muon hon 24h -> van hoi phuc, KHONG duoc dem la chet
+    E('0902', 'VT', '2026-09-01 00:00:00', 'block'),
+    E('0902', 'VT', '2026-09-02 06:00:00', 'reactive'),
+  ], { windowEnd: end });
+  const a = tl.intervals.find(i => i.cid === '0901');
+  const b = tl.intervals.find(i => i.cid === '0902');
+  assert.equal(a.presumedDead, true);
+  assert.equal(a.lateRecovery, false);
+  assert.equal(b.presumedDead, false);
+  assert.equal(b.lateRecovery, true);   // 30h > 24h nhung da recovered
+
+  const m = core.computeBlockMttr(tl);
+  assert.equal(m.presumedDead, 1);
+  assert.equal(m.lateRecovery, 1);
+  assert.equal(m.recovered, 1);
+  assert.equal(m.stillBlocked, 1);
+});
+
+test('buildCidTimeline — block lap khi dang mo thi giu moc dau; reactive mo coi la orphan', () => {
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+    E('0901', 'VT', '2026-09-01 11:00:00', 'block'),   // lap -> bo qua
+    E('0901', 'VT', '2026-09-01 12:00:00', 'reactive'),
+    E('0902', 'VT', '2026-09-01 12:00:00', 'reactive'), // block xay ra truoc cua so
+  ], { windowEnd: Date.parse('2026-09-01T13:00:00') });
+  assert.equal(tl.intervals.length, 1);
+  assert.equal(tl.intervals[0].durationMin, 120);       // tu 10:00 chu khong phai 11:00
+  assert.equal(tl.orphanReactive, 1);
+});
+
+test('buildCidTimeline — block va reactive cung giay: block dung truoc, khong sinh khoang am', () => {
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'reactive'),
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+  ], { windowEnd: Date.parse('2026-09-01T11:00:00') });
+  assert.equal(tl.intervals.length, 1);
+  assert.equal(tl.intervals[0].durationMin, 0);
+  assert.ok(tl.intervals[0].durationMin >= 0);
+});
+
+test('computeCidDutyCycle — nhieu routing dung chung CID thi HOP NHAT, khong cong don', () => {
+  const start = Date.parse('2026-09-01T00:00:00');
+  const end = Date.parse('2026-09-01T10:00:00');   // cua so 10h
+  const tl = core.buildCidTimeline([
+    // hai routing khoa cung mot so, khoang chong nhau 09:00-10:00
+    E('0901', 'VT', '2026-09-01 00:00:00', 'block', 'R1'),
+    E('0901', 'VT', '2026-09-01 02:00:00', 'reactive', 'R1'),
+    E('0901', 'VT', '2026-09-01 01:00:00', 'block', 'R2'),
+    E('0901', 'VT', '2026-09-01 03:00:00', 'reactive', 'R2'),
+  ], { windowEnd: end });
+  const duty = core.computeCidDutyCycle(tl, { windowStart: start, windowEnd: end });
+  assert.equal(duty.length, 1);
+  // hop nhat [0h,2h] va [1h,3h] = [0h,3h] = 3h khoa / 10h -> uptime 70%
+  assert.equal(Math.round(duty[0].blockedHours), 3);
+  assert.equal(Math.round(duty[0].uptimePct), 70);
+  assert.equal(duty[0].blockCount, 2);
+  assert.deepEqual(duty[0].routings, ['R1', 'R2']);
+});
+
+test('computeCidAvailability — mau so mac dinh la can duoi va phai tu khai bao', () => {
+  const end = Date.parse('2026-09-01T12:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+  ], { windowEnd: end });
+
+  const a = core.computeCidAvailability(tl, { windowEnd: end });
+  assert.equal(a.VT.universe, 1);                  // chi thay 1 CID trong log
+  assert.equal(a.VT.universeIsLowerBound, true);   // -> phai bao la can duoi
+  assert.equal(a.VT.availablePct[0], 0);           // 1/1 bi khoa = 0% kha dung
+
+  // truyen mau so that tu CDR: 10 so dang dung -> 90% kha dung
+  const b = core.computeCidAvailability(tl, { windowEnd: end, universeByTelco: { VT: 10 } });
+  assert.equal(b.VT.universe, 10);
+  assert.equal(b.VT.universeIsLowerBound, false);
+  assert.equal(b.VT.availablePct[0], 90);
+});
+
+test('computeCidAvailability — khoang chua mo lai KHONG duoc dong o cuoi cua so', () => {
+  // regression: dong censored interval tai `end` lam duong kha dung vot ve 100%
+  // dung diem cuoi, mau thuan voi "dang bi khoa".
+  const end = Date.parse('2026-09-01T12:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+  ], { windowEnd: end });
+  const a = core.computeCidAvailability(tl, { windowEnd: end, universeByTelco: { VT: 4 } });
+  const last = a.VT.availablePct[a.VT.availablePct.length - 1];
+  assert.equal(last, 75);            // 1/4 con bi khoa -> 75%, KHONG phai 100%
+  assert.equal(a.VT.blocked[a.VT.blocked.length - 1], 1);
+});
+
+test('buildCidTimeline — reactive ghi lap theo lo khong bi dem thanh orphan', () => {
+  const end = Date.parse('2026-09-01T13:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+    E('0901', 'VT', '2026-09-01 12:00:00', 'reactive'),
+    E('0901', 'VT', '2026-09-01 12:00:01', 'reactive'),  // lo ghi lap ~1s
+  ], { windowEnd: end });
+  assert.equal(tl.intervals.length, 1);
+  assert.equal(tl.orphanReactive, 0);        // truoc khi sua: 1
+
+  // reactive that su le loi (block nam truoc cua so) van phai dem la orphan
+  const tl2 = core.buildCidTimeline([
+    E('0902', 'VT', '2026-09-01 12:00:00', 'reactive'),
+  ], { windowEnd: end });
+  assert.equal(tl2.orphanReactive, 1);
+});
+
+// ===== A6: ban do Routing <-> Account =====
+
+const CDR = (caller, account) => ({ caller_id_number: caller, account_name: account });
+
+test('deriveRoutingAccountMap — noi qua CID dung chung, bat ca khi CID khac dinh dang', () => {
+  const map = core.deriveRoutingAccountMap(
+    [E('0901', 'VT', '2026-09-01 10:00:00', 'block', 'R_ALPHA'),
+     E('0902', 'VT', '2026-09-01 10:00:00', 'block', 'R_ALPHA')],
+    // CDR ghi dang 84... con log ghi dang 0... -> van phai khop
+    [CDR('84901', 'AcmeCorp'), CDR('0902', 'AcmeCorp')],
+  );
+  assert.equal(map.byRouting.length, 1);
+  assert.equal(map.byRouting[0].routing, 'R_ALPHA');
+  assert.equal(map.byRouting[0].account, 'AcmeCorp');
+  assert.equal(map.byRouting[0].sharedCids, 2);
+  assert.equal(map.byRouting[0].ambiguous, false);
+  assert.equal(map.stats.matchedCids, 2);
+});
+
+test('deriveRoutingAccountMap — account khong chia se CID nao = NGOAI PHAM VI, khong phai "0 block"', () => {
+  const map = core.deriveRoutingAccountMap(
+    [E('0901', 'VT', '2026-09-01 10:00:00', 'block', 'R_ALPHA')],
+    [CDR('0901', 'CoDuoiTheoDoi'), CDR('0999', 'NgoaiPhamVi')],
+  );
+  assert.deepEqual(map.uncoveredAccounts, ['NgoaiPhamVi']);
+  assert.equal(map.stats.accounts, 2);
+  assert.equal(map.stats.coveredAccounts, 1);
+});
+
+test('deriveRoutingAccountMap — routing dinh vao nhieu account thi phai bao nhap nhang', () => {
+  const map = core.deriveRoutingAccountMap(
+    [E('0901', 'VT', '2026-09-01 10:00:00', 'block', 'R_MIX'),
+     E('0902', 'VT', '2026-09-01 10:00:00', 'block', 'R_MIX')],
+    [CDR('0901', 'AccA'), CDR('0902', 'AccB')],   // 50/50 -> duoi nguong 0.6
+  );
+  const r = map.byRouting[0];
+  assert.equal(r.ambiguous, true);
+  assert.equal(r.candidates.length, 2);
+  assert.equal(r.share, 0.5);
+});
+
+test('deriveRoutingAccountMap — khong co CDR thi khong bia ra anh xa nao', () => {
+  const map = core.deriveRoutingAccountMap(
+    [E('0901', 'VT', '2026-09-01 10:00:00', 'block', 'R_ALPHA')], []);
+  assert.equal(map.byRouting.length, 0);
+  assert.deepEqual(map.unmatchedRoutings, ['R_ALPHA']);
+  assert.equal(map.stats.matchedCids, 0);
+});
+
+test('deriveRoutingAccountMap — ten routing co dau cach khong lam vo phep gom nhom', () => {
+  // Du lieu that co "HNI_Duoc Thai Minh_VBN". Ghep khoa bang chuoi roi split
+  // se cat ten thanh manh -> phai dung Map long.
+  const R = 'HNI_Duoc Thai Minh_VBN';
+  const map = core.deriveRoutingAccountMap(
+    [E('0901', 'VT', '2026-09-01 10:00:00', 'block', R),
+     E('0902', 'VT', '2026-09-01 10:00:00', 'block', R)],
+    [CDR('0901', 'Duoc Thai Minh'), CDR('0902', 'Duoc Thai Minh')],
+  );
+  assert.equal(map.byRouting.length, 1);
+  assert.equal(map.byRouting[0].routing, R);              // nguyen ven, khong bi cat
+  assert.equal(map.byRouting[0].account, 'Duoc Thai Minh'); // account co dau cach cung vay
+  assert.equal(map.byRouting[0].sharedCids, 2);
+  assert.equal(map.byRouting[0].ambiguous, false);
+});

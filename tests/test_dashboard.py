@@ -620,3 +620,154 @@ class FrontendRegressionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+RE = SERVER.routing_events
+
+
+def _row(rid, routing, cid, ts, notes, typ):
+    return (f"<tr><td>{rid}</td><td>{routing}</td><td>{cid}</td>"
+            f"<td>{ts}</td><td>{notes}</td><td>{typ}</td></tr>")
+
+
+class RoutingEventParseTests(unittest.TestCase):
+    """Boc du lieu tu trang routing/reports (chi co HTML, khong co CSV export)."""
+
+    def test_normalize_cid_phu_het_4_dinh_dang_cua_nguon(self):
+        self.assertEqual(RE.normalize_cid("02479929887"), "02479929887")  # 024, 11 so
+        self.assertEqual(RE.normalize_cid("0916407599"), "0916407599")    # 09x, 10 so
+        self.assertEqual(RE.normalize_cid("842471060319"), "02471060319")  # tien to 84
+        self.assertEqual(RE.normalize_cid("919362764"), "0919362764")     # thieu so 0 dau
+        self.assertEqual(RE.normalize_cid("+84 916 407 599"), "0916407599")
+        self.assertEqual(RE.normalize_cid(""), "")
+        self.assertEqual(RE.normalize_cid(None), "")
+
+    def test_parse_notes_lay_duoc_nha_mang_va_actor(self):
+        self.assertEqual(RE.parse_notes("Block VT by Verifier CID at 09-07 16:55:51"),
+                         ("VT", "Verifier CID"))
+        self.assertEqual(RE.parse_notes("Reactive MB by tool at 2026-09-07 15:17:24"),
+                         ("MB", "tool"))
+        self.assertEqual(RE.parse_notes("Block OT by routingauto at 01-24 10:05:56"),
+                         ("OT", "routingauto"))
+        # khong khop thi van tra ve tuple, khong duoc nem loi -> dong du lieu con giu
+        self.assertEqual(RE.parse_notes("rac"), ("", ""))
+        self.assertEqual(RE.parse_notes(None), ("", ""))
+
+    def test_parse_report_rows_chuan_hoa_va_bo_dong_rac(self):
+        html = ("<table>"
+                + _row(1, "R_A", "842471060319", "2026-09-07 16:41:51",
+                       "Block VT by Verifier CID at 09-07 16:41:51", "Block")
+                + _row(2, "R_A", "02479929887", "2026-09-07 16:55:51",
+                       "Reactive MB by tool at 2026-09-07 16:55:51", "ReActive")
+                + "<tr><td>x</td><td>thieu cot</td></tr>"
+                + "</table>")
+        rows = RE.parse_report_rows(html)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[0]["cid"], "02471060319")   # da chuan hoa
+        self.assertEqual(rows[0]["cid_raw"], "842471060319")  # van giu ban goc
+        self.assertEqual(rows[0]["kind"], "block")
+        self.assertEqual(rows[0]["telco"], "VT")
+        self.assertEqual(rows[1]["kind"], "reactive")     # "ReActive" -> reactive
+
+    def test_dedup_bo_dong_lap_nhung_khong_dung_cot_ID(self):
+        # Cung mot su kien, chi khac so thu tu ID va moc gio ben trong Notes.
+        html = ("<table>"
+                + _row(1, "R_A", "0901", "2026-09-05 21:20:36",
+                       "Reactive VT by tool at 2026-09-05 21:20:01", "ReActive")
+                + _row(2, "R_A", "0901", "2026-09-05 21:20:36",
+                       "Reactive VT by tool at 2026-09-05 21:20:12", "ReActive")
+                + _row(3, "R_A", "0901", "2026-09-05 22:00:00",
+                       "Reactive VT by tool at 2026-09-05 22:00:00", "ReActive")
+                + "</table>")
+        rows = RE.parse_report_rows(html)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(len(RE.dedup_events(rows)), 2)  # gop 2 dong dau
+
+
+class RoutingEventCacheTests(unittest.TestCase):
+    def test_cua_so_cuon_va_prune_bo_ngay_ngoai_cua_so(self):
+        from datetime import date
+        with tempfile.TemporaryDirectory() as directory:
+            cache = RE.RoutingEventCache(directory, "profile-1")
+            cache.write_day("2026-09-07", [{"cid": "0901", "ts": "2026-09-07 10:00:00",
+                                            "kind": "block", "telco": "VT", "routing": "R"}])
+            cache.write_day("2026-01-01", [{"cid": "0902", "ts": "2026-01-01 10:00:00",
+                                            "kind": "block", "telco": "VT", "routing": "R"}])
+            days = RE.day_range(30, date(2026, 9, 7))
+            self.assertEqual(len(days), 30)
+            self.assertEqual(days[-1], "2026-09-07")
+
+            events, meta = cache.load_window(30, date(2026, 9, 7))
+            self.assertEqual(len(events), 1)                 # ngay 2026-01-01 ngoai cua so
+            self.assertEqual(len(meta["missingDays"]), 29)
+
+            cache.prune(days)
+            self.assertIsNone(cache.read_day("2026-01-01"))  # da bi xoa
+            self.assertIsNotNone(cache.read_day("2026-09-07"))
+
+    def test_cache_tach_rieng_theo_profile(self):
+        with tempfile.TemporaryDirectory() as directory:
+            a = RE.RoutingEventCache(directory, "p-A")
+            b = RE.RoutingEventCache(directory, "p-B")
+            a.write_day("2026-09-07", [{"cid": "0901"}])
+            self.assertIsNotNone(a.read_day("2026-09-07"))
+            self.assertIsNone(b.read_day("2026-09-07"))
+
+    def test_file_hong_khong_lam_sap_ca_cua_so(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = RE.RoutingEventCache(directory, "p")
+            cache.write_day("2026-09-07", [{"cid": "0901", "ts": "2026-09-07 10:00:00",
+                                            "kind": "block", "telco": "VT", "routing": "R"}])
+            cache.dir.joinpath("2026-09-06.json").write_text("{khong phai json", encoding="utf-8")
+            from datetime import date
+            events, meta = cache.load_window(3, date(2026, 9, 7))
+            self.assertEqual(len(events), 1)
+            self.assertIn("2026-09-06", meta["missingDays"])  # coi nhu thieu, khong nem loi
+
+
+class RoutingSyncTests(unittest.TestCase):
+    class _FakeClient:
+        """Gia lap MptClient: tra ve so dong dat truoc cho moi ngay."""
+
+        def __init__(self, rows_per_day):
+            self.base_url = "https://x"
+            self.rows_per_day = rows_per_day
+            self.asked = []
+
+        def login(self):
+            pass
+
+        def post_multipart(self, url, fields):
+            day = fields["from_day"]
+            self.asked.append(day)
+            n = self.rows_per_day.get(day, 0)
+            html = "<table>" + "".join(
+                _row(i, "R", f"09{i:08d}", f"{day} 10:00:00",
+                     "Block VT by Verifier CID at 10:00:00", "Block")
+                for i in range(n)
+            ) + "</table>"
+            return types.SimpleNamespace(read=lambda: html.encode("utf-8"))
+
+    def test_cham_tran_2000_dong_duoc_danh_dau_chu_khong_im_lang(self):
+        from datetime import date
+        with tempfile.TemporaryDirectory() as directory:
+            cache = RE.RoutingEventCache(directory, "p")
+            client = self._FakeClient({"2026-09-07": RE.ROW_CAP})
+            res = RE.sync(client, cache, days=2, today=date(2026, 9, 7))
+            self.assertIn("2026-09-07", res["truncatedDays"])
+            _, meta = cache.load_window(2, date(2026, 9, 7))
+            self.assertIn("2026-09-07", meta["truncatedDays"])
+
+    def test_chi_tai_ngay_con_thieu_va_luon_tai_lai_ngay_chua_khep(self):
+        from datetime import date
+        today = date(2026, 9, 7)
+        with tempfile.TemporaryDirectory() as directory:
+            cache = RE.RoutingEventCache(directory, "p")
+            client = self._FakeClient({})
+            RE.sync(client, cache, days=5, today=today)
+            self.assertEqual(len(client.asked), 5)          # lan dau: tai het
+
+            client2 = self._FakeClient({})
+            RE.sync(client2, cache, days=5, today=today)
+            # lan hai: chi tai lai ngay chua khep so (hom nay + hom qua)
+            self.assertEqual(sorted(client2.asked), ["2026-09-06", "2026-09-07"])

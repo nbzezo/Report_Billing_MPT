@@ -15,7 +15,7 @@ a = Analysis(
     pathex=[str(ROOT / "scripts")],
     binaries=[],
     datas=[],
-    hiddenimports=["mpt_dashboard_server"],
+    hiddenimports=["mpt_dashboard_server", "routing_events"],
     excludes=["tkinter"],
 )
 pyz = PYZ(a.pure)

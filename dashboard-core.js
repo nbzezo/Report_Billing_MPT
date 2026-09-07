@@ -1225,6 +1225,375 @@ function computeCcuByTelco(rows, opts){
   };
 }
 
+/* ==========================================================================
+   [SECTION] CID LIFECYCLE — vòng đời Block/Reactive của CID.
+
+   Nguồn: trang MPT `routing/reports` (xem scripts/routing_events.py).
+   Điểm mấu chốt: MPT khoá ở cấp **(CID × Routing × nhà mạng đích)**, KHÔNG
+   phải cấp CID. Một số có thể đang bị VT chặn mà vẫn gọi MB bình thường —
+   mọi phép tính dưới đây đều giữ nguyên độ mịn đó.
+
+   Ngữ nghĩa sự kiện: Block = MPT gắn cờ nghi ngờ; Reactive = tool tự mở lại.
+   Theo quy ước vận hành, quá 24h không Reactive thì coi như nhà mạng đã khoá
+   thật — nhưng số liệu thực tế cho thấy ~11% ca vẫn hồi phục sau mốc đó, nên
+   `presumedDead` (theo quy tắc) và `lateRecovery` (ngoại lệ) được tách riêng
+   để sai số của quy tắc luôn nhìn thấy được.
+   ========================================================================== */
+
+const CID_DEAD_AFTER_MIN = 1440;  // quy tắc 24h
+
+function parseEventTs(v){
+  if(v==null) return null;
+  if(typeof v==='number') return isFinite(v)? v : null;
+  const t = Date.parse(String(v).replace(' ','T'));
+  return isNaN(t)? null : t;
+}
+
+/** Khoá trạng thái = đúng độ mịn mà MPT khoá. */
+function cidStateKey(cid, routing, telco){
+  return String(cid||'')+'|'+String(routing||'')+'|'+String(telco||'');
+}
+
+function __mkInterval(open, closeTs, closeActor, windowEnd, deadAfterMin){
+  const recovered = closeTs != null;
+  const end = recovered ? closeTs : windowEnd;
+  const durationMin = Math.max(0, (end - open.blockedFrom) / 60000);
+  return {
+    cid: open.cid, routing: open.routing, telco: open.telco,
+    blockedFrom: open.blockedFrom,
+    blockedTo: recovered ? closeTs : null,
+    blockActor: open.actor || '',
+    reactiveActor: recovered ? (closeActor||'') : '',
+    durationMin,
+    recovered,
+    censored: !recovered,                                   // chưa mở lại tính đến cuối cửa sổ
+    lateRecovery: recovered && durationMin > deadAfterMin,   // hồi phục muộn hơn quy tắc
+    presumedDead: !recovered && durationMin >= deadAfterMin  // "chết" theo quy tắc 24h
+  };
+}
+
+/**
+ * Dựng chuỗi khoảng BỊ KHOÁ từ log sự kiện.
+ * @param {Array} events  [{cid, routing, telco, ts, kind:'block'|'reactive', actor}]
+ * @returns {{intervals:Array, orphanReactive:number, windowEnd:number}}
+ */
+function buildCidTimeline(events, opts){
+  const o = opts || {};
+  const deadAfterMin = o.deadAfterMin != null ? o.deadAfterMin : CID_DEAD_AFTER_MIN;
+  // Ngưỡng gộp reactive ghi lặp theo lô. Đo trên 60 ngày thật: 584 cặp cách
+  // nhau ≤2s, 13 cặp 3-10s, rồi đứt hẳn — nên 10s tách sạch nhiễu lô khỏi các
+  // lần mở lại thật (p10 của MTTR là 1,5 giờ).
+  const collapseMs = (o.collapseReactiveSec != null ? o.collapseReactiveSec : 10) * 1000;
+  const byKey = new Map();
+  let maxTs = 0;
+
+  (events||[]).forEach(ev=>{
+    const cid = String(ev && ev.cid || '');
+    const ts = parseEventTs(ev && ev.ts);
+    const kind = String(ev && ev.kind || '');
+    if(!cid || ts==null || (kind!=='block' && kind!=='reactive')) return;
+    if(ts > maxTs) maxTs = ts;
+    const k = cidStateKey(cid, ev.routing, ev.telco);
+    if(!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push({ ts, kind, actor: ev.actor||'',
+                        cid, routing: ev.routing||'', telco: ev.telco||'' });
+  });
+
+  const windowEnd = o.windowEnd != null ? o.windowEnd : (maxTs || Date.now());
+  const intervals = [];
+  let orphanReactive = 0;
+
+  byKey.forEach(arr=>{
+    // cùng giây thì block đứng trước reactive, nếu không sẽ sinh khoảng âm
+    arr.sort((a,b)=> a.ts - b.ts || (a.kind===b.kind ? 0 : (a.kind==='block' ? -1 : 1)));
+    let open = null;
+    let lastReactiveTs = null;
+    for(const e of arr){
+      if(e.kind === 'block'){
+        if(!open) open = { cid:e.cid, routing:e.routing, telco:e.telco,
+                           blockedFrom:e.ts, actor:e.actor };
+        // block lặp khi đang mở -> bỏ qua, giữ mốc đầu tiên
+        lastReactiveTs = null;
+      } else {
+        if(open){
+          intervals.push(__mkInterval(open, e.ts, e.actor, windowEnd, deadAfterMin));
+          open = null;
+        } else if(lastReactiveTs != null && (e.ts - lastReactiveTs) <= collapseMs){
+          // Tool ghi reactive theo lô nên cùng một lần mở lại bị ghi 2 dòng cách
+          // nhau ~1s. Dòng thứ hai không phải orphan thật -> nuốt đi, nếu không
+          // chỉ số chẩn đoán orphan sẽ bị thổi lên gấp mấy lần.
+        } else {
+          orphanReactive++;  // block xảy ra TRƯỚC cửa sổ -> không dựng lại được
+        }
+        lastReactiveTs = e.ts;
+      }
+    }
+    if(open) intervals.push(__mkInterval(open, null, '', windowEnd, deadAfterMin));
+  });
+
+  intervals.sort((a,b)=> a.blockedFrom - b.blockedFrom);
+  return { intervals, orphanReactive, windowEnd };
+}
+
+/** Hợp nhất các khoảng chồng nhau -> tổng thời gian bị khoá không đếm trùng. */
+function mergeIntervalsMs(list){
+  const arr = (list||[]).slice().sort((a,b)=> a[0]-b[0]);
+  const out = [];
+  for(const iv of arr){
+    const last = out[out.length-1];
+    if(last && iv[0] <= last[1]) last[1] = Math.max(last[1], iv[1]);
+    else out.push([iv[0], iv[1]]);
+  }
+  return out;
+}
+
+/**
+ * Duty cycle theo (CID × nhà mạng): sống bao nhiêu % thời gian trong cửa sổ.
+ * Nhiều routing dùng chung một CID thì khoảng khoá được HỢP NHẤT, không cộng dồn.
+ */
+function computeCidDutyCycle(timeline, opts){
+  const o = opts || {};
+  const ivs = (timeline && timeline.intervals) || [];
+  const end = o.windowEnd != null ? o.windowEnd : (timeline && timeline.windowEnd) || Date.now();
+  const start = o.windowStart != null ? o.windowStart
+    : (ivs.length ? ivs[0].blockedFrom : end);
+  const span = Math.max(1, end - start);
+
+  const byKey = new Map();
+  ivs.forEach(iv=>{
+    const k = iv.cid+'|'+iv.telco;
+    if(!byKey.has(k)) byKey.set(k, { cid:iv.cid, telco:iv.telco, routings:new Set(),
+                                     spans:[], blockCount:0, recoveredMin:[],
+                                     presumedDead:0, lateRecovery:0, lastBlockedFrom:0 });
+    const rec = byKey.get(k);
+    const from = Math.max(start, iv.blockedFrom);
+    const to = Math.min(end, iv.blockedTo != null ? iv.blockedTo : end);
+    if(to > from) rec.spans.push([from, to]);
+    rec.routings.add(iv.routing);
+    rec.blockCount += 1;
+    if(iv.recovered) rec.recoveredMin.push(iv.durationMin);
+    if(iv.presumedDead) rec.presumedDead += 1;
+    if(iv.lateRecovery) rec.lateRecovery += 1;
+    if(iv.blockedFrom > rec.lastBlockedFrom) rec.lastBlockedFrom = iv.blockedFrom;
+  });
+
+  const out = [];
+  byKey.forEach(rec=>{
+    const merged = mergeIntervalsMs(rec.spans);
+    const blockedMs = merged.reduce((s,iv)=> s + (iv[1]-iv[0]), 0);
+    const mttrMin = rec.recoveredMin.length
+      ? rec.recoveredMin.reduce((a,b)=>a+b,0) / rec.recoveredMin.length : null;
+    out.push({
+      cid: rec.cid, telco: rec.telco,
+      routings: Array.from(rec.routings).sort(),
+      blockCount: rec.blockCount,
+      blockedHours: blockedMs/3600000,
+      uptimePct: Math.max(0, 100 * (1 - blockedMs/span)),
+      mttrMin,
+      presumedDead: rec.presumedDead,
+      lateRecovery: rec.lateRecovery,
+      currentlyBlocked: merged.some(iv=> iv[1] >= end),
+      lastBlockedFromISO: localISODateTime(rec.lastBlockedFrom)
+    });
+  });
+  out.sort((a,b)=> a.uptimePct - b.uptimePct || b.blockCount - a.blockCount);
+  return out;
+}
+
+/**
+ * Chuỗi thời gian số CID đang bị khoá, theo nhà mạng.
+ *
+ * CẢNH BÁO MẪU SỐ: log block chỉ chứa CID ĐÃ TỪNG bị khoá — số chưa bao giờ bị
+ * khoá không xuất hiện. Nên mẫu số mặc định là CẬN DƯỚI, và tỷ lệ % tính từ nó
+ * sẽ BI QUAN hơn thực tế. Truyền `universeByTelco` (đếm từ CDR — số thật sự
+ * đang dùng) để có tỷ lệ đúng; khi không có, `universeIsLowerBound` = true để
+ * giao diện nói rõ điều đó thay vì im lặng vẽ một con số sai.
+ */
+function computeCidAvailability(timeline, opts){
+  const o = opts || {};
+  const ivs = (timeline && timeline.intervals) || [];
+  const end = o.windowEnd != null ? o.windowEnd : (timeline && timeline.windowEnd) || Date.now();
+  const universeGiven = o.universeByTelco || null;
+
+  const seen = {};      // telco -> Set(cid) thấy trong log
+  const deltas = {};    // telco -> [[ts, +1|-1]]
+  ivs.forEach(iv=>{
+    const t = iv.telco || 'Unknown';
+    (seen[t] || (seen[t] = new Set())).add(iv.cid);
+    (deltas[t] || (deltas[t] = [])).push([iv.blockedFrom, 1]);
+    // Khoảng CHƯA mở lại thì không phát mốc đóng: nó vẫn đang khoá tại `end`.
+    // Đóng nó ở `end` sẽ kéo đường khả dụng vọt về 100% đúng điểm cuối — sai.
+    if(iv.blockedTo != null) deltas[t].push([iv.blockedTo, -1]);
+  });
+
+  const series = {};
+  Object.keys(deltas).forEach(t=>{
+    const ds = deltas[t].sort((a,b)=> a[0]-b[0] || a[1]-b[1]);
+    const universe = (universeGiven && universeGiven[t]) || seen[t].size;
+    const times = [], blocked = [], availablePct = [];
+    let cur = 0;
+    for(let i=0;i<ds.length;i++){
+      cur += ds[i][1];
+      // gộp các mốc trùng thời điểm thành một điểm
+      if(i+1 < ds.length && ds[i+1][0] === ds[i][0]) continue;
+      times.push(ds[i][0]);
+      blocked.push(cur);
+      availablePct.push(universe ? Math.max(0, 100*(1 - cur/universe)) : 100);
+    }
+    series[t] = {
+      times, blocked, availablePct,
+      universe,
+      universeIsLowerBound: !(universeGiven && universeGiven[t]),
+      peakBlocked: blocked.length ? Math.max.apply(null, blocked) : 0
+    };
+  });
+  return series;
+}
+
+/**
+ * Chuẩn hoá CID về dạng nội địa `0...` — bản JS của `normalize_cid` bên
+ * scripts/routing_events.py. Phải khớp nhau, nếu không phép nối sẽ hụt âm thầm.
+ * Nguồn có 4 dạng: `02479929887`, `0916407599`, `842471060319`, `919362764`.
+ */
+function normalizeCidNational(raw){
+  let d = String(raw == null ? '' : raw).replace(/\D/g, '');
+  if(!d) return '';
+  if(d.startsWith('84')) d = '0' + d.slice(2);
+  else if(!d.startsWith('0')) d = '0' + d;
+  return d;
+}
+
+/**
+ * Suy bản đồ Routing (log block) <-> Account (CDR) qua CID dùng chung.
+ *
+ * Hai bên là hai namespace khác nhau (`SIP_MTC_AUTOCALL` vs `Mcredit_AutoCallTHN`)
+ * nên chỉ nối được gián tiếp qua CID.
+ *
+ * `uncoveredAccounts` là phần QUAN TRỌNG NHẤT: account có mặt trong CDR nhưng
+ * không chia sẻ CID nào với routing nào. Với chúng, "0 block" KHÔNG có nghĩa là
+ * tốt — chỉ có nghĩa là ta không quan sát được. Giao diện phải nói *ngoài phạm
+ * vi theo dõi*, không được vẽ chúng như số liệu 0.
+ */
+function deriveRoutingAccountMap(events, cdrRows, opts){
+  const o = opts || {};
+  const minShare = o.minShare != null ? o.minShare : 0.6;
+
+  const cidToRoutings = new Map();
+  (events||[]).forEach(ev=>{
+    const cid = normalizeCidNational(ev && ev.cid);
+    const routing = String(ev && ev.routing || '');
+    if(!cid || !routing) return;
+    if(!cidToRoutings.has(cid)) cidToRoutings.set(cid, new Set());
+    cidToRoutings.get(cid).add(routing);
+  });
+
+  const cidToAccounts = new Map();
+  const allAccounts = new Set();
+  (cdrRows||[]).forEach(r=>{
+    const cid = normalizeCidNational(r && r.caller_id_number);
+    const acc = String((r && (r.account_name || r.account_id)) || '').trim();
+    if(!acc) return;
+    allAccounts.add(acc);
+    if(!cid) return;
+    if(!cidToAccounts.has(cid)) cidToAccounts.set(cid, new Set());
+    cidToAccounts.get(cid).add(acc);
+  });
+
+  // Map long thay vi khoa ghep chuoi: ten routing that co chua dau cach
+  // (vd "HNI_Duoc Thai Minh_VBN") nen moi ky tu phan tach deu co nguy co va cham.
+  const pairCount = new Map();        // routing -> Map(account -> so CID chung)
+  const routingTotal = new Map();     // routing -> tong luot khop
+  const coveredAccounts = new Set();
+  let matchedCids = 0;
+
+  cidToRoutings.forEach((routings, cid)=>{
+    const accounts = cidToAccounts.get(cid);
+    if(!accounts) return;
+    matchedCids++;
+    routings.forEach(routing=>{
+      if(!pairCount.has(routing)) pairCount.set(routing, new Map());
+      const inner = pairCount.get(routing);
+      accounts.forEach(acc=>{
+        inner.set(acc, (inner.get(acc)||0) + 1);
+        routingTotal.set(routing, (routingTotal.get(routing)||0) + 1);
+        coveredAccounts.add(acc);
+      });
+    });
+  });
+
+  const byRoutingMap = new Map();
+  pairCount.forEach((inner, routing)=>{
+    const cands = [];
+    inner.forEach((count, account)=>{
+      cands.push({ account, sharedCids: count,
+                   share: count / (routingTotal.get(routing) || 1) });
+    });
+    byRoutingMap.set(routing, cands);
+  });
+
+  const byRouting = [];
+  byRoutingMap.forEach((cands, routing)=>{
+    cands.sort((a,b)=> b.sharedCids - a.sharedCids);
+    const top = cands[0];
+    byRouting.push({
+      routing,
+      account: top.account,
+      sharedCids: top.sharedCids,
+      share: top.share,
+      ambiguous: cands.length > 1 && top.share < minShare,
+      candidates: cands
+    });
+  });
+  byRouting.sort((a,b)=> b.sharedCids - a.sharedCids);
+
+  return {
+    byRouting,
+    uncoveredAccounts: Array.from(allAccounts).filter(a=> !coveredAccounts.has(a)).sort(),
+    unmatchedRoutings: Array.from(cidToRoutings.values()).length
+      ? Array.from(new Set(Array.from(cidToRoutings.values()).flatMap(s=> Array.from(s))))
+          .filter(r=> !byRoutingMap.has(r)).sort()
+      : [],
+    stats: {
+      eventCids: cidToRoutings.size,
+      cdrCids: cidToAccounts.size,
+      matchedCids,
+      accounts: allAccounts.size,
+      coveredAccounts: coveredAccounts.size
+    }
+  };
+}
+
+/** Phân bố thời gian hồi phục + phần sai của quy tắc 24h. */
+function computeBlockMttr(timeline, opts){
+  const o = opts || {};
+  const deadAfterMin = o.deadAfterMin != null ? o.deadAfterMin : CID_DEAD_AFTER_MIN;
+  const ivs = (timeline && timeline.intervals) || [];
+  const rec = ivs.filter(iv=> iv.recovered).map(iv=> iv.durationMin).sort((a,b)=> a-b);
+  const pct = p => rec.length ? rec[Math.min(rec.length-1, Math.max(0, Math.ceil(rec.length*p/100)-1))] : null;
+  const byTelco = {};
+  ivs.forEach(iv=>{
+    const t = iv.telco || 'Unknown';
+    const b = byTelco[t] || (byTelco[t] = { telco:t, total:0, recovered:0, presumedDead:0, lateRecovery:0, sumMin:0 });
+    b.total += 1;
+    if(iv.recovered){ b.recovered += 1; b.sumMin += iv.durationMin; }
+    if(iv.presumedDead) b.presumedDead += 1;
+    if(iv.lateRecovery) b.lateRecovery += 1;
+  });
+  Object.values(byTelco).forEach(b=>{ b.mttrMin = b.recovered ? b.sumMin/b.recovered : null; });
+  return {
+    count: ivs.length,
+    recovered: rec.length,
+    stillBlocked: ivs.filter(iv=> iv.censored).length,
+    presumedDead: ivs.filter(iv=> iv.presumedDead).length,
+    lateRecovery: ivs.filter(iv=> iv.lateRecovery).length,
+    lateRecoveryPct: rec.length ? 100*ivs.filter(iv=> iv.lateRecovery).length/rec.length : 0,
+    deadAfterMin,
+    p10: pct(10), p25: pct(25), p50: pct(50), p75: pct(75), p90: pct(90), p99: pct(99),
+    maxMin: rec.length ? rec[rec.length-1] : null,
+    byTelco: Object.values(byTelco).sort((a,b)=> b.total - a.total)
+  };
+}
+
 // ==========================================================================
 // Xuất ra: gán vào global (self trong worker, window/globalThis trong trang)
 // + module.exports cho Node test.
@@ -1245,6 +1614,9 @@ const __exports = {
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
   computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats,
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
+  CID_DEAD_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
+  computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
+  normalizeCidNational, deriveRoutingAccountMap,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }

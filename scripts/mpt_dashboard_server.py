@@ -21,6 +21,9 @@ from pathlib import Path
 from threading import Lock
 from time import monotonic
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import routing_events  # noqa: E402  (can sys.path o tren de chay ca khi import truc tiep)
+
 
 class _DataBlob(ctypes.Structure):
     _fields_ = [("cbData", ctypes.c_ulong), ("pbData", ctypes.POINTER(ctypes.c_byte))]
@@ -419,6 +422,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/export-progress":
             self.handle_export_progress(parsed)
             return
+        if parsed.path == "/api/cid-events":
+            self.handle_cid_events(parsed)
+            return
         if parsed.path == "/dashboard":
             self.handle_dashboard(parsed)
             return
@@ -626,6 +632,42 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if profile_id:
                 self.server.profile_store.update_accounts(profile_id, accounts)
             self.json_response(accounts)
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_cid_events(self, parsed):
+        """Lich su Block/Reactive CID (nguon: trang MPT `routing/reports`).
+
+        `sync=1` keo bo sung cac ngay con thieu roi moi tra ve; khong co thi doc
+        thang tu cache dia (mo dashboard la co ngay, khong phai cho MPT).
+        """
+        query = urllib.parse.parse_qs(parsed.query)
+        profile_id = query.get("profile_id", [""])[-1]
+        job_id = query.get("job_id", [""])[-1]
+        try:
+            days = int(query.get("days", [""])[-1] or routing_events.WINDOW_DAYS)
+        except ValueError:
+            days = routing_events.WINDOW_DAYS
+        days = max(1, min(days, routing_events.WINDOW_DAYS))
+
+        try:
+            cache = routing_events.RoutingEventCache(self.server.root, profile_id)
+            synced = None
+            if query.get("sync", ["0"])[-1] == "1":
+                # Client RIENG: sync POST vao /routing/reports, ma MPT giu lai
+                # filter trong session -> dung chung se lam hong client dang
+                # phuc vu danh sach account.
+                synced = routing_events.sync(
+                    self.get_export_client(profile_id),
+                    cache,
+                    days=days,
+                    progress=lambda p: self.set_export_progress(
+                        job_id, p["done"], p["total"], p["current"]
+                    ),
+                )
+            events, meta = cache.load_window(days=days)
+            meta["synced"] = synced
+            self.json_response({"events": events, "meta": meta})
         except Exception as exc:
             self.error_response(exc)
 
