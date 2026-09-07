@@ -1690,9 +1690,20 @@ function computeRoutingLeaks(timeline, cdrRows, opts){
   });
   idx.forEach(list=> list.sort((a,b)=> a[0]-b[0]));
 
-  const hits = [];
-  const outside = { calls:0, connected:0 };
-  let checked = 0, skipped = 0;
+  // Cộng dồn tại chỗ thay vì dựng mảng `hits`: trên dữ liệu thật mảng đó lên tới
+  // 74.339 phần tử / 19,2 MB mà giao diện KHÔNG hiển thị phần tử nào — panel chỉ
+  // đọc số đếm và tỷ lệ. Giữ nó lại là trả giá bộ nhớ (và chi phí structured
+  // clone nếu chạy trong worker) cho dữ liệu không ai xem.
+  // `sampleLimit` cho phép giữ vài dòng ví dụ khi cần soi.
+  const sampleLimit = o.sampleLimit != null ? o.sampleLimit : 0;
+  const sample = [];
+  const inClosed = { calls:0, connected:0 };
+  const inCensored = { calls:0, connected:0 };
+  // Nền cũng tích luỹ billsec ở đây luôn để `computeDeadNumberLoss` không phải
+  // quét lại toàn bộ CDR lần nữa (đo được: quét lại tốn thêm ~1,6 giây).
+  const outside = { calls:0, connected:0, billsec:0 };
+  const telcoTally = new Map(), routingTally = new Map();
+  let checked = 0, skipped = 0, hitCount = 0;
 
   (cdrRows||[]).forEach(r=>{
     const cid = normalizeCidNational(r && r.caller_id_number);
@@ -1701,6 +1712,7 @@ function computeRoutingLeaks(timeline, cdrRows, opts){
     if(!cid || !code || ts == null){ skipped++; return; }
     checked++;
     const connected = isConnectedStrict(r);
+    const billsec = Number(r.billsec)||0;
     const list = idx.get(cid + '|' + code);
     let found = null;
     if(list){
@@ -1709,46 +1721,48 @@ function computeRoutingLeaks(timeline, cdrRows, opts){
         if(ts < to){ found = { from, routing, censored }; break; }
       }
     }
-    if(!found){ outside.calls++; if(connected) outside.connected++; return; }
-    hits.push({
-      cid, telco: code, routing: found.routing,
-      censored: found.censored,
-      callTs: ts, callISO: localISODateTime(ts),
-      blockedFromISO: localISODateTime(found.from),
-      minutesIntoBlock: (ts - found.from)/60000,
-      hangup_cause: r.hangup_cause || '',
-      billsec: Number(r.billsec)||0,
-      connected
-    });
+    if(!found){
+      outside.calls++;
+      if(connected){ outside.connected++; outside.billsec += billsec; }
+      return;
+    }
+    hitCount++;
+    const bucket = found.censored ? inCensored : inClosed;
+    bucket.calls++;
+    if(connected) bucket.connected++;
+    telcoTally.set(code, (telcoTally.get(code)||0) + 1);
+    routingTally.set(found.routing, (routingTally.get(found.routing)||0) + 1);
+    if(sample.length < sampleLimit){
+      sample.push({
+        cid, telco: code, routing: found.routing, censored: found.censored,
+        callTs: ts, callISO: localISODateTime(ts),
+        blockedFromISO: localISODateTime(found.from),
+        minutesIntoBlock: (ts - found.from)/60000,
+        hangup_cause: r.hangup_cause || '', billsec, connected
+      });
+    }
   });
 
-  const group = list => {
-    const connected = list.filter(x=> x.connected).length;
-    return { calls: list.length, connected,
-             connectRate: list.length ? 100*connected/list.length : 0 };
-  };
-  const inClosed = hits.filter(h=> !h.censored);
-  const inCensored = hits.filter(h=> h.censored);
-
-  const tally = (arr, key)=>{
-    const m = new Map();
-    arr.forEach(x=> m.set(x[key], (m.get(x[key])||0) + 1));
-    return Array.from(m, ([k,v])=> ({ [key]: k, count: v })).sort((a,b)=> b.count - a.count);
-  };
+  const group = g => ({ calls: g.calls, connected: g.connected,
+                        connectRate: g.calls ? 100*g.connected/g.calls : 0 });
+  const tally = (m, key)=> Array.from(m, ([k,v])=> ({ [key]: k, count: v }))
+    .sort((a,b)=> b.count - a.count);
 
   return {
-    hits, checked, skipped,
-    hitRate: checked ? hits.length / checked : 0,
+    hitCount, sample, checked, skipped,
+    hitRate: checked ? hitCount / checked : 0,
     // Vô hại: block đã được mở lại, cuộc gọi vẫn chạy bình thường.
     inClosed: group(inClosed),
-    // Lãng phí: số đã chết theo quy tắc 24h mà vẫn bị quay số.
+    // Lãng phí: số đã chết theo quy tắc mà vẫn bị quay số.
     inCensored: group(inCensored),
     // Nền để so sánh — không có nó thì hai số trên không đọc được.
-    outside: { calls: outside.calls, connected: outside.connected,
-               connectRate: outside.calls ? 100*outside.connected/outside.calls : 0 },
-    wastedCalls: inCensored.length,
-    byTelco: tally(hits, 'telco'),
-    byRouting: tally(hits, 'routing')
+    outside: Object.assign(group(outside), {
+      billsec: outside.billsec,
+      avgBillsec: outside.connected ? outside.billsec/outside.connected : 0
+    }),
+    wastedCalls: inCensored.calls,
+    byTelco: tally(telcoTally, 'telco'),
+    byRouting: tally(routingTally, 'routing')
   };
 }
 
@@ -1888,25 +1902,14 @@ function computeBlockBursts(events, opts){
  */
 function computeDeadNumberLoss(timeline, cdrRows, opts){
   const o = opts || {};
+  // `computeRoutingLeaks` đã phân loại xong từng cuộc và tích luỹ sẵn nhóm nền,
+  // nên KHÔNG quét lại CDR ở đây. Trước đây quét lại tốn thêm ~1,6 giây trên
+  // 832k dòng và cho ra đúng những con số ấy.
   const leaks = o.leaks || computeRoutingLeaks(timeline, cdrRows, o);
-  const rows = cdrRows || [];
 
-  // Nền: chỉ lấy cuộc NGOÀI mọi khoảng bị khoá, để không tự nhiễm bẩn bằng
-  // chính các cuộc đang xét.
-  const hitKey = new Set(leaks.hits.map(h=> h.cid + '|' + h.telco + '|' + h.callTs));
-  let baseCalls = 0, baseConnected = 0, baseBillsec = 0;
-  rows.forEach(r=>{
-    const cid = normalizeCidNational(r.caller_id_number);
-    const code = telcoBlockCode(getTelco(r));
-    const ts = r.start_ts != null ? r.start_ts : parseEventTs(r.start_stamp);
-    if(!cid || !code || ts == null) return;
-    if(hitKey.has(cid + '|' + code + '|' + ts)) return;
-    baseCalls += 1;
-    if(isConnectedStrict(r)){ baseConnected += 1; baseBillsec += Number(r.billsec)||0; }
-  });
-
-  const baseConnectRate = baseCalls ? baseConnected / baseCalls : 0;
-  const baseAvgBillsec = baseConnected ? baseBillsec / baseConnected : 0;
+  const baseCalls = leaks.outside.calls;
+  const baseConnectRate = baseCalls ? leaks.outside.connected / baseCalls : 0;
+  const baseAvgBillsec = leaks.outside.avgBillsec || 0;
   const wastedCalls = leaks.inCensored.calls;
   const lostConnections = wastedCalls * baseConnectRate;
   const lostBillsec = lostConnections * baseAvgBillsec;
@@ -2073,6 +2076,18 @@ function __precursorWindows(timeline, cdrRows, o, winMs, windowEnd){
   return { caseWindows, controlWindows };
 }
 
+/**
+ * Bản công khai của `__precursorWindows` để trang dựng MỘT LẦN rồi truyền vào
+ * cả `computeBlockPrecursors` lẫn `computeBlockSignalPatterns` qua `opts.windows`.
+ */
+function buildPrecursorWindows(timeline, cdrRows, opts){
+  const o = opts || {};
+  const winMs = (o.windowHours != null ? o.windowHours : 6) * 3600000;
+  const windowEnd = o.windowEnd != null ? o.windowEnd
+                  : (timeline && timeline.windowEnd) || Date.now();
+  return __precursorWindows(timeline, cdrRows, o, winMs, windowEnd);
+}
+
 function __percentile(sorted, p){
   if(!sorted.length) return null;
   const i = Math.min(sorted.length-1, Math.max(0, Math.ceil(sorted.length*p/100) - 1));
@@ -2106,7 +2121,11 @@ function computeBlockSignalPatterns(timeline, cdrRows, opts){
   const loPct = o.loPercentile != null ? o.loPercentile : 20;
   const minCases = o.minCases != null ? o.minCases : 30;
 
-  const { caseWindows, controlWindows } = __precursorWindows(timeline, cdrRows, o, winMs, windowEnd);
+  // Dùng lại cửa sổ đã dựng nếu người gọi truyền vào: `computeBlockPrecursors`
+  // và `computeBlockSignalPatterns` cần y hệt một tập cửa sổ, dựng hai lần là
+  // trả giá gấp đôi cho cùng một công việc.
+  const { caseWindows, controlWindows } = o.windows
+    || __precursorWindows(timeline, cdrRows, o, winMs, windowEnd);
   const winHours = winMs/3600000;
 
   const feat = w=>{
@@ -2207,7 +2226,11 @@ function computeBlockPrecursors(timeline, cdrRows, opts){
                   : (timeline && timeline.windowEnd) || Date.now();
   const idx = __blockIndex(timeline);
 
-  const { caseWindows, controlWindows } = __precursorWindows(timeline, cdrRows, o, winMs, windowEnd);
+  // Dùng lại cửa sổ đã dựng nếu người gọi truyền vào: `computeBlockPrecursors`
+  // và `computeBlockSignalPatterns` cần y hệt một tập cửa sổ, dựng hai lần là
+  // trả giá gấp đôi cho cùng một công việc.
+  const { caseWindows, controlWindows } = o.windows
+    || __precursorWindows(timeline, cdrRows, o, winMs, windowEnd);
 
   const featurize = calls=>{
     if(!calls || !calls.length) return null;
@@ -2338,7 +2361,7 @@ const __exports = {
   buildCidCoverage, computeRoutingLeaks,
   computeBlockPressure, computeBlockBursts, computeDeadNumberLoss,
   computeLoadVsBlockRisk, computeBlockPrecursors,
-  computeBlockSignalPatterns,
+  computeBlockSignalPatterns, buildPrecursorWindows,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }

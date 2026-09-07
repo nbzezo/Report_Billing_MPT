@@ -481,7 +481,7 @@ test('computeRoutingLeaks — CID dang bi VT chan van goi MB thi khong tinh la t
       billsec: 20, hangup_cause: 'NORMAL_CLEARING' },
   ]), {});
   const res = core.computeRoutingLeaks(tl, rows, { windowEnd: end });
-  assert.equal(res.hits.length, 0);      // khoa VT khong anh huong cuoc goi MB
+  assert.equal(res.hitCount, 0);         // khoa VT khong anh huong cuoc goi MB
   assert.equal(res.outside.calls, 1);
 });
 
@@ -787,4 +787,81 @@ test('computeBlockSignalPatterns — thieu case hoac control thi bao insufficien
   assert.equal(r.cases, 0);
   assert.equal(r.insufficientSample, true);
   assert.deepEqual(r.distribution, []);
+});
+
+test('computeRoutingLeaks — khong dung mang `hits` nua, chi giu so lieu', () => {
+  // Tren du lieu that mang do len toi 74.339 phan tu / 19,2 MB ma giao dien
+  // khong hien thi phan tu nao.
+  const end = Date.parse('2026-09-03T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0902', 'VT', '2026-09-01 10:00:00', 'block'),
+  ], { windowEnd: end });
+  const rows = core.enrichData(core.normalizeCallRecords([
+    { caller_id_number: '0902', telco: 'Viettel', start_stamp: '2026-09-01 11:00:00',
+      billsec: 0, hangup_cause: 'NO_USER_RESPONSE' },
+    { caller_id_number: '0902', telco: 'Viettel', start_stamp: '2026-09-01 12:00:00',
+      billsec: 0, hangup_cause: 'NO_USER_RESPONSE' },
+  ]), {});
+
+  const r = core.computeRoutingLeaks(tl, rows, { windowEnd: end });
+  assert.equal(r.hitCount, 2);
+  assert.equal(r.hits, undefined);        // khong con tra ve mang day du
+  assert.deepEqual(r.sample, []);         // mac dinh khong giu mau nao
+
+  // van lay duoc vai dong vi du khi can soi
+  const r2 = core.computeRoutingLeaks(tl, rows, { windowEnd: end, sampleLimit: 1 });
+  assert.equal(r2.sample.length, 1);
+  assert.equal(r2.sample[0].cid, '0902');
+});
+
+test('computeDeadNumberLoss — dung lai nen tu leaks, khong quet lai CDR', () => {
+  const end = Date.parse('2026-09-03T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0902', 'VT', '2026-09-01 10:00:00', 'block'),
+  ], { windowEnd: end });
+  const call = (caller, stamp, billsec) => ({
+    caller_id_number: caller, telco: 'Viettel', start_stamp: stamp, billsec,
+    hangup_cause: billsec ? 'NORMAL_CLEARING' : 'NO_USER_RESPONSE',
+  });
+  const rows = [];
+  for(let i = 0; i < 10; i++) rows.push(call('0901', '2026-09-01 08:0' + i + ':00', i < 5 ? 60 : 0));
+  for(let i = 0; i < 4; i++)  rows.push(call('0902', '2026-09-01 11:0' + i + ':00', 0));
+  const enriched = core.enrichData(core.normalizeCallRecords(rows), {});
+
+  const auto = core.computeDeadNumberLoss(tl, enriched, { windowEnd: end, minBaseCalls: 5 });
+  const leaks = core.computeRoutingLeaks(tl, enriched, { windowEnd: end });
+  const reused = core.computeDeadNumberLoss(tl, enriched, { windowEnd: end, minBaseCalls: 5, leaks });
+
+  // truyen leaks vao hay de tu tinh deu phai ra y het nhau
+  assert.deepEqual(reused, auto);
+  assert.equal(auto.baseCalls, 10);
+  assert.equal(auto.baseConnectRate, 50);
+  assert.equal(auto.baseAvgBillsec, 60);
+  assert.equal(auto.lostConnections, 2);
+});
+
+test('buildPrecursorWindows — dung mot lan, dung chung cho ca hai phep phan tich', () => {
+  const end = Date.parse('2026-09-20T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-10 12:00:00', 'block'),
+    E('0901', 'VT', '2026-09-10 18:00:00', 'reactive'),
+  ], { windowEnd: end });
+  const raw = [];
+  for(let d = 1; d <= 9; d++)
+    for(let h = 0; h < 12; h++) raw.push(callAt('0901', `2026-09-0${d} ${String(h).padStart(2,'0')}:00:00`, 30));
+  for(let h = 6; h < 12; h++) raw.push(callAt('0901', `2026-09-10 ${String(h).padStart(2,'0')}:00:00`, 30));
+  const rows = core.enrichData(core.normalizeCallRecords(raw), {});
+  const opts = { windowHours: 6, windowEnd: end, minCases: 1 };
+
+  const windows = core.buildPrecursorWindows(tl, rows, opts);
+  assert.ok(windows.caseWindows.length >= 1);
+  assert.ok(windows.controlWindows.length >= 1);
+
+  // ket qua phai y het du dung cua so truyen vao hay de tu dung
+  const a1 = core.computeBlockPrecursors(tl, rows, opts);
+  const a2 = core.computeBlockPrecursors(tl, rows, { ...opts, windows });
+  assert.deepEqual(a2, a1);
+  const b1 = core.computeBlockSignalPatterns(tl, rows, opts);
+  const b2 = core.computeBlockSignalPatterns(tl, rows, { ...opts, windows });
+  assert.deepEqual(b2, b1);
 });

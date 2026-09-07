@@ -4826,6 +4826,29 @@ function cidUniverseFromCdr(rows){
   return out;
 }
 
+/* Bộ nhớ tạm cho MỘT lượt vẽ tab.
+   Đo trên 832k dòng: `computeDeadNumberLoss` tự tính lại leaks tốn thêm ~1,6s,
+   và precursors + signals mỗi hàm tự dựng cửa sổ hết 6,2s cho cả hai. Các thẻ
+   trong tab dùng chung một bộ dữ liệu nên tính một lần là đủ. Khoá theo mảng
+   rows để đổi bộ lọc là tự hết hiệu lực. */
+let cidCalcCache = { rows: null, leaks: null, windows: new Map() };
+function cidCalcReset(rows){
+  if(cidCalcCache.rows !== rows) cidCalcCache = { rows, leaks: null, windows: new Map() };
+}
+function cidLeaks(rows){
+  cidCalcReset(rows);
+  if(!cidCalcCache.leaks)
+    cidCalcCache.leaks = computeRoutingLeaks(cidState.timeline, rows, cidWindowBounds());
+  return cidCalcCache.leaks;
+}
+function cidWindows(rows, hours){
+  cidCalcReset(rows);
+  if(!cidCalcCache.windows.has(hours))
+    cidCalcCache.windows.set(hours, buildPrecursorWindows(cidState.timeline, rows,
+      Object.assign({ windowHours: hours }, cidWindowBounds())));
+  return cidCalcCache.windows.get(hours);
+}
+
 function renderCidCoverage(){
   const el = document.getElementById('cidCoverageBody');
   const note = document.getElementById('cidWindowNote');
@@ -4982,7 +5005,7 @@ function renderCidWaste(){
   const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
   if(!rows.length){
     el.innerHTML = '<div class="muted">Chưa có dữ liệu cuộc gọi. Tải báo cáo ở <b>Nguồn dữ liệu MPT</b> trước.</div>'; return; }
-  const r = computeRoutingLeaks(cidState.timeline, rows);
+  const r = cidLeaks(rows);
   if(!r.checked){
     el.innerHTML = '<div class="muted">Không có cuộc gọi nào đủ trường (CID, nhà mạng, thời điểm) để đối chiếu.</div>'; return; }
   const cell = 'border:1px solid #eee;padding:6px';
@@ -5069,7 +5092,8 @@ function renderCidLoss(){
   if(!rows.length){ el.innerHTML = '<div class="muted">Chưa có dữ liệu cuộc gọi để đối chiếu.</div>'; return; }
   let billing = null;
   try{ const c = getBillingConfig(); if(c && c.rate > 0) billing = c; }catch(e){}
-  const L = computeDeadNumberLoss(cidState.timeline, rows, billing ? { billing } : {});
+  const L = computeDeadNumberLoss(cidState.timeline, rows,
+              Object.assign({ leaks: cidLeaks(rows) }, billing ? { billing } : {}));
   if(!L.wastedCalls){
     el.innerHTML = '<div class="muted">Không có cuộc gọi nào nhắm vào số đã chết trong phạm vi đang lọc — không có tổn thất để tính.</div>'; return; }
   const n = v => Math.round(v).toLocaleString('vi-VN');
@@ -5143,7 +5167,9 @@ function renderCidPrecursors(){
   const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
   if(!rows.length){
     vd.innerHTML = '<div class="muted">Cần dữ liệu cuộc gọi nằm trong cửa sổ lịch sử.</div>'; tb.innerHTML = ''; return; }
-  const r = computeBlockPrecursors(cidState.timeline, rows, cidWindowBounds());
+  const opts = Object.assign({ windowHours: 6 }, cidWindowBounds());
+  const r = computeBlockPrecursors(cidState.timeline, rows,
+              Object.assign({ windows: cidWindows(rows, 6) }, opts));
   if(!r.cases){
     vd.innerHTML = '<div class="muted">Không có lần Block nào có dữ liệu cuộc gọi đi trước để so sánh.</div>';
     tb.innerHTML = ''; return; }
@@ -5205,7 +5231,8 @@ function renderCidSignals(){
   const sel = document.getElementById('cidSignalWindow');
   const hours = sel ? Number(sel.value)||6 : 6;
   const r = computeBlockSignalPatterns(cidState.timeline, rows,
-              Object.assign({ windowHours: hours }, cidWindowBounds()));
+              Object.assign({ windowHours: hours, windows: cidWindows(rows, hours) },
+                            cidWindowBounds()));
   if(!r.cases || !r.controls) return clear('Không đủ cửa sổ để so sánh.');
 
   const pct = v => v.toFixed(1)+'%';
@@ -5262,6 +5289,7 @@ function renderCidSignals(){
 }
 
 function renderCidTab(){
+  cidCalcCache = { rows: null, leaks: null, windows: new Map() };
   renderCidCoverage();
   renderCidBurstTable();
   renderCidLoss();
