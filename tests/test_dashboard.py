@@ -937,3 +937,37 @@ class CidSignalPatternTests(unittest.TestCase):
         self.assertIn("function cidSampleWarning()", self.HTML)
         self.assertIn("mẫu bị cắt", self.HTML)
         self.assertGreaterEqual(self.HTML.count("cidSampleWarning()"), 4)
+
+
+class CidPerAccountAndPerfTests(unittest.TestCase):
+    """Tin hieu theo tung account, ngay hoat dong, va cac toi uu."""
+
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+    CORE = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+
+    def test_bang_tin_hieu_theo_tung_account(self):
+        self.assertIn('id="table_cid_signals_account"', self.HTML)
+        self.assertIn("renderCidSignalsByAccount();", self.HTML)
+        self.assertIn("function computeSignalsByAccount", self.CORE)
+
+    def test_dem_ngay_co_luu_luong_chu_khong_dem_ngay_lich(self):
+        # du lieu that co Chu nhat gan bang 0 va mot dai 5 ngay gian doan
+        self.assertIn("function countActiveDays", self.CORE)
+        self.assertIn("ngày có lưu lượng thật", self.HTML)
+        self.assertIn("đừng đếm ngày lịch", self.HTML)
+
+    def test_khong_con_mang_hits_va_khong_quet_lai_CDR(self):
+        self.assertIn("sampleLimit", self.CORE)
+        self.assertNotIn("leaks.hits.map", self.CORE)
+        self.assertIn("leaks.outside.avgBillsec", self.CORE)
+
+    def test_dung_chung_cua_so_precursor_va_leaks(self):
+        self.assertIn("function buildPrecursorWindows", self.CORE)
+        self.assertIn("o.windows", self.CORE)
+        self.assertIn("function cidLeaks(rows)", self.HTML)
+        self.assertIn("function cidWindows(rows, hours)", self.HTML)
+
+    def test_duong_kha_dung_rut_gon_bang_ham_giu_DAY(self):
+        # giu max se che mat chinh cac dot tut — thu duy nhat dang nhin
+        self.assertIn("function downsampleSeriesMin", self.CORE)
+        self.assertIn("downsampleSeriesMin(series[t].times", self.HTML)

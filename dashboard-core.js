@@ -435,6 +435,31 @@ function downsampleSeriesMax(x, y, maxPoints = 1500) {
   return { x: outX, y: outY };
 }
 
+/**
+ * Như `downsampleSeriesMax` nhưng giữ giá trị NHỎ NHẤT mỗi nhóm.
+ *
+ * Với đường "% kho số khả dụng", giữ max sẽ che mất chính các đợt tụt — thứ duy
+ * nhất đáng nhìn trên biểu đồ đó. Giữ min thì không bao giờ giấu một đợt gián
+ * đoạn đi.
+ */
+function downsampleSeriesMin(x, y, maxPoints = 1500) {
+  const n = (x && x.length) ? x.length : 0;
+  if (n <= maxPoints) return { x, y };
+  const step = Math.ceil(n / maxPoints);
+  const outX = [], outY = [];
+  for (let i = 0; i < n; i += step) {
+    const end = Math.min(n, i + step);
+    let min = Infinity, minIdx = i;
+    for (let j = i; j < end; j++) {
+      const v = y[j];
+      if (v < min) { min = v; minIdx = j; }
+    }
+    outX.push(x[minIdx]);
+    outY.push(min);
+  }
+  return { x: outX, y: outY };
+}
+
 function filterData(rows, startDate, endDate, account, startTime, endTime) {
   const st = (startTime && String(startTime).trim()) ? String(startTime).trim() : '00:00';
   const et = (endTime && String(endTime).trim()) ? String(endTime).trim() : '23:59';
@@ -2293,6 +2318,84 @@ function computeBlockPrecursors(timeline, cdrRows, opts){
   };
 }
 
+/**
+ * Đếm số ngày CÓ LƯU LƯỢNG THẬT trong tập dữ liệu.
+ *
+ * Ngày lịch không bằng ngày có dữ liệu: đo trên dữ liệu thật, Chủ nhật gần như
+ * bằng 0 và có cả dải 5 ngày gián đoạn liên tiếp. "Lấy 5 ngày gần nhất" mà rơi
+ * trúng dải đó thì gần như không còn gì để phân tích — nên phải đếm ngày hoạt
+ * động, không đếm ngày lịch.
+ */
+function countActiveDays(cdrRows, opts){
+  const o = opts || {};
+  const byDay = new Map();
+  (cdrRows||[]).forEach(r=>{
+    const d = (r && r.date) || dateKey(r && r.start_stamp);
+    if(!d || d === 'Unknown') return;
+    byDay.set(d, (byDay.get(d)||0) + 1);
+  });
+  const days = Array.from(byDay, ([day, calls])=> ({ day, calls })).sort((a,b)=> a.day.localeCompare(b.day));
+  if(!days.length) return { calendarDays: 0, activeDays: 0, deadDays: [], days: [], median: 0 };
+  // Ngưỡng "ngày chết" tương đối với chính tập dữ liệu: dưới 10% ngày trung vị.
+  const sorted = days.map(x=> x.calls).sort((a,b)=> a-b);
+  const median = sorted[Math.floor(sorted.length/2)];
+  const floor = o.minCalls != null ? o.minCalls : Math.max(1, median*0.1);
+  const dead = days.filter(x=> x.calls < floor);
+  return {
+    calendarDays: days.length,
+    activeDays: days.length - dead.length,
+    deadDays: dead.map(x=> x.day),
+    days, median, floor
+  };
+}
+
+/**
+ * B4 theo TỪNG ACCOUNT.
+ *
+ * Gộp nhiều account có kiểu quay số khác nhau làm loãng mất tín hiệu: đo trên
+ * dữ liệu thật, gộp 2 account thì không chỉ số nào đạt |d| >= 0,5, nhưng tách
+ * riêng một account thì có. Nên đây mới là cách đọc đúng, không phải bản gộp.
+ */
+function computeSignalsByAccount(timeline, cdrRows, opts){
+  const o = opts || {};
+  const groups = new Map();
+  (cdrRows||[]).forEach(r=>{
+    const acc = String((r && (r.account_name || r.account_id)) || 'Unknown').trim() || 'Unknown';
+    if(!groups.has(acc)) groups.set(acc, []);
+    groups.get(acc).push(r);
+  });
+
+  const rows = [];
+  groups.forEach((accRows, account)=>{
+    // Dựng cửa sổ MỘT lần rồi dùng cho cả hai phép phân tích của account này.
+    const windows = buildPrecursorWindows(timeline, accRows, o);
+    const shared = Object.assign({}, o, { windows });
+    const pre = computeBlockPrecursors(timeline, accRows, shared);
+    const sig = computeBlockSignalPatterns(timeline, accRows, shared);
+    const top = pre.metrics && pre.metrics.length ? pre.metrics[0] : null;
+    const enriched = (sig.combos||[])
+      .filter(c=> c.signals > 0 && c.lift != null && c.casePct >= 3)
+      .sort((a,b)=> b.lift - a.lift)[0] || null;
+    const act = countActiveDays(accRows);
+    rows.push({
+      account, calls: accRows.length,
+      activeDays: act.activeDays, calendarDays: act.calendarDays,
+      cases: pre.cases, controls: pre.controls,
+      insufficientSample: pre.insufficientSample,
+      hasSignal: pre.hasSignal,
+      topMetric: top ? top.metric : null,
+      topD: top ? top.cohensD : null,
+      signalMetrics: pre.signalMetrics || [],
+      topCombo: enriched ? enriched.label : null,
+      topComboLift: enriched ? enriched.lift : null,
+      topComboPct: enriched ? enriched.casePct : null
+    });
+  });
+  rows.sort((a,b)=> b.cases - a.cases);
+  return { accounts: rows, windowHours: o.windowHours != null ? o.windowHours : 6,
+           minCases: o.minCases != null ? o.minCases : 30 };
+}
+
 /** Phân bố thời gian hồi phục + phần sai của quy tắc 24h. */
 function computeBlockMttr(timeline, opts){
   const o = opts || {};
@@ -2351,7 +2454,7 @@ const __exports = {
   normalizeTimestamp, addSecondsToStamp, hash32,
   createNormalizeContext, normalizeCallRecord, normalizeCallRecords,
   enrichData, filterData, dedupByUUID,
-  __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax,
+  __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax, downsampleSeriesMin,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
   computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats,
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
@@ -2362,6 +2465,7 @@ const __exports = {
   computeBlockPressure, computeBlockBursts, computeDeadNumberLoss,
   computeLoadVsBlockRisk, computeBlockPrecursors,
   computeBlockSignalPatterns, buildPrecursorWindows,
+  countActiveDays, computeSignalsByAccount,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }

@@ -865,3 +865,92 @@ test('buildPrecursorWindows — dung mot lan, dung chung cho ca hai phep phan ti
   const b2 = core.computeBlockSignalPatterns(tl, rows, { ...opts, windows });
   assert.deepEqual(b2, b1);
 });
+
+// ===== Ngay hoat dong + tin hieu theo tung account =====
+
+test('countActiveDays — ngay lich khac ngay CO luu luong', () => {
+  const raw = [];
+  // 3 ngay binh thuong 100 cuoc/ngay
+  for(const d of ['01','02','03'])
+    for(let i = 0; i < 100; i++) raw.push(callAt('0901', `2026-09-${d} 10:${String(i%60).padStart(2,'0')}:00`, 20));
+  // 1 ngay gan nhu chet (2 cuoc)
+  raw.push(callAt('0901', '2026-09-04 10:00:00', 20));
+  raw.push(callAt('0901', '2026-09-04 10:01:00', 20));
+  const rows = core.enrichData(core.normalizeCallRecords(raw), {});
+
+  const a = core.countActiveDays(rows);
+  assert.equal(a.calendarDays, 4);
+  assert.equal(a.activeDays, 3);              // ngay 04 khong tinh
+  assert.deepEqual(a.deadDays, ['2026-09-04']);
+});
+
+test('computeSignalsByAccount — tach theo account, gop lai co the lam loang tin hieu', () => {
+  const end = Date.parse('2026-09-20T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-10 12:00:00', 'block'),
+    E('0901', 'VT', '2026-09-10 18:00:00', 'reactive'),
+    E('0902', 'VT', '2026-09-10 12:00:00', 'block'),
+    E('0902', 'VT', '2026-09-10 18:00:00', 'reactive'),
+  ], { windowEnd: end });
+
+  const mk = (caller, acc, stamp, billsec) => ({
+    caller_id_number: caller, account_name: acc, telco: 'Viettel',
+    start_stamp: stamp, billsec, destination_number: '09120000' + (billsec % 9),
+    hangup_cause: billsec ? 'NORMAL_CLEARING' : 'NO_USER_RESPONSE',
+  });
+  const raw = [];
+  for(let d = 1; d <= 9; d++)
+    for(let h = 0; h < 12; h++){
+      raw.push(mk('0901', 'AccA', `2026-09-0${d} ${String(h).padStart(2,'0')}:00:00`, 30));
+      raw.push(mk('0902', 'AccB', `2026-09-0${d} ${String(h).padStart(2,'0')}:00:00`, 30));
+    }
+  for(let h = 6; h < 12; h++){
+    raw.push(mk('0901', 'AccA', `2026-09-10 ${String(h).padStart(2,'0')}:00:00`, 30));
+    raw.push(mk('0902', 'AccB', `2026-09-10 ${String(h).padStart(2,'0')}:00:00`, 30));
+  }
+  const rows = core.enrichData(core.normalizeCallRecords(raw), {});
+
+  const r = core.computeSignalsByAccount(tl, rows, { windowHours: 6, windowEnd: end, minCases: 1 });
+  assert.equal(r.accounts.length, 2);
+  assert.deepEqual(r.accounts.map(a => a.account).sort(), ['AccA', 'AccB']);
+  r.accounts.forEach(a=>{
+    assert.ok(a.calls > 0);
+    assert.ok(a.activeDays > 0);
+    assert.equal(typeof a.hasSignal, 'boolean');
+    // moi account phai duoc do rieng, khong dung lai ket qua cua nhau
+    assert.ok(a.cases >= 1);
+  });
+});
+
+test('computeSignalsByAccount — account khong co ten thi gom vao Unknown, khong bi mat', () => {
+  const end = Date.parse('2026-09-20T00:00:00');
+  const tl = core.buildCidTimeline([E('0901', 'VT', '2026-09-10 12:00:00', 'block')], { windowEnd: end });
+  const rows = core.enrichData(core.normalizeCallRecords([
+    { caller_id_number: '0901', telco: 'Viettel', start_stamp: '2026-09-10 10:00:00', billsec: 10 },
+  ]), {});
+  const r = core.computeSignalsByAccount(tl, rows, { windowHours: 6, windowEnd: end });
+  assert.equal(r.accounts.length, 1);
+  assert.ok(r.accounts[0].account);   // co nhan, khong phai chuoi rong
+});
+
+test('downsampleSeriesMin — giu day, khong che mat dot tut', () => {
+  const x = [], y = [];
+  for(let i = 0; i < 100; i++){ x.push(i); y.push(100); }
+  y[37] = 5;                                  // mot dot tut duy nhat
+  const d = core.downsampleSeriesMin(x, y, 10);
+  assert.ok(d.x.length <= 10);
+  assert.equal(Math.min(...d.y), 5, 'dot tut phai con lai sau khi rut gon');
+  assert.ok(d.x.includes(37), 'phai giu dung moc thoi gian cua day');
+
+  // duoi nguong thi tra ve nguyen ban
+  const small = core.downsampleSeriesMin([1,2,3], [9,8,7], 10);
+  assert.deepEqual(small, { x:[1,2,3], y:[9,8,7] });
+});
+
+test('downsampleSeriesMax van giu dinh — hai ham khong lan nhau', () => {
+  const x = [], y = [];
+  for(let i = 0; i < 100; i++){ x.push(i); y.push(50); }
+  y[37] = 5; y[62] = 95;
+  assert.equal(Math.min(...core.downsampleSeriesMin(x, y, 10).y), 5);
+  assert.equal(Math.max(...core.downsampleSeriesMax(x, y, 10).y), 95);
+});

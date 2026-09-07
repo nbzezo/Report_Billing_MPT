@@ -1604,6 +1604,18 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       <div id="cidSignalThresholds" class="muted" style="margin-top:8px;font-size:11.5px"></div>
     </div>
 
+    <div id="table_cid_signals_account" class="card full" data-tab="cid" draggable="true">
+      <h3 style="margin:0 0 6px 0">Tín hiệu theo từng account</h3>
+      <div class="muted">Gộp nhiều account có kiểu quay số khác nhau làm <b>loãng mất tín hiệu</b>: đo trên dữ liệu thật, bản gộp không chỉ số nào đạt |d| ≥ 0,5 nhưng tách riêng thì có. Đây mới là cách đọc đúng.</div>
+      <div id="cidAccountDaysNote" class="muted" style="margin-top:6px"></div>
+      <table id="cidSignalsAccountTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Account</th><th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th><th style="text-align:right;border:1px solid #eee;padding:6px">Ngày có lưu lượng</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Ca</th><th style="text-align:left;border:1px solid #eee;padding:6px">Chỉ số mạnh nhất</th><th style="text-align:left;border:1px solid #eee;padding:6px">Tổ hợp nổi nhất</th><th style="text-align:left;border:1px solid #eee;padding:6px">Kết luận</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+
     <div id="panel_cid_precursors" class="card full" data-tab="cid" draggable="true">
       <h3 style="margin:0 0 6px 0">Chỉ báo sớm trước khi bị khoá</h3>
       <div class="muted">So hành vi của chính CID đó trong cửa sổ trước mỗi lần Block với các cửa sổ đối chứng không bị khoá. <b>Cohen's d</b> đo mức tách bằng độ lệch chuẩn — chênh lệch % lớn trên một chỉ số nhiễu vẫn có thể vô dụng.</div>
@@ -4908,12 +4920,17 @@ function plotCidAvailability(){
   const keys = Object.keys(series).sort((a,b)=> series[b].peakBlocked - series[a].peakBlocked);
   if(!keys.length) return showNoData(id, 'Không có khoảng bị khoá nào');
   const lowerBound = keys.some(k=> series[k].universeIsLowerBound);
-  const data = keys.map(t=>({
-    type:'scatter', mode:'lines', name:t, line:{ shape:'hv', width:2 },
-    x: series[t].times.map(ms=> new Date(ms)),
-    y: series[t].availablePct,
-    hovertemplate:'%{x}<br>'+t+': %{y:.1f}% khả dụng<extra></extra>'
-  }));
+  // Rút gọn điểm: chuỗi thật lên tới hơn 3.000 mốc cho một nhà mạng — nhiều hơn
+  // số pixel của biểu đồ, và vẽ đủ 4 đường ở độ phân giải đó làm Plotly ném lỗi.
+  // Giữ giá trị NHỎ NHẤT mỗi nhóm để không che mất các đợt tụt khả dụng.
+  const data = keys.map(t=>{
+    const d = downsampleSeriesMin(series[t].times, series[t].availablePct, 800);
+    return {
+      type:'scatter', mode:'lines', name:t, line:{ shape:'hv', width:2 },
+      x: d.x.map(ms=> new Date(ms)), y: d.y,
+      hovertemplate:'%{x}<br>'+t+': %{y:.1f}% khả dụng<extra></extra>'
+    };
+  });
   const layout = {
     title: 'Tỷ lệ kho số khả dụng theo thời gian'
       + (lowerBound ? ' — mẫu số là CẬN DƯỚI, thực tế cao hơn' : ''),
@@ -5288,11 +5305,71 @@ function renderCidSignals(){
   }
 }
 
+const CID_METRIC_NAMES = {
+  calls:'Số cuộc', connectRate:'Tỷ lệ kết nối', avgBillsec:'Billsec TB',
+  shortCallRate:'Cuộc ngắn <10s', distinctDest:'Số đích riêng biệt',
+  repeatRate:'Lần gọi / đích', busyRejectRate:'Busy + Rejected', noAnswerRate:'No answer'
+};
+
+function renderCidSignalsByAccount(){
+  const tb = document.querySelector('#cidSignalsAccountTable tbody');
+  const note = document.getElementById('cidAccountDaysNote');
+  if(!tb) return;
+  const clear = msg=>{ tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:6px">'+msg+'</td></tr>';
+                       if(note) note.textContent = ''; };
+  if(!cidState.loaded || !cidState.timeline) return clear('Chưa tải lịch sử khoá số.');
+  const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
+  if(!rows.length) return clear('Cần dữ liệu cuộc gọi nằm trong cửa sổ lịch sử.');
+
+  const act = countActiveDays(rows);
+  if(note){
+    // Ngày lịch không bằng ngày có dữ liệu — Chủ nhật và các đợt gián đoạn có
+    // thể nuốt mất phần lớn khoảng đã chọn mà không có dấu hiệu gì.
+    const bad = act.calendarDays && act.activeDays < act.calendarDays;
+    note.innerHTML = 'Khoảng đang lọc: <b>' + act.calendarDays + '</b> ngày lịch, trong đó <b'
+      + (bad ? ' style="color:#c0392b"' : '') + '>' + act.activeDays + '</b> ngày có lưu lượng thật.'
+      + (bad ? ' Ngày gần như không có cuộc nào: ' + act.deadDays.join(', ')
+               + '. Chọn khoảng theo <b>ngày có lưu lượng</b>, đừng đếm ngày lịch.'
+             : '');
+  }
+
+  const r = computeSignalsByAccount(cidState.timeline, rows,
+              Object.assign({ windowHours: 6 }, cidWindowBounds()));
+  if(!r.accounts.length) return clear('Không có account nào trong dữ liệu đang lọc.');
+
+  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
+  const tl = 'style="border:1px solid #eee;padding:6px"';
+  const n = v => Number(v||0).toLocaleString('vi-VN');
+  tb.innerHTML = r.accounts.map(a=>{
+    const verdict = a.insufficientSample
+      ? '<span style="color:#E95420">mẫu quá nhỏ</span>'
+      : a.hasSignal
+        ? '<b style="color:#c0392b">có tín hiệu</b>'
+        : '<span class="muted">không có tín hiệu</span>';
+    const metric = a.topMetric
+      ? (CID_METRIC_NAMES[a.topMetric]||a.topMetric) + ' <b>'
+        + (a.topD>=0?'+':'') + a.topD.toFixed(2) + '</b>'
+        + (a.signalMetrics.length > 1 ? ' <span class="muted">(+'+(a.signalMetrics.length-1)+')</span>' : '')
+      : '—';
+    const combo = a.topCombo
+      ? a.topCombo + ' <b>×' + a.topComboLift.toFixed(2) + '</b>'
+      : '<span class="muted">—</span>';
+    return '<tr><td '+tl+'><b>'+a.account+'</b></td>'
+      + '<td '+td+'>'+n(a.calls)+'</td>'
+      + '<td '+td+'>'+a.activeDays+'/'+a.calendarDays+'</td>'
+      + '<td '+td+'>'+n(a.cases)+'</td>'
+      + '<td '+tl+'>'+metric+'</td>'
+      + '<td '+tl+'>'+combo+'</td>'
+      + '<td '+tl+'>'+verdict+'</td></tr>';
+  }).join('');
+}
+
 function renderCidTab(){
   cidCalcCache = { rows: null, leaks: null, windows: new Map() };
   renderCidCoverage();
   renderCidBurstTable();
   renderCidLoss();
+  renderCidSignalsByAccount();
   renderCidPrecursors();
   renderCidSignals();
   renderCidMttrTable();
