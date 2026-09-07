@@ -580,3 +580,121 @@ test('computeDeadNumberLoss — thieu mau nen thi phai bao khong dang tin', () =
   assert.equal(loss.baseCalls, 0);
   assert.equal(loss.reliable, false);         // khong co nen -> khong duoc tin
 });
+
+// ===== Dot 4: tai vs rui ro, chi bao som =====
+
+const callAt = (caller, stamp, billsec, dest) => ({
+  caller_id_number: caller, telco: 'Viettel', start_stamp: stamp, billsec,
+  destination_number: dest || '0912000001',
+  hangup_cause: billsec ? 'NORMAL_CLEARING' : 'NO_USER_RESPONSE',
+});
+
+test('computeLoadVsBlockRisk — loai ngay ma CID DANG bi khoa san', () => {
+  const end = Date.parse('2026-09-10T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0902', 'VT', '2026-09-01 08:00:00', 'block'),   // khong mo lai -> chet
+  ], { windowEnd: end });
+  // 0902 van bi quay so trong luc dang khoa -> khong duoc tinh la quan sat
+  const rows = core.enrichData(core.normalizeCallRecords([
+    callAt('0902', '2026-09-02 09:00:00', 0),
+    callAt('0902', '2026-09-03 09:00:00', 0),
+  ]), {});
+  const r = core.computeLoadVsBlockRisk(tl, rows, { windowEnd: end });
+  assert.equal(r.observations, 0);
+  assert.equal(r.excludedAlreadyBlocked, 2);
+});
+
+test('computeLoadVsBlockRisk — bo ngay khong du horizon de khong dem thieu ca bi khoa', () => {
+  const end = Date.parse('2026-09-02T00:00:00');
+  const tl = core.buildCidTimeline([], { windowEnd: end });
+  const rows = core.enrichData(core.normalizeCallRecords([
+    callAt('0901', '2026-09-01 20:00:00', 10),   // chi con 4h den cuoi cua so
+  ]), {});
+  const r = core.computeLoadVsBlockRisk(tl, rows, { windowEnd: end, horizonHours: 24 });
+  assert.equal(r.observations, 0);
+  assert.equal(r.excludedNoRoom, 1);
+});
+
+test('computeLoadVsBlockRisk — eligibleOnly loai CID chua tung bi khoa (bay thanh phan mau)', () => {
+  const end = Date.parse('2026-09-10T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0902', 'VT', '2026-09-03 08:00:00', 'block'),
+    E('0902', 'VT', '2026-09-03 12:00:00', 'reactive'),
+  ], { windowEnd: end });
+  const rows = core.enrichData(core.normalizeCallRecords([
+    callAt('0901', '2026-09-01 09:00:00', 10),   // chua bao gio bi khoa
+    callAt('0902', '2026-09-02 09:00:00', 10),   // co trong log block
+  ]), {});
+
+  const all = core.computeLoadVsBlockRisk(tl, rows, { windowEnd: end });
+  assert.equal(all.observations, 2);
+  assert.equal(all.excludedNeverBlocked, 0);
+
+  const elig = core.computeLoadVsBlockRisk(tl, rows, { windowEnd: end, eligibleOnly: true });
+  assert.equal(elig.observations, 1);           // chi con 0902
+  assert.equal(elig.excludedNeverBlocked, 1);
+  assert.equal(elig.eligibleOnly, true);
+});
+
+test('computeBlockPrecursors — khong du tach bach thi hasSignal phai la false', () => {
+  const end = Date.parse('2026-09-10T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-05 12:00:00', 'block'),
+  ], { windowEnd: end });
+  // luu luong deu nhau truoc va sau -> khong co gi phan biet
+  const raw = [];
+  for(let d = 1; d <= 8; d++)
+    for(let h = 0; h < 6; h++)
+      raw.push(callAt('0901', `2026-09-0${d} 0${h}:00:00`, 20, '09120000' + h));
+  const r = core.computeBlockPrecursors(tl, core.enrichData(core.normalizeCallRecords(raw), {}),
+                                        { windowHours: 24, minCases: 1 });
+  assert.ok(r.cases >= 1);
+  assert.equal(r.hasSignal, false);            // khong duoc bao co tin hieu
+  assert.deepEqual(r.signalMetrics, []);
+});
+
+test('computeBlockPrecursors — cua so doi chung khong duoc lay tu luc dang bi khoa', () => {
+  const end = Date.parse('2026-09-10T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-02 00:00:00', 'block'),   // chet han tu 02/09
+  ], { windowEnd: end });
+  const raw = [];
+  for(let d = 1; d <= 9; d++) raw.push(callAt('0901', `2026-09-0${d} 10:00:00`, 0));
+  const r = core.computeBlockPrecursors(tl, core.enrichData(core.normalizeCallRecords(raw), {}),
+                                        { windowHours: 24 });
+  // moi thoi diem tu 02/09 tro di deu nam trong khoang bi khoa -> khong control nao
+  assert.equal(r.controls, 0);
+});
+
+test('computeBlockPrecursors — "mau qua nho" phai tach khoi "da do, khong thay gi"', () => {
+  // Bug that: gop hai ket luan lam mot sinh ra cau "khong chi so nao dat nguong"
+  // ngay ben canh mot bang day chi so vuot nguong.
+  const end = Date.parse('2026-09-10T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-05 12:00:00', 'block'),
+    E('0901', 'VT', '2026-09-05 18:00:00', 'reactive'),
+  ], { windowEnd: end });
+  const raw = [];
+  // truoc block: khong ket noi cuoc nao
+  for(let h = 0; h < 20; h++) raw.push(callAt('0901', `2026-09-05 ${String(h % 12).padStart(2,'0')}:30:00`, 0));
+  // doi chung: ket noi tot NHUNG PHAI DAO DONG giua cac ngay — neu moi cua so
+  // giong het nhau thi do lech chuan = 0, pooled SD = 0 va d = 0 cho tat ca.
+  for(let d = 1; d <= 4; d++)
+    for(let h = 0; h < 20; h++)
+      raw.push(callAt('0901', `2026-09-0${d} ${String(h % 12).padStart(2,'0')}:30:00`,
+                      h < 12 + d ? 40 + d * 5 : 0));
+  const rows = core.enrichData(core.normalizeCallRecords(raw), {});
+
+  const r = core.computeBlockPrecursors(tl, rows, { windowHours: 24, minCases: 30 });
+  assert.ok(r.cases < 30);
+  assert.equal(r.insufficientSample, true);
+  assert.equal(r.hasSignal, false);
+  // co chi so vuot nguong -> khong duoc noi "khong chi so nao dat nguong"
+  assert.ok(r.metrics.some(m => m.absD >= 0.5),
+    'fixture phai sinh it nhat mot chi so manh de bat duoc mau thuan');
+
+  // du mau thi moi duoc ket luan
+  const r2 = core.computeBlockPrecursors(tl, rows, { windowHours: 24, minCases: 1 });
+  assert.equal(r2.insufficientSample, false);
+  assert.equal(r2.hasSignal, true);
+});

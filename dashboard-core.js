@@ -1919,6 +1919,222 @@ function computeDeadNumberLoss(timeline, cdrRows, opts){
   };
 }
 
+/* Chỉ mục khoảng bị khoá theo (CID × nhà mạng), đã sắp xếp — dùng chung cho
+   các phép hỏi "lúc T số này có đang bị khoá không". */
+function __blockIndex(timeline){
+  const idx = new Map();
+  ((timeline && timeline.intervals) || []).forEach(iv=>{
+    const k = iv.cid + '|' + iv.telco;
+    if(!idx.has(k)) idx.set(k, []);
+    idx.get(k).push(iv);
+  });
+  idx.forEach(list=> list.sort((a,b)=> a.blockedFrom - b.blockedFrom));
+  return idx;
+}
+function __blockedAt(list, ts, windowEnd){
+  for(const iv of (list||[])){
+    if(ts < iv.blockedFrom) return false;          // đã sắp xếp
+    const to = iv.blockedTo != null ? iv.blockedTo : windowEnd;
+    if(ts < to) return true;
+  }
+  return false;
+}
+
+/**
+ * B3 — tải trên mỗi CID/ngày so với rủi ro bị khoá.
+ *
+ * Mỗi quan sát là một (CID × nhà mạng × ngày): hôm đó gọi bao nhiêu cuộc, và
+ * trong `horizonHours` sau cuộc cuối cùng có bị khoá không.
+ *
+ * LOẠI TRỪ những ngày mà CID ĐANG bị khoá sẵn tại thời điểm cuộc gọi cuối. Số
+ * đang khoá thì không thể bị khoá thêm lần nữa, nhưng vẫn phát sinh cuộc gọi
+ * (B1: 300 cuộc vào số đã chết) — giữ chúng lại sẽ bơm một đống quan sát
+ * "gọi nhiều mà không bị khoá" và làm mọi mức tải trông an toàn hơn thực tế.
+ */
+function computeLoadVsBlockRisk(timeline, cdrRows, opts){
+  const o = opts || {};
+  const horizonMs = (o.horizonHours != null ? o.horizonHours : 24) * 3600000;
+  const edges = o.edges || [1, 5, 10, 20, 40, 80, 160];
+  const windowEnd = o.windowEnd != null ? o.windowEnd
+                  : (timeline && timeline.windowEnd) || Date.now();
+  const idx = __blockIndex(timeline);
+
+  const cells = new Map();   // cid|telco|day
+  (cdrRows||[]).forEach(r=>{
+    const cid = normalizeCidNational(r && r.caller_id_number);
+    const code = telcoBlockCode(getTelco(r));
+    const ts = r && r.start_ts != null ? r.start_ts : parseEventTs(r && r.start_stamp);
+    if(!cid || !code || ts == null) return;
+    const day = r.date || dateKey(r.start_stamp);
+    const k = cid + '|' + code + '|' + day;
+    if(!cells.has(k)) cells.set(k, { cid, telco: code, day, calls: 0, minutes: 0, lastTs: 0 });
+    const c = cells.get(k);
+    c.calls += 1;
+    c.minutes += (Number(r.billsec)||0)/60;
+    if(ts > c.lastTs) c.lastTs = ts;
+  });
+
+  // So sánh cùng loại: chỉ giữ CID đã từng bị khoá ít nhất một lần. Nếu không,
+  // các bậc tải thấp sẽ đầy CID chưa bao giờ bị khoá và sinh ra một đường cong
+  // liều-đáp-ứng ĐẸP NHƯNG GIẢ — thứ chênh lệch đo được khi đó là thành phần
+  // mẫu, không phải ảnh hưởng của tải.
+  const eligibleOnly = !!o.eligibleOnly;
+
+  const obs = [];
+  let excludedAlreadyBlocked = 0, excludedNoRoom = 0, excludedNeverBlocked = 0;
+  cells.forEach(c=>{
+    const list = idx.get(c.cid + '|' + c.telco);
+    if(eligibleOnly && !list){ excludedNeverBlocked++; return; }
+    if(__blockedAt(list, c.lastTs, windowEnd)){ excludedAlreadyBlocked++; return; }
+    // Không đủ chỗ quan sát hết horizon -> bỏ, nếu không sẽ đếm thiếu ca bị khoá
+    if(c.lastTs + horizonMs > windowEnd){ excludedNoRoom++; return; }
+    let blocked = false;
+    for(const iv of (list||[])){
+      if(iv.blockedFrom > c.lastTs && iv.blockedFrom <= c.lastTs + horizonMs){ blocked = true; break; }
+    }
+    obs.push({ cid: c.cid, telco: c.telco, day: c.day, calls: c.calls,
+               minutes: c.minutes, blocked });
+  });
+
+  const bounds = [];
+  for(let i = 0; i < edges.length; i++){
+    bounds.push([edges[i], i + 1 < edges.length ? edges[i+1] : Infinity]);
+  }
+  const buckets = bounds.map(([lo, hi])=>{
+    const inB = obs.filter(x=> x.calls >= lo && x.calls < hi);
+    const blocked = inB.filter(x=> x.blocked).length;
+    return {
+      label: hi === Infinity ? `${lo}+` : `${lo}–${hi-1}`,
+      lo, hi, cidDays: inB.length, blocked,
+      blockRate: inB.length ? 100*blocked/inB.length : null,
+      medianCalls: inB.length
+        ? inB.map(x=> x.calls).sort((a,b)=> a-b)[Math.floor(inB.length/2)] : null
+    };
+  });
+  const overall = obs.length ? 100*obs.filter(x=> x.blocked).length/obs.length : 0;
+  buckets.forEach(b=> b.lift = (b.blockRate != null && overall) ? b.blockRate/overall : null);
+
+  return {
+    buckets, observations: obs.length, overallBlockRate: overall,
+    excludedAlreadyBlocked, excludedNoRoom, excludedNeverBlocked, eligibleOnly,
+    horizonHours: horizonMs/3600000,
+    // Cỡ mẫu nhỏ thì tỷ lệ theo bucket dao động rất mạnh — giao diện phải nói ra.
+    minBucket: buckets.reduce((m,b)=> Math.min(m, b.cidDays || Infinity), Infinity)
+  };
+}
+
+/**
+ * B4 — chân dung trước khi bị khoá (NGHIÊN CỨU, không phải báo cáo bảo đảm).
+ *
+ * Với mỗi lần Block, đo hành vi của chính CID đó trong `windowHours` trước đó;
+ * đối chứng là các cửa sổ cùng độ dài của CÙNG CID nhưng không có Block theo
+ * sau. So sánh từng chỉ số.
+ *
+ * Kết quả hợp lệ bao gồm cả "không chỉ số nào phân biệt được" — khi đó KHÔNG
+ * được dựng mô hình chấm điểm lên trên, vì nó sẽ trông rất thuyết phục mà sai.
+ */
+function computeBlockPrecursors(timeline, cdrRows, opts){
+  const o = opts || {};
+  const winMs = (o.windowHours != null ? o.windowHours : 24) * 3600000;
+  const windowEnd = o.windowEnd != null ? o.windowEnd
+                  : (timeline && timeline.windowEnd) || Date.now();
+  const idx = __blockIndex(timeline);
+
+  // CDR gom theo (cid|telco), sắp theo thời gian
+  const byKey = new Map();
+  (cdrRows||[]).forEach(r=>{
+    const cid = normalizeCidNational(r && r.caller_id_number);
+    const code = telcoBlockCode(getTelco(r));
+    const ts = r && r.start_ts != null ? r.start_ts : parseEventTs(r && r.start_stamp);
+    if(!cid || !code || ts == null) return;
+    const k = cid + '|' + code;
+    if(!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push({ ts, connected: isConnectedStrict(r), billsec: Number(r.billsec)||0,
+                        dest: String(r.destination_number||''), cause: r.hangup_cause||'' });
+  });
+  byKey.forEach(list=> list.sort((a,b)=> a.ts - b.ts));
+
+  const featurize = calls=>{
+    if(!calls.length) return null;
+    const con = calls.filter(c=> c.connected);
+    const dests = new Set(calls.map(c=> c.dest).filter(Boolean));
+    const busy = calls.filter(c=> c.cause === 'USER_BUSY' || c.cause === 'CALL_REJECTED').length;
+    const noAns = calls.filter(c=> c.cause === 'NO_USER_RESPONSE' || c.cause === 'NO_ANSWER').length;
+    return {
+      calls: calls.length,
+      connectRate: 100*con.length/calls.length,
+      avgBillsec: con.length ? con.reduce((s,c)=> s+c.billsec, 0)/con.length : 0,
+      shortCallRate: con.length ? 100*con.filter(c=> c.billsec < 10).length/con.length : 0,
+      distinctDest: dests.size,
+      repeatRate: dests.size ? calls.length/dests.size : 0,
+      busyRejectRate: 100*busy/calls.length,
+      noAnswerRate: 100*noAns/calls.length
+    };
+  };
+  const slice = (list, from, to)=> list.filter(c=> c.ts >= from && c.ts < to);
+
+  const cases = [], controls = [];
+  byKey.forEach((list, k)=>{
+    const [cid, telco] = k.split('|');
+    const ivs = idx.get(k) || [];
+    // CASE: cửa sổ ngay trước mỗi lần block
+    ivs.forEach(iv=>{
+      const f = featurize(slice(list, iv.blockedFrom - winMs, iv.blockedFrom));
+      if(f) cases.push(f);
+    });
+    // CONTROL: cửa sổ trượt không bị khoá và không có block trong winMs sau đó
+    if(!list.length) return;
+    const first = list[0].ts, last = list[list.length-1].ts;
+    for(let t = first + winMs; t <= last; t += winMs){
+      if(__blockedAt(ivs, t, windowEnd)) continue;
+      const soon = ivs.some(iv=> iv.blockedFrom > t && iv.blockedFrom <= t + winMs);
+      if(soon) continue;
+      const f = featurize(slice(list, t - winMs, t));
+      if(f) controls.push(f);
+    }
+  });
+
+  const METRICS = ['calls','connectRate','avgBillsec','shortCallRate',
+                   'distinctDest','repeatRate','busyRejectRate','noAnswerRate'];
+  const mean = (arr, m)=> arr.length ? arr.reduce((s,x)=> s + x[m], 0)/arr.length : null;
+  const median = (arr, m)=>{
+    if(!arr.length) return null;
+    const v = arr.map(x=> x[m]).sort((a,b)=> a-b);
+    return v[Math.floor(v.length/2)];
+  };
+  const sd = (arr, m, mu)=> arr.length > 1
+    ? Math.sqrt(arr.reduce((s,x)=> s + Math.pow(x[m]-mu, 2), 0)/(arr.length-1)) : 0;
+
+  const metrics = METRICS.map(m=>{
+    const cMu = mean(cases, m), kMu = mean(controls, m);
+    const cSd = sd(cases, m, cMu||0), kSd = sd(controls, m, kMu||0);
+    // Cohen's d gộp — đo mức tách BẰNG ĐỘ LỆCH CHUẨN, không phải bằng % chênh.
+    // Chênh 50% trên một chỉ số nhiễu loạn thì vô dụng; d mới nói được điều đó.
+    const pooled = Math.sqrt(((cases.length-1)*cSd*cSd + (controls.length-1)*kSd*kSd)
+                             / Math.max(1, cases.length + controls.length - 2));
+    const d = pooled ? (cMu - kMu)/pooled : 0;
+    return { metric: m, caseMean: cMu, controlMean: kMu,
+             caseMedian: median(cases, m), controlMedian: median(controls, m),
+             cohensD: d, absD: Math.abs(d) };
+  }).sort((a,b)=> b.absD - a.absD);
+
+  const strong = metrics.filter(x=> x.absD >= 0.5);
+  const minCases = o.minCases != null ? o.minCases : 30;
+  // BA kết luận, không phải hai. "Mẫu quá nhỏ" khác hẳn "đã đo và không thấy gì":
+  // gộp chúng lại sẽ sinh ra câu "không chỉ số nào đạt ngưỡng" ngay bên cạnh một
+  // bảng đầy chỉ số vượt ngưỡng — mâu thuẫn ngay trên màn hình.
+  const insufficientSample = cases.length < minCases;
+  return {
+    cases: cases.length, controls: controls.length, windowHours: winMs/3600000,
+    metrics, strongest: metrics[0] || null,
+    minCases, insufficientSample,
+    // Ngưỡng d>=0.5 (mức "trung bình" theo quy ước Cohen) — dưới mức đó thì hai
+    // phân bố chồng nhau quá nhiều để dùng làm cảnh báo.
+    hasSignal: strong.length > 0 && !insufficientSample,
+    signalMetrics: strong.map(x=> x.metric)
+  };
+}
+
 /** Phân bố thời gian hồi phục + phần sai của quy tắc 24h. */
 function computeBlockMttr(timeline, opts){
   const o = opts || {};
@@ -1975,6 +2191,7 @@ const __exports = {
   normalizeCidNational, deriveRoutingAccountMap, telcoBlockCode,
   buildCidCoverage, computeRoutingLeaks,
   computeBlockPressure, computeBlockBursts, computeDeadNumberLoss,
+  computeLoadVsBlockRisk, computeBlockPrecursors,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }

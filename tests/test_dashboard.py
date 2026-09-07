@@ -862,3 +862,35 @@ class CidDot3Tests(unittest.TestCase):
         self.assertIn("Mẫu nền quá nhỏ", self.HTML)
         # tien chi la cuoc thoai, khong phai gia tri nghiep vu
         self.assertIn("Tiền chỉ tính phần cước thoại", self.HTML)
+
+
+class CidDot4Tests(unittest.TestCase):
+    """Dot 4: tai vs rui ro, chi bao som. Ca hai deu ra ket qua AM TINH."""
+
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+    CORE = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+
+    def test_the_bao_cao_moi_co_mat_va_duoc_ve(self):
+        for card in ("chart_cid_load_risk", "panel_cid_precursors"):
+            self.assertIn(f'id="{card}"', self.HTML, f"thiếu thẻ {card}")
+        self.assertIn("safePlot('chart_cid_load_risk'", self.HTML)
+        self.assertIn("renderCidPrecursors();", self.HTML)
+
+    def test_bieu_do_tai_ve_ca_hai_duong_de_lo_bay_thanh_phan_mau(self):
+        # chi ve duong "tat ca CID" se cho ra duong cong lieu-dap-ung dep nhung gia
+        self.assertIn("eligibleOnly:true", self.HTML)
+        self.assertIn("Chỉ CID từng bị khoá", self.HTML)
+        self.assertIn("ẢO GIÁC do thành phần mẫu", self.HTML)
+
+    def test_loai_tru_ngay_dang_bi_khoa_va_ngay_thieu_horizon(self):
+        self.assertIn("excludedAlreadyBlocked", self.CORE)
+        self.assertIn("excludedNoRoom", self.CORE)
+        self.assertIn("excludedNeverBlocked", self.CORE)
+
+    def test_ba_ket_luan_tach_bach_khong_gop_mau_nho_voi_am_tinh(self):
+        # gop lai se sinh cau "khong chi so nao dat nguong" ngay canh bang day
+        # chi so vuot nguong — mau thuan ngay tren man hinh
+        self.assertIn("insufficientSample", self.CORE)
+        self.assertIn("Mẫu quá nhỏ để kết luận", self.HTML)
+        self.assertIn("Đã đo, không tìm thấy tín hiệu dùng được", self.HTML)
+        self.assertIn("đừng đọc chúng như tín hiệu", self.HTML)

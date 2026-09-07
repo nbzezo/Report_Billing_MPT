@@ -1573,6 +1573,20 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       <div id="cidWasteBody" style="margin-top:10px"></div>
     </div>
 
+    <div id="chart_cid_load_risk" class="card large" data-tab="cid" draggable="true"></div>
+
+    <div id="panel_cid_precursors" class="card full" data-tab="cid" draggable="true">
+      <h3 style="margin:0 0 6px 0">Chỉ báo sớm trước khi bị khoá</h3>
+      <div class="muted">So hành vi của chính CID đó trong cửa sổ trước mỗi lần Block với các cửa sổ đối chứng không bị khoá. <b>Cohen's d</b> đo mức tách bằng độ lệch chuẩn — chênh lệch % lớn trên một chỉ số nhiễu vẫn có thể vô dụng.</div>
+      <div id="cidPrecursorVerdict" style="margin-top:10px"></div>
+      <table id="cidPrecursorTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Chỉ số</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước Block</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Chênh</th><th style="text-align:right;border:1px solid #eee;padding:6px">Cohen's d</th><th style="text-align:left;border:1px solid #eee;padding:6px">Đánh giá</th>
+        </tr></thead><tbody></tbody>
+      </table>
+    </div>
+
     <div id="panel_cid_loss" class="card full" data-tab="cid" draggable="true">
       <h3 style="margin:0 0 6px 0">Tổn thất do quay số vào số đã chết</h3>
       <div class="muted">Ước lượng bằng <b>số lượt đã bấm × tỷ lệ kết nối nền</b>, cả hai đo từ chính dữ liệu đang lọc. Không dùng giả định nào từ bên ngoài.</div>
@@ -5029,16 +5043,111 @@ function renderCidLoss(){
           + 'Hãy tải khoảng dữ liệu rộng hơn trước khi dùng các con số này.</div>');
 }
 
+/* Nhan cua Cohen's d — de nguoi doc khong tu quy doi sai tu con so tran. */
+function cidEffectLabel(d){
+  const a = Math.abs(d);
+  if(a >= 0.8) return ['rất mạnh', '#c0392b'];
+  if(a >= 0.5) return ['trung bình', '#E95420'];
+  if(a >= 0.2) return ['yếu', '#8a8a8a'];
+  return ['không đáng kể', '#8a8a8a'];
+}
+
+function plotCidLoadRisk(){
+  const id = 'chart_cid_load_risk';
+  if(!cidState.loaded || !cidState.timeline) return showNoData(id, 'Chưa tải lịch sử khoá số');
+  const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
+  if(!rows.length) return showNoData(id, 'Cần dữ liệu cuộc gọi trong cửa sổ lịch sử');
+  const b = cidWindowBounds();
+  const all  = computeLoadVsBlockRisk(cidState.timeline, rows, Object.assign({}, b));
+  const elig = computeLoadVsBlockRisk(cidState.timeline, rows, Object.assign({ eligibleOnly:true }, b));
+  if(!all.observations) return showNoData(id, 'Không đủ quan sát (CID × nhà mạng × ngày)');
+
+  const labels = all.buckets.map(x=> x.label);
+  const data = [
+    { type:'bar', name:'Tất cả CID', x:labels, y:all.buckets.map(x=> x.blockRate),
+      marker:{ color:'#9ec1e8' },
+      hovertemplate:'%{x} cuộc/ngày<br>%{y:.1f}% bị khoá<extra>tất cả</extra>' },
+    { type:'bar', name:'Chỉ CID từng bị khoá', x:labels, y:elig.buckets.map(x=> x.blockRate),
+      marker:{ color:'#c0392b' },
+      hovertemplate:'%{x} cuộc/ngày<br>%{y:.1f}% bị khoá<extra>cùng loại</extra>' }
+  ];
+  Plotly.react(id, data, {
+    title:'Tải mỗi CID/ngày vs rủi ro bị khoá trong '+all.horizonHours+'h'
+      + '<br><span style="font-size:11px">Cột xanh dốc lên là ẢO GIÁC do thành phần mẫu — so cùng loại (đỏ) thì quan hệ biến mất</span>',
+    barmode:'group', height:440,
+    yaxis:{ title:'% bị khoá trong 24h', rangemode:'tozero' },
+    xaxis:{ title:'Số cuộc gọi mỗi ngày' },
+    legend:{ orientation:'h', y:-0.2 }, margin:{ t:80 }
+  }, { responsive:true });
+}
+
+function renderCidPrecursors(){
+  const tb = document.querySelector('#cidPrecursorTable tbody');
+  const vd = document.getElementById('cidPrecursorVerdict');
+  if(!tb || !vd) return;
+  if(!cidState.loaded || !cidState.timeline){
+    vd.innerHTML = '<div class="muted">Chưa tải lịch sử khoá số.</div>'; tb.innerHTML = ''; return; }
+  const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
+  if(!rows.length){
+    vd.innerHTML = '<div class="muted">Cần dữ liệu cuộc gọi nằm trong cửa sổ lịch sử.</div>'; tb.innerHTML = ''; return; }
+  const r = computeBlockPrecursors(cidState.timeline, rows, cidWindowBounds());
+  if(!r.cases){
+    vd.innerHTML = '<div class="muted">Không có lần Block nào có dữ liệu cuộc gọi đi trước để so sánh.</div>';
+    tb.innerHTML = ''; return; }
+
+  const nCase = r.cases.toLocaleString('vi-VN');
+  const nCtrl = r.controls.toLocaleString('vi-VN');
+  if(r.insufficientSample){
+    // Mẫu nhỏ thì Cohen's d dao động cực mạnh — bảng bên dưới có thể đầy chỉ số
+    // "rất mạnh" hoàn toàn do nhiễu. Phải nói rõ, không được đọc như kết luận.
+    vd.innerHTML = '<div style="padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+      + '<b>Mẫu quá nhỏ để kết luận.</b> Chỉ có ' + nCase + ' lần Block có dữ liệu cuộc gọi đi trước '
+      + '(cần ít nhất ' + r.minCases + '). Các giá trị d bên dưới dao động rất mạnh ở cỡ mẫu này — '
+      + '<b>đừng đọc chúng như tín hiệu</b>. Hãy tải khoảng dữ liệu rộng hơn, hoặc chọn account có nhiều lượt khoá hơn.</div>';
+  } else if(r.hasSignal){
+    vd.innerHTML = '<div style="padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+      + '<b>Có tín hiệu:</b> ' + r.signalMetrics.join(', ') + ' đạt |d| ≥ 0,5 trên ' + nCase
+      + ' ca. Có thể cân nhắc dựng cảnh báo trên các chỉ số này.</div>';
+  } else {
+    vd.innerHTML = '<div style="padding:8px 10px;border-left:3px solid #8a8a8a;background:rgba(0,0,0,.04)">'
+      + '<b>Đã đo, không tìm thấy tín hiệu dùng được.</b> ' + nCase + ' ca vs ' + nCtrl
+      + ' đối chứng (cửa sổ ' + r.windowHours + 'h), không chỉ số nào đạt |d| ≥ 0,5. '
+      + 'Hướng chênh lệch đúng như kỳ vọng nhưng hai phân bố chồng nhau quá nhiều để cảnh báo cho từng số. '
+      + '<b>Không nên dựng mô hình chấm điểm trên các biến này</b> — nó sẽ trông thuyết phục mà sai.</div>';
+  }
+
+  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
+  const tl = 'style="border:1px solid #eee;padding:6px"';
+  const NAMES = {
+    calls:'Số cuộc', connectRate:'Tỷ lệ kết nối (%)', avgBillsec:'Billsec TB (s)',
+    shortCallRate:'Cuộc ngắn <10s (%)', distinctDest:'Số đích riêng biệt',
+    repeatRate:'Lần gọi / đích', busyRejectRate:'Busy + Rejected (%)',
+    noAnswerRate:'No answer (%)'
+  };
+  tb.innerHTML = r.metrics.map(m=>{
+    const [label, color] = cidEffectLabel(m.cohensD);
+    const diff = (m.caseMean != null && m.controlMean != null) ? m.caseMean - m.controlMean : null;
+    return '<tr><td '+tl+'>'+(NAMES[m.metric]||m.metric)+'</td>'
+      + '<td '+td+'>'+(m.caseMean==null?'—':m.caseMean.toFixed(1))+'</td>'
+      + '<td '+td+'>'+(m.controlMean==null?'—':m.controlMean.toFixed(1))+'</td>'
+      + '<td '+td+'>'+(diff==null?'—':(diff>0?'+':'')+diff.toFixed(1))+'</td>'
+      + '<td '+td+'><b>'+(m.cohensD>=0?'+':'')+m.cohensD.toFixed(2)+'</b></td>'
+      + '<td '+tl+' style="color:'+color+'">'+label+'</td></tr>';
+  }).join('');
+}
+
 function renderCidTab(){
   renderCidCoverage();
   renderCidBurstTable();
   renderCidLoss();
+  renderCidPrecursors();
   renderCidMttrTable();
   renderCidDutyTable();
   renderCidWaste();
   safePlot('chart_cid_availability', ()=> plotCidAvailability());
   safePlot('chart_cid_mttr', ()=> plotCidMttr());
   safePlot('chart_cid_pressure', ()=> plotCidPressure());
+  safePlot('chart_cid_load_risk', ()=> plotCidLoadRisk());
 }
 
 document.addEventListener('click', ev=>{
