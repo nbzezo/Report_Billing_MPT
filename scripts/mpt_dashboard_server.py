@@ -667,7 +667,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 )
             events, meta = cache.load_window(days=days)
             meta["synced"] = synced
-            self.json_response({"events": events, "meta": meta})
+            # Danh sach routing day du (khac tap routing co su kien): can de phan
+            # biet "0 block that su" voi "khong quan sat duoc".
+            self.json_response({"events": events, "meta": meta,
+                                "routings": cache.read_routings()})
         except Exception as exc:
             self.error_response(exc)
 

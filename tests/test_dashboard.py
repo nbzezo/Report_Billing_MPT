@@ -771,3 +771,30 @@ class RoutingSyncTests(unittest.TestCase):
             RE.sync(client2, cache, days=5, today=today)
             # lan hai: chi tai lai ngay chua khep so (hom nay + hom qua)
             self.assertEqual(sorted(client2.asked), ["2026-09-06", "2026-09-07"])
+
+
+class RoutingOptionsTests(unittest.TestCase):
+    def test_parse_routing_options_bo_option_All_va_giu_ten_co_dau_cach(self):
+        html = ('<select name="routing_id">'
+                '<option value="0">All Routing</option>'
+                '<option value="73">HNI_LLV_Omicx</option>'
+                '<option value="5991">HNI_Duoc Thai Minh_VBN</option>'
+                '</select>')
+        got = RE.parse_routing_options(html)
+        self.assertEqual(got, [{"id": "73", "name": "HNI_LLV_Omicx"},
+                               {"id": "5991", "name": "HNI_Duoc Thai Minh_VBN"}])
+
+    def test_khong_co_select_thi_tra_rong_chu_khong_no(self):
+        self.assertEqual(RE.parse_routing_options("<html>trong</html>"), [])
+        self.assertEqual(RE.parse_routing_options(""), [])
+        self.assertEqual(RE.parse_routing_options(None), [])
+
+    def test_prune_khong_xoa_file_meta_routings(self):
+        from datetime import date
+        with tempfile.TemporaryDirectory() as directory:
+            cache = RE.RoutingEventCache(directory, "p")
+            cache.write_routings([{"id": "1", "name": "R"}])
+            cache.write_day("2020-01-01", [])          # ngay ngoai cua so
+            cache.prune(RE.day_range(5, date(2026, 9, 7)))
+            self.assertEqual(cache.read_routings(), [{"id": "1", "name": "R"}])
+            self.assertIsNone(cache.read_day("2020-01-01"))

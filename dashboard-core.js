@@ -1563,6 +1563,186 @@ function deriveRoutingAccountMap(events, cdrRows, opts){
   };
 }
 
+/**
+ * Mã nhà mạng đích của log block (VT/MB/VN/OT) từ tên telco trong CDR.
+ *
+ * Ba hệ ký hiệu phải quy về một: CDR bản cũ `Viettel/Mobi/Vina`, bản mới
+ * `VIETTEL/VINA/MOBI/FIXED`, log block `VT/MB/VN/OT`. `OT` là nhóm gộp của
+ * nguồn nên mọi nhà mạng còn lại (Vietnamobile, Itel, cố định...) đều về OT —
+ * mất chi tiết, nhưng đó là độ mịn mà log block có.
+ */
+function telcoBlockCode(raw){
+  const n = normalizeTelcoName(raw);
+  if(n === 'Viettel') return 'VT';
+  if(n === 'MobiFone') return 'MB';
+  if(n === 'VinaPhone') return 'VN';
+  if(n === 'Unknown') return '';
+  return 'OT';
+}
+
+/**
+ * A6 — phủ sóng theo dõi: nối Routing (log block) với Account (danh sách của
+ * profile) bằng TÊN CHÍNH XÁC.
+ *
+ * Đo trên dữ liệu thật: 23/23 routing có account trùng tên tuyệt đối, nên đây
+ * là phép nối trực tiếp chứ không phải suy luận. `deriveRoutingAccountMap`
+ * (suy qua CID dùng chung) được giữ lại làm phép đối chiếu cho phần lệch.
+ *
+ * Bốn nhóm, và ranh giới giữa `observedClean` với `unobservable` là điểm cốt lõi:
+ *   - observedClean   : có routing, 0 sự kiện -> "0 block" là SỰ THẬT
+ *   - unobservable    : không có routing nào -> "0 block" chỉ là KHÔNG THẤY
+ * Gộp hai nhóm này lại là khen nhầm khách hàng mà ta không quan sát được.
+ */
+function buildCidCoverage(input){
+  const o = input || {};
+  const routings = o.routings || [];
+  const accounts = o.accounts || [];
+  const events = o.events || [];
+
+  const routingByName = new Map();
+  routings.forEach(r=>{ if(r && r.name) routingByName.set(String(r.name), r); });
+  const accountByName = new Map();
+  accounts.forEach(a=>{ if(a && a.name) accountByName.set(String(a.name), a); });
+
+  const stat = new Map();   // routing name -> {events, cids:Set}
+  events.forEach(ev=>{
+    const name = String(ev && ev.routing || '');
+    if(!name) return;
+    if(!stat.has(name)) stat.set(name, { events:0, cids:new Set() });
+    const s = stat.get(name);
+    s.events += 1;
+    if(ev.cid) s.cids.add(ev.cid);
+  });
+
+  const observedWithBlocks = [], observedClean = [], unobservable = [], routingWithoutAccount = [];
+
+  accountByName.forEach((acc, name)=>{
+    const routing = routingByName.get(name);
+    if(!routing){ unobservable.push({ name, accountId: acc.id }); return; }
+    const s = stat.get(name);
+    if(s) observedWithBlocks.push({ name, accountId: acc.id, routingId: routing.id,
+                                    events: s.events, cids: s.cids.size });
+    else observedClean.push({ name, accountId: acc.id, routingId: routing.id });
+  });
+  routingByName.forEach((routing, name)=>{
+    if(!accountByName.has(name)){
+      const s = stat.get(name);
+      routingWithoutAccount.push({ name, routingId: routing.id,
+                                   events: s ? s.events : 0 });
+    }
+  });
+
+  const byEvents = (a,b)=> (b.events||0) - (a.events||0) || a.name.localeCompare(b.name);
+  observedWithBlocks.sort(byEvents);
+  routingWithoutAccount.sort(byEvents);
+  observedClean.sort((a,b)=> a.name.localeCompare(b.name));
+  unobservable.sort((a,b)=> a.name.localeCompare(b.name));
+
+  return {
+    observedWithBlocks, observedClean, unobservable, routingWithoutAccount,
+    stats: {
+      routings: routingByName.size,
+      accounts: accountByName.size,
+      withBlocks: observedWithBlocks.length,
+      clean: observedClean.length,
+      unobservable: unobservable.length,
+      // routing có sự kiện nhưng không có trong dropdown -> log và dropdown lệch nhau
+      eventRoutingsNotListed: Array.from(stat.keys()).filter(n=> !routingByName.has(n)).sort()
+    }
+  };
+}
+
+/**
+ * B1 — cuộc gọi phát sinh khi (CID × nhà mạng) đang ở trạng thái bị khoá.
+ *
+ * Ban đầu dựng để tự kiểm timeline ("phải bằng 0"). Dữ liệu thật cho thấy giả
+ * định đó sai, và cái sai lại hữu ích — phải TÁCH hai nhóm, gộp lại là gây
+ * hiểu nhầm:
+ *
+ *   - trong khoảng ĐÃ MỞ LẠI  : 62,3% kết nối (cao hơn cả nền 55,7%)
+ *       -> Block chỉ là cờ nghi ngờ của MPT, không chặn route. Vô hại.
+ *   - trong khoảng CHƯA MỞ LẠI: 0,0% kết nối trên 300 cuộc
+ *       -> Số đã chết thật, mà hệ thống vẫn nã cuộc gọi vào. Đây là lãng phí.
+ *
+ * Chính vì hai nhóm khác nhau tối đa mà đây đồng thời là phép kiểm chứng
+ * timeline: timeline sai thì chúng đã trông giống nhau.
+ */
+function computeRoutingLeaks(timeline, cdrRows, opts){
+  const o = opts || {};
+  const ivs = (timeline && timeline.intervals) || [];
+  const end = o.windowEnd != null ? o.windowEnd : (timeline && timeline.windowEnd) || Date.now();
+
+  const idx = new Map();    // cid|telcoCode -> [[from, to, routing, censored], ...]
+  ivs.forEach(iv=>{
+    const k = iv.cid + '|' + (iv.telco || '');
+    if(!idx.has(k)) idx.set(k, []);
+    idx.get(k).push([iv.blockedFrom, iv.blockedTo != null ? iv.blockedTo : end,
+                     iv.routing, iv.censored]);
+  });
+  idx.forEach(list=> list.sort((a,b)=> a[0]-b[0]));
+
+  const hits = [];
+  const outside = { calls:0, connected:0 };
+  let checked = 0, skipped = 0;
+
+  (cdrRows||[]).forEach(r=>{
+    const cid = normalizeCidNational(r && r.caller_id_number);
+    const code = telcoBlockCode(getTelco(r));
+    const ts = r && r.start_ts != null ? r.start_ts : parseEventTs(r && r.start_stamp);
+    if(!cid || !code || ts == null){ skipped++; return; }
+    checked++;
+    const connected = isConnectedStrict(r);
+    const list = idx.get(cid + '|' + code);
+    let found = null;
+    if(list){
+      for(const [from, to, routing, censored] of list){
+        if(ts < from) break;      // đã sắp xếp -> các khoảng sau còn muộn hơn
+        if(ts < to){ found = { from, routing, censored }; break; }
+      }
+    }
+    if(!found){ outside.calls++; if(connected) outside.connected++; return; }
+    hits.push({
+      cid, telco: code, routing: found.routing,
+      censored: found.censored,
+      callTs: ts, callISO: localISODateTime(ts),
+      blockedFromISO: localISODateTime(found.from),
+      minutesIntoBlock: (ts - found.from)/60000,
+      hangup_cause: r.hangup_cause || '',
+      billsec: Number(r.billsec)||0,
+      connected
+    });
+  });
+
+  const group = list => {
+    const connected = list.filter(x=> x.connected).length;
+    return { calls: list.length, connected,
+             connectRate: list.length ? 100*connected/list.length : 0 };
+  };
+  const inClosed = hits.filter(h=> !h.censored);
+  const inCensored = hits.filter(h=> h.censored);
+
+  const tally = (arr, key)=>{
+    const m = new Map();
+    arr.forEach(x=> m.set(x[key], (m.get(x[key])||0) + 1));
+    return Array.from(m, ([k,v])=> ({ [key]: k, count: v })).sort((a,b)=> b.count - a.count);
+  };
+
+  return {
+    hits, checked, skipped,
+    hitRate: checked ? hits.length / checked : 0,
+    // Vô hại: block đã được mở lại, cuộc gọi vẫn chạy bình thường.
+    inClosed: group(inClosed),
+    // Lãng phí: số đã chết theo quy tắc 24h mà vẫn bị quay số.
+    inCensored: group(inCensored),
+    // Nền để so sánh — không có nó thì hai số trên không đọc được.
+    outside: { calls: outside.calls, connected: outside.connected,
+               connectRate: outside.calls ? 100*outside.connected/outside.calls : 0 },
+    wastedCalls: inCensored.length,
+    byTelco: tally(hits, 'telco'),
+    byRouting: tally(hits, 'routing')
+  };
+}
+
 /** Phân bố thời gian hồi phục + phần sai của quy tắc 24h. */
 function computeBlockMttr(timeline, opts){
   const o = opts || {};
@@ -1616,7 +1796,8 @@ const __exports = {
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   CID_DEAD_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
-  normalizeCidNational, deriveRoutingAccountMap,
+  normalizeCidNational, deriveRoutingAccountMap, telcoBlockCode,
+  buildCidCoverage, computeRoutingLeaks,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }

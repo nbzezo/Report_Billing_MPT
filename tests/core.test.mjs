@@ -390,3 +390,83 @@ test('deriveRoutingAccountMap — ten routing co dau cach khong lam vo phep gom 
   assert.equal(map.byRouting[0].sharedCids, 2);
   assert.equal(map.byRouting[0].ambiguous, false);
 });
+
+// ===== A6 (noi bang ten) + B1 =====
+
+test('telcoBlockCode — quy ca 3 he ky hieu ve ma cua log block', () => {
+  assert.equal(core.telcoBlockCode('Viettel'), 'VT');   // CDR ban cu
+  assert.equal(core.telcoBlockCode('VIETTEL'), 'VT');   // CDR ban moi
+  assert.equal(core.telcoBlockCode('Mobi'), 'MB');
+  assert.equal(core.telcoBlockCode('Vina'), 'VN');
+  assert.equal(core.telcoBlockCode('Vietnammobile'), 'OT');  // gop vao OT
+  assert.equal(core.telcoBlockCode('FIXED'), 'OT');
+  assert.equal(core.telcoBlockCode(''), '');            // khong doan bua
+});
+
+test('buildCidCoverage — tach "0 block that su" khoi "khong quan sat duoc"', () => {
+  const cov = core.buildCidCoverage({
+    routings: [{ id: '1', name: 'R_CO_BLOCK' }, { id: '2', name: 'R_SACH' },
+               { id: '3', name: 'R_KHONG_CO_ACCOUNT' }],
+    accounts: [{ id: 'a1', name: 'R_CO_BLOCK' }, { id: 'a2', name: 'R_SACH' },
+               { id: 'a3', name: 'ACC_KHONG_CO_ROUTING' }],
+    events: [E('0901', 'VT', '2026-09-01 10:00:00', 'block', 'R_CO_BLOCK')],
+  });
+  assert.deepEqual(cov.observedWithBlocks.map(x => x.name), ['R_CO_BLOCK']);
+  assert.deepEqual(cov.observedClean.map(x => x.name), ['R_SACH']);          // 0 block THAT
+  assert.deepEqual(cov.unobservable.map(x => x.name), ['ACC_KHONG_CO_ROUTING']); // khong thay
+  assert.deepEqual(cov.routingWithoutAccount.map(x => x.name), ['R_KHONG_CO_ACCOUNT']);
+  assert.equal(cov.observedWithBlocks[0].cids, 1);
+});
+
+test('buildCidCoverage — routing co su kien nhung khong co trong dropdown thi phai bao', () => {
+  const cov = core.buildCidCoverage({
+    routings: [], accounts: [],
+    events: [E('0901', 'VT', '2026-09-01 10:00:00', 'block', 'R_LA')],
+  });
+  assert.deepEqual(cov.stats.eventRoutingsNotListed, ['R_LA']);
+});
+
+test('computeRoutingLeaks — tach khoang da mo lai (vo hai) khoi chua mo lai (lang phi)', () => {
+  const end = Date.parse('2026-09-03T00:00:00');
+  const tl = core.buildCidTimeline([
+    // 0901: block roi mo lai -> khoang DA DONG
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+    E('0901', 'VT', '2026-09-01 12:00:00', 'reactive'),
+    // 0902: block va khong bao gio mo lai -> CENSORED
+    E('0902', 'VT', '2026-09-01 10:00:00', 'block'),
+  ], { windowEnd: end });
+
+  const call = (caller, stamp, billsec) => ({
+    caller_id_number: caller, telco: 'Viettel', start_stamp: stamp,
+    billsec, hangup_cause: billsec ? 'NORMAL_CLEARING' : 'NO_USER_RESPONSE',
+  });
+  const rows = core.enrichData(core.normalizeCallRecords([
+    call('0901', '2026-09-01 11:00:00', 20),   // trong khoang da dong, ket noi
+    call('0902', '2026-09-01 11:00:00', 0),    // trong khoang censored, khong ket noi
+    call('0902', '2026-09-01 13:00:00', 0),    // van trong censored
+    call('0901', '2026-09-01 20:00:00', 30),   // ngoai khoang (da mo lai luc 12h)
+  ]), {});
+
+  const res = core.computeRoutingLeaks(tl, rows, { windowEnd: end });
+  assert.equal(res.checked, 4);
+  assert.equal(res.inClosed.calls, 1);
+  assert.equal(res.inClosed.connectRate, 100);
+  assert.equal(res.inCensored.calls, 2);
+  assert.equal(res.inCensored.connectRate, 0);
+  assert.equal(res.wastedCalls, 2);            // chi dem nhom censored
+  assert.equal(res.outside.calls, 1);
+});
+
+test('computeRoutingLeaks — CID dang bi VT chan van goi MB thi khong tinh la trung khoang', () => {
+  const end = Date.parse('2026-09-02T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-01 10:00:00', 'block'),
+  ], { windowEnd: end });
+  const rows = core.enrichData(core.normalizeCallRecords([
+    { caller_id_number: '0901', telco: 'Mobi', start_stamp: '2026-09-01 11:00:00',
+      billsec: 20, hangup_cause: 'NORMAL_CLEARING' },
+  ]), {});
+  const res = core.computeRoutingLeaks(tl, rows, { windowEnd: end });
+  assert.equal(res.hits.length, 0);      // khoa VT khong anh huong cuoc goi MB
+  assert.equal(res.outside.calls, 1);
+});

@@ -2,7 +2,7 @@
 
 Trang chi tra ve HTML (khong co CSV export) va **chan cung o 2.000 dong** cho moi
 truy van, nen module nay keo theo TUNG NGAY roi ghep lai, cache xuong dia va giu
-mot cua so cuon 30 ngay.
+mot cua so cuon (WINDOW_DAYS).
 
 Cot cua bang: ID | Routing | CID | Time | Notes | Type
   - `ID` la so thu tu HIEN THI (moi truy van deu bat dau tu 1) -> KHONG dung lam khoa.
@@ -15,6 +15,7 @@ Cac ham parse deu thuan tuy (khong mang) de test duoc khong can dang nhap.
 import json
 import re
 import unicodedata
+import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -104,6 +105,39 @@ def parse_report_rows(html):
     return out
 
 
+_SELECT_RE = re.compile(
+    r'<select[^>]*name="routing_id"[^>]*>(.*?)</select>', re.S
+)
+_OPTION_RE = re.compile(r'<option[^>]*value="([^"]*)"[^>]*>(.*?)</option>', re.S)
+
+
+def parse_routing_options(html):
+    """Danh sach routing tu dropdown cua trang.
+
+    Quan trong: day la TAT CA routing dang ton tai, khac voi tap routing co su
+    kien trong cua so. Phan chenh chinh la nhung routing sach (0 block) — phai
+    phan biet duoc voi "khong quan sat duoc", neu khong bao cao se khen nham.
+    """
+    m = _SELECT_RE.search(html or "")
+    if not m:
+        return []
+    out = []
+    for value, text in _OPTION_RE.findall(m.group(1)):
+        if value == "0":
+            continue
+        name = unicodedata.normalize("NFC", _strip_tags(text))
+        if name:
+            out.append({"id": value, "name": name})
+    return out
+
+
+def fetch_routings(client):
+    req = urllib.request.Request(f"{client.base_url}/routing/reports")
+    req.add_header("User-Agent", "Mozilla/5.0 MPT Dashboard Local")
+    html = client.opener.open(req, timeout=60).read().decode("utf-8", errors="replace")
+    return parse_routing_options(html)
+
+
 def event_key(ev):
     """Khoa dedup.
 
@@ -170,6 +204,21 @@ class RoutingEventCache:
             encoding="utf-8",
         )
 
+    def read_routings(self):
+        p = self.dir / "_routings.json"
+        if not p.exists():
+            return []
+        try:
+            return json.loads(p.read_text(encoding="utf-8")) or []
+        except Exception:
+            return []
+
+    def write_routings(self, routings):
+        self.dir.mkdir(parents=True, exist_ok=True)
+        (self.dir / "_routings.json").write_text(
+            json.dumps(routings, ensure_ascii=False), encoding="utf-8"
+        )
+
     def prune(self, keep_days):
         """Xoa file ngoai cua so cuon."""
         keep = set(keep_days)
@@ -177,6 +226,8 @@ class RoutingEventCache:
         if not self.dir.exists():
             return 0
         for p in self.dir.glob("*.json"):
+            if p.stem.startswith("_"):
+                continue           # file meta (_routings.json), khong phai ngay
             if p.stem not in keep:
                 try:
                     p.unlink()
@@ -249,6 +300,13 @@ def sync(client, cache, days=WINDOW_DAYS, today=None, progress=None):
     if progress:
         progress({"done": len(todo), "total": len(todo), "current": ""})
 
+    try:
+        routings = fetch_routings(client)
+        if routings:
+            cache.write_routings(routings)
+    except Exception:
+        routings = cache.read_routings()   # giu ban cu, khong lam hong ca lan sync
+
     cache.prune(wanted)
     return {"fetchedDays": fetched, "truncatedDays": truncated_days,
-            "windowDays": days}
+            "windowDays": days, "routingCount": len(cache.read_routings())}
