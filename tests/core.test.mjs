@@ -214,27 +214,41 @@ test('buildCidTimeline — khoa o cap (CID x routing x telco), khong phai cap CI
   assert.equal(mb.recovered, true);    // MB da mo lai
 });
 
-test('buildCidTimeline — quy tac 24h: presumedDead vs lateRecovery tach bach', () => {
-  const end = Date.parse('2026-09-05T00:00:00');
+test('buildCidTimeline — ba trang thai: binh thuong / do >24h / chet >48h', () => {
+  const end = Date.parse('2026-09-08T00:00:00');
   const tl = core.buildCidTimeline([
-    // chua reactive va da qua 24h -> "chet" theo quy tac
+    // A: chua reactive, da qua 48h -> CHET (va dĩ nhien cung dang do)
     E('0901', 'VT', '2026-09-01 00:00:00', 'block'),
-    // reactive muon hon 24h -> van hoi phuc, KHONG duoc dem la chet
-    E('0902', 'VT', '2026-09-01 00:00:00', 'block'),
-    E('0902', 'VT', '2026-09-02 06:00:00', 'reactive'),
+    // B: chua reactive, moi qua 24h chua toi 48h -> DO nhung CHUA chet
+    E('0902', 'VT', '2026-09-06 12:00:00', 'block'),
+    // C: chua reactive, moi 6h -> chua do
+    E('0903', 'VT', '2026-09-07 18:00:00', 'block'),
+    // D: quay lai sau 30h -> da tung do nhung KHONG duoc dem la chet
+    E('0904', 'VT', '2026-09-01 00:00:00', 'block'),
+    E('0904', 'VT', '2026-09-02 06:00:00', 'reactive'),
+    // E: quay lai sau 60h -> muon hon ca moc chet
+    E('0905', 'VT', '2026-09-01 00:00:00', 'block'),
+    E('0905', 'VT', '2026-09-03 12:00:00', 'reactive'),
   ], { windowEnd: end });
-  const a = tl.intervals.find(i => i.cid === '0901');
-  const b = tl.intervals.find(i => i.cid === '0902');
-  assert.equal(a.presumedDead, true);
-  assert.equal(a.lateRecovery, false);
-  assert.equal(b.presumedDead, false);
-  assert.equal(b.lateRecovery, true);   // 30h > 24h nhung da recovered
+  const pick = cid => tl.intervals.find(iv => iv.cid === cid);
+
+  assert.equal(pick('0901').presumedDead, true);
+  assert.equal(pick('0901').atRisk, true);          // chet thi cung nam trong nhom do
+  assert.equal(pick('0902').atRisk, true);
+  assert.equal(pick('0902').presumedDead, false);   // chua toi 48h
+  assert.equal(pick('0903').atRisk, false);
+  assert.equal(pick('0904').recoveredAfterWarn, true);
+  assert.equal(pick('0904').lateRecovery, false);   // 30h: qua moc do, chua qua moc chet
+  assert.equal(pick('0905').lateRecovery, true);    // 60h: qua ca moc chet
 
   const m = core.computeBlockMttr(tl);
+  assert.equal(m.warnAfterMin, 1440);
+  assert.equal(m.deadAfterMin, 2880);
   assert.equal(m.presumedDead, 1);
-  assert.equal(m.lateRecovery, 1);
-  assert.equal(m.recovered, 1);
-  assert.equal(m.stillBlocked, 1);
+  assert.equal(m.atRisk, 2);                        // 0901 + 0902
+  assert.equal(m.atRiskNotDead, 1);                 // rieng 0902 con cuu duoc
+  assert.equal(m.recoveredAfterWarn, 2);            // 0904 + 0905
+  assert.equal(m.lateRecovery, 1);                  // rieng 0905
 });
 
 test('buildCidTimeline — block lap khi dang mo thi giu moc dau; reactive mo coi la orphan', () => {
@@ -697,4 +711,80 @@ test('computeBlockPrecursors — "mau qua nho" phai tach khoi "da do, khong thay
   const r2 = core.computeBlockPrecursors(tl, rows, { windowHours: 24, minCases: 1 });
   assert.equal(r2.insufficientSample, false);
   assert.equal(r2.hasSignal, true);
+});
+
+// ===== Nguyen tac don / kep truoc khi khoa =====
+
+test('computeBlockSignalPatterns — nguong lay tu PHAN VI DOI CHUNG, khong dat tay', () => {
+  const end = Date.parse('2026-09-20T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-10 12:00:00', 'block'),
+    E('0901', 'VT', '2026-09-10 18:00:00', 'reactive'),
+  ], { windowEnd: end });
+  const raw = [];
+  // doi chung: 2 cuoc/gio, ket noi 30s
+  for(let d = 1; d <= 9; d++)
+    for(let h = 0; h < 12; h++)
+      raw.push(callAt('0901', `2026-09-0${d} ${String(h).padStart(2,'0')}:00:00`, 30));
+  // truoc block: quay so day dac hon han
+  for(let m = 0; m < 40; m++)
+    raw.push(callAt('0901', `2026-09-10 ${String(6 + Math.floor(m/10)).padStart(2,'0')}:${String((m%10)*6).padStart(2,'0')}:00`, 30));
+  const rows = core.enrichData(core.normalizeCallRecords(raw), {});
+
+  const r = core.computeBlockSignalPatterns(tl, rows, { windowHours: 6, minCases: 1 });
+  assert.ok(r.cases >= 1 && r.controls >= 1);
+  assert.ok(r.thresholds.callsPerHourHi > 0, 'ngưỡng tần suất phải suy từ dữ liệu');
+  assert.equal(r.thresholds.hiPercentile, 80);
+  assert.equal(r.thresholds.loPercentile, 20);
+  // tong phan bo phai bang 100%
+  const sum = r.distribution.reduce((s, d) => s + d.casePct, 0);
+  assert.ok(Math.abs(sum - 100) < 0.001);
+});
+
+test('computeBlockSignalPatterns — bao ngay khi nguong thoi luong bi suy bien ve 0', () => {
+  const end = Date.parse('2026-09-20T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-10 12:00:00', 'block'),
+  ], { windowEnd: end });
+  const raw = [];
+  // phan lon cua so doi chung KHONG noi duoc cuoc nao -> p20 cua avgBillsec = 0
+  for(let d = 1; d <= 9; d++)
+    for(let h = 0; h < 12; h++)
+      raw.push(callAt('0901', `2026-09-0${d} ${String(h).padStart(2,'0')}:00:00`, 0));
+  // phai co cuoc trong 6h ngay truoc block, khong thi khong sinh case nao
+  for(let h = 6; h < 12; h++) raw.push(callAt('0901', `2026-09-10 ${String(h).padStart(2,'0')}:00:00`, 0));
+  const rows = core.enrichData(core.normalizeCallRecords(raw), {});
+  const r = core.computeBlockSignalPatterns(tl, rows, { windowHours: 6, minCases: 1 });
+  assert.equal(r.thresholds.avgBillsecLo, 0);
+  assert.equal(r.thresholds.durationDegenerate, true);
+});
+
+test('computeBlockSignalPatterns — luon tinh song song doi chung de co lift', () => {
+  const end = Date.parse('2026-09-20T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901', 'VT', '2026-09-10 12:00:00', 'block'),
+  ], { windowEnd: end });
+  const raw = [];
+  for(let d = 1; d <= 9; d++)
+    for(let h = 0; h < 12; h++) raw.push(callAt('0901', `2026-09-0${d} ${String(h).padStart(2,'0')}:00:00`, 30));
+  const rows = core.enrichData(core.normalizeCallRecords(raw), {});
+  const r = core.computeBlockSignalPatterns(tl, rows, { windowHours: 6, minCases: 1 });
+  // moi dong phai co ca hai phia; khong co doi chung thi % truoc khoa vo nghia
+  r.distribution.forEach(d=>{
+    assert.equal(typeof d.casePct, 'number');
+    assert.equal(typeof d.controlPct, 'number');
+  });
+  assert.ok(r.combos.every(c => typeof c.controlPct === 'number'));
+});
+
+test('computeBlockSignalPatterns — thieu case hoac control thi bao insufficientSample', () => {
+  const end = Date.parse('2026-09-20T00:00:00');
+  const tl = core.buildCidTimeline([], { windowEnd: end });   // khong co block nao
+  const rows = core.enrichData(core.normalizeCallRecords([
+    callAt('0901', '2026-09-10 10:00:00', 30),
+  ]), {});
+  const r = core.computeBlockSignalPatterns(tl, rows, { windowHours: 6 });
+  assert.equal(r.cases, 0);
+  assert.equal(r.insufficientSample, true);
+  assert.deepEqual(r.distribution, []);
 });

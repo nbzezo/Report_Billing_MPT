@@ -894,3 +894,46 @@ class CidDot4Tests(unittest.TestCase):
         self.assertIn("Mẫu quá nhỏ để kết luận", self.HTML)
         self.assertIn("Đã đo, không tìm thấy tín hiệu dùng được", self.HTML)
         self.assertIn("đừng đọc chúng như tín hiệu", self.HTML)
+
+
+class CidSignalPatternTests(unittest.TestCase):
+    """Nguyen tac don/kep truoc khi khoa + hai moc 24h/48h."""
+
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+    CORE = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+
+    def test_hai_moc_24h_do_va_48h_chet(self):
+        self.assertIn("const CID_DEAD_AFTER_MIN = 2880;", self.CORE)
+        self.assertIn("const CID_WARN_AFTER_MIN = 1440;", self.CORE)
+        self.assertIn("atRisk:", self.CORE)
+        self.assertIn("recoveredAfterWarn:", self.CORE)
+        self.assertIn("Đỏ &gt;24h", self.HTML)
+        self.assertIn("Chết &gt;48h", self.HTML)
+        # cai gia cua moc do phai nhin thay duoc
+        self.assertIn("Đã chuyển đỏ nhưng vẫn quay lại", self.HTML)
+
+    def test_the_don_kep_co_mat_va_duoc_ve(self):
+        self.assertIn('id="panel_cid_signals"', self.HTML)
+        self.assertIn("renderCidSignals();", self.HTML)
+        self.assertIn('id="cidSignalWindow"', self.HTML)
+
+    def test_ba_tin_hieu_va_nguong_lay_tu_doi_chung(self):
+        for token in ("causeShare", "avgBillsec", "callsPerHour"):
+            self.assertIn(token, self.CORE, f"thiếu tín hiệu {token}")
+        self.assertIn("__percentile", self.CORE)
+        self.assertIn("hiPercentile", self.CORE)
+        # nguong suy bien phai duoc bao ra
+        self.assertIn("durationDegenerate", self.CORE)
+        self.assertIn("ngưỡng thời lượng bằng 0", self.HTML)
+
+    def test_luon_co_nen_doi_chung_de_so_sanh(self):
+        self.assertIn("controlPct", self.CORE)
+        self.assertIn("lift:", self.CORE)
+        self.assertIn("Gấp nền", self.HTML)
+
+    def test_canh_bao_khi_luong_chinh_chi_giu_mau_bi_cat(self):
+        # dashState.filtered bi cap o MAIN_ROW_CAP; khong bao thi cac ti le trong
+        # nhu tinh tren toan bo du lieu
+        self.assertIn("function cidSampleWarning()", self.HTML)
+        self.assertIn("mẫu bị cắt", self.HTML)
+        self.assertGreaterEqual(self.HTML.count("cidSampleWarning()"), 4)

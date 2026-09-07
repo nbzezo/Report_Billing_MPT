@@ -1234,13 +1234,16 @@ function computeCcuByTelco(rows, opts){
    mọi phép tính dưới đây đều giữ nguyên độ mịn đó.
 
    Ngữ nghĩa sự kiện: Block = MPT gắn cờ nghi ngờ; Reactive = tool tự mở lại.
-   Theo quy ước vận hành, quá 24h không Reactive thì coi như nhà mạng đã khoá
-   thật — nhưng số liệu thực tế cho thấy ~11% ca vẫn hồi phục sau mốc đó, nên
-   `presumedDead` (theo quy tắc) và `lateRecovery` (ngoại lệ) được tách riêng
-   để sai số của quy tắc luôn nhìn thấy được.
+   Quy ước vận hành có HAI mốc, không phải một:
+     - quá 24h chưa Reactive -> `atRisk`      (đỏ, cần để mắt)
+     - quá 48h chưa Reactive -> `presumedDead` (coi như nhà mạng đã khoá thật)
+   Tách hai mốc vì đo trên dữ liệu thật, một phần đáng kể số bị đỏ vẫn quay lại
+   sau đó. `lateRecovery` giữ lại phần quy tắc đếm nhầm để sai số của nó luôn
+   nhìn thấy được thay vì bị làm tròn thành "chết".
    ========================================================================== */
 
-const CID_DEAD_AFTER_MIN = 1440;  // quy tắc 24h
+const CID_DEAD_AFTER_MIN = 2880;  // 48h — coi như chết
+const CID_WARN_AFTER_MIN = 1440;  // 24h — chuyển đỏ, chưa kết luận chết
 
 function parseEventTs(v){
   if(v==null) return null;
@@ -1254,7 +1257,7 @@ function cidStateKey(cid, routing, telco){
   return String(cid||'')+'|'+String(routing||'')+'|'+String(telco||'');
 }
 
-function __mkInterval(open, closeTs, closeActor, windowEnd, deadAfterMin){
+function __mkInterval(open, closeTs, closeActor, windowEnd, deadAfterMin, warnAfterMin){
   const recovered = closeTs != null;
   const end = recovered ? closeTs : windowEnd;
   const durationMin = Math.max(0, (end - open.blockedFrom) / 60000);
@@ -1267,8 +1270,10 @@ function __mkInterval(open, closeTs, closeActor, windowEnd, deadAfterMin){
     durationMin,
     recovered,
     censored: !recovered,                                   // chưa mở lại tính đến cuối cửa sổ
-    lateRecovery: recovered && durationMin > deadAfterMin,   // hồi phục muộn hơn quy tắc
-    presumedDead: !recovered && durationMin >= deadAfterMin  // "chết" theo quy tắc 24h
+    atRisk: !recovered && durationMin >= warnAfterMin,       // quá 24h -> đỏ
+    presumedDead: !recovered && durationMin >= deadAfterMin, // quá 48h -> coi như chết
+    lateRecovery: recovered && durationMin > deadAfterMin,   // quay lại SAU mốc chết
+    recoveredAfterWarn: recovered && durationMin > warnAfterMin // đã đỏ nhưng vẫn quay lại
   };
 }
 
@@ -1280,6 +1285,7 @@ function __mkInterval(open, closeTs, closeActor, windowEnd, deadAfterMin){
 function buildCidTimeline(events, opts){
   const o = opts || {};
   const deadAfterMin = o.deadAfterMin != null ? o.deadAfterMin : CID_DEAD_AFTER_MIN;
+  const warnAfterMin = o.warnAfterMin != null ? o.warnAfterMin : CID_WARN_AFTER_MIN;
   // Ngưỡng gộp reactive ghi lặp theo lô. Đo trên 60 ngày thật: 584 cặp cách
   // nhau ≤2s, 13 cặp 3-10s, rồi đứt hẳn — nên 10s tách sạch nhiễu lô khỏi các
   // lần mở lại thật (p10 của MTTR là 1,5 giờ).
@@ -1316,7 +1322,7 @@ function buildCidTimeline(events, opts){
         lastReactiveTs = null;
       } else {
         if(open){
-          intervals.push(__mkInterval(open, e.ts, e.actor, windowEnd, deadAfterMin));
+          intervals.push(__mkInterval(open, e.ts, e.actor, windowEnd, deadAfterMin, warnAfterMin));
           open = null;
         } else if(lastReactiveTs != null && (e.ts - lastReactiveTs) <= collapseMs){
           // Tool ghi reactive theo lô nên cùng một lần mở lại bị ghi 2 dòng cách
@@ -1328,7 +1334,7 @@ function buildCidTimeline(events, opts){
         lastReactiveTs = e.ts;
       }
     }
-    if(open) intervals.push(__mkInterval(open, null, '', windowEnd, deadAfterMin));
+    if(open) intervals.push(__mkInterval(open, null, '', windowEnd, deadAfterMin, warnAfterMin));
   });
 
   intervals.sort((a,b)=> a.blockedFrom - b.blockedFrom);
@@ -1364,7 +1370,8 @@ function computeCidDutyCycle(timeline, opts){
     const k = iv.cid+'|'+iv.telco;
     if(!byKey.has(k)) byKey.set(k, { cid:iv.cid, telco:iv.telco, routings:new Set(),
                                      spans:[], blockCount:0, recoveredMin:[],
-                                     presumedDead:0, lateRecovery:0, lastBlockedFrom:0 });
+                                     atRisk:0, presumedDead:0, lateRecovery:0,
+                                     lastBlockedFrom:0 });
     const rec = byKey.get(k);
     const from = Math.max(start, iv.blockedFrom);
     const to = Math.min(end, iv.blockedTo != null ? iv.blockedTo : end);
@@ -1372,6 +1379,7 @@ function computeCidDutyCycle(timeline, opts){
     rec.routings.add(iv.routing);
     rec.blockCount += 1;
     if(iv.recovered) rec.recoveredMin.push(iv.durationMin);
+    if(iv.atRisk) rec.atRisk += 1;
     if(iv.presumedDead) rec.presumedDead += 1;
     if(iv.lateRecovery) rec.lateRecovery += 1;
     if(iv.blockedFrom > rec.lastBlockedFrom) rec.lastBlockedFrom = iv.blockedFrom;
@@ -1390,6 +1398,7 @@ function computeCidDutyCycle(timeline, opts){
       blockedHours: blockedMs/3600000,
       uptimePct: Math.max(0, 100 * (1 - blockedMs/span)),
       mttrMin,
+      atRisk: rec.atRisk,
       presumedDead: rec.presumedDead,
       lateRecovery: rec.lateRecovery,
       currentlyBlocked: merged.some(iv=> iv[1] >= end),
@@ -2024,6 +2033,164 @@ function computeLoadVsBlockRisk(timeline, cdrRows, opts){
 }
 
 /**
+ * Dựng các cửa sổ CASE (ngay trước mỗi lần Block) và CONTROL (không bị khoá,
+ * không có Block theo sau) cho cùng một CID × nhà mạng. Dùng chung cho B4 và
+ * cho thống kê tổ hợp tín hiệu — hai bên phải định nghĩa cửa sổ y hệt nhau,
+ * nếu không thì không so sánh được với nhau.
+ */
+function __precursorWindows(timeline, cdrRows, o, winMs, windowEnd){
+  const idx = __blockIndex(timeline);
+  const byKey = new Map();
+  (cdrRows||[]).forEach(r=>{
+    const cid = normalizeCidNational(r && r.caller_id_number);
+    const code = telcoBlockCode(getTelco(r));
+    const ts = r && r.start_ts != null ? r.start_ts : parseEventTs(r && r.start_stamp);
+    if(!cid || !code || ts == null) return;
+    const k = cid + '|' + code;
+    if(!byKey.has(k)) byKey.set(k, []);
+    byKey.get(k).push({ ts, connected: isConnectedStrict(r), billsec: Number(r.billsec)||0,
+                        dest: String(r.destination_number||''), cause: r.hangup_cause||'' });
+  });
+  byKey.forEach(list=> list.sort((a,b)=> a.ts - b.ts));
+
+  const slice = (list, from, to)=> list.filter(c=> c.ts >= from && c.ts < to);
+  const caseWindows = [], controlWindows = [];
+  byKey.forEach((list, k)=>{
+    const ivs = idx.get(k) || [];
+    ivs.forEach(iv=>{
+      const w = slice(list, iv.blockedFrom - winMs, iv.blockedFrom);
+      if(w.length) caseWindows.push(w);
+    });
+    if(!list.length) return;
+    const first = list[0].ts, last = list[list.length-1].ts;
+    for(let t = first + winMs; t <= last; t += winMs){
+      if(__blockedAt(ivs, t, windowEnd)) continue;
+      if(ivs.some(iv=> iv.blockedFrom > t && iv.blockedFrom <= t + winMs)) continue;
+      const w = slice(list, t - winMs, t);
+      if(w.length) controlWindows.push(w);
+    }
+  });
+  return { caseWindows, controlWindows };
+}
+
+function __percentile(sorted, p){
+  if(!sorted.length) return null;
+  const i = Math.min(sorted.length-1, Math.max(0, Math.ceil(sorted.length*p/100) - 1));
+  return sorted[i];
+}
+
+/**
+ * Thống kê "nguyên tắc" ĐƠN / KÉP đi trước mỗi lần khoá số.
+ *
+ * Ba tín hiệu, mỗi tín hiệu bật/tắt:
+ *   1. `cause`    — tỷ trọng cuộc bị thuê bao từ chối/không nghe (nhóm
+ *                   NoAnswer_Hangup_cause) cao bất thường
+ *   2. `duration` — thời lượng kết nối trung bình thấp bất thường
+ *   3. `frequency`— tần suất quay số của chính CID đó cao bất thường
+ *
+ * ĐƠN = đúng 1 tín hiệu bật, KÉP = 2, BA = cả 3.
+ *
+ * NGƯỠNG "bất thường" lấy từ PHÂN VỊ CỦA NHÓM ĐỐI CHỨNG, không đặt tay: nếu
+ * đặt tay thì con số % sau đó chỉ phản ánh lựa chọn ngưỡng của mình.
+ *
+ * Và luôn tính song song cho cả nhóm đối chứng: "70% lần khoá đi trước bởi tín
+ * hiệu kép" chẳng nói lên gì nếu 70% cửa sổ bình thường cũng vậy. `lift` mới là
+ * con số đáng đọc.
+ */
+function computeBlockSignalPatterns(timeline, cdrRows, opts){
+  const o = opts || {};
+  const winMs = (o.windowHours != null ? o.windowHours : 6) * 3600000;
+  const windowEnd = o.windowEnd != null ? o.windowEnd
+                  : (timeline && timeline.windowEnd) || Date.now();
+  const hiPct = o.hiPercentile != null ? o.hiPercentile : 80;
+  const loPct = o.loPercentile != null ? o.loPercentile : 20;
+  const minCases = o.minCases != null ? o.minCases : 30;
+
+  const { caseWindows, controlWindows } = __precursorWindows(timeline, cdrRows, o, winMs, windowEnd);
+  const winHours = winMs/3600000;
+
+  const feat = w=>{
+    const con = w.filter(c=> c.connected);
+    const rejected = w.filter(c=> NoAnswer_Hangup_cause.has(String(c.cause||'').toUpperCase())).length;
+    return {
+      causeShare: 100*rejected/w.length,
+      // Không có cuộc nào nối được thì thời lượng coi như 0 — đó là trạng thái
+      // xấu nhất, không phải "thiếu dữ liệu".
+      avgBillsec: con.length ? con.reduce((s,c)=> s+c.billsec, 0)/con.length : 0,
+      callsPerHour: w.length/winHours
+    };
+  };
+  const caseF = caseWindows.map(feat);
+  const ctrlF = controlWindows.map(feat);
+  if(!caseF.length || !ctrlF.length){
+    return { windowHours: winHours, cases: caseF.length, controls: ctrlF.length,
+             insufficientSample: true, minCases, thresholds: null,
+             distribution: [], combos: [] };
+  }
+
+  const sortNum = a => a.slice().sort((x,y)=> x-y);
+  const thresholds = {
+    causeShareHi: __percentile(sortNum(ctrlF.map(f=> f.causeShare)), hiPct),
+    avgBillsecLo: __percentile(sortNum(ctrlF.map(f=> f.avgBillsec)), loPct),
+    callsPerHourHi: __percentile(sortNum(ctrlF.map(f=> f.callsPerHour)), hiPct),
+    hiPercentile: hiPct, loPercentile: loPct
+  };
+  // Ngưỡng thời lượng bằng 0 nghĩa là >=loPct% cửa sổ đối chứng KHÔNG nối được
+  // cuộc nào. Khi đó tín hiệu "thời lượng" không còn là "cuộc ngắn bất thường"
+  // mà thành "không có cuộc nào nối được" — một thứ khác hẳn. Phải báo ra, nếu
+  // không người đọc sẽ hiểu sai ý nghĩa của con số.
+  thresholds.durationDegenerate = !(thresholds.avgBillsecLo > 0);
+  const flagsOf = f=> ({
+    cause: f.causeShare >= thresholds.causeShareHi,
+    duration: f.avgBillsec <= thresholds.avgBillsecLo,
+    frequency: f.callsPerHour >= thresholds.callsPerHourHi
+  });
+  const NAMES = { cause:'Nguyên nhân rớt', duration:'Thời lượng kết nối', frequency:'Tần suất quay số' };
+  const KEYS = ['cause','duration','frequency'];
+
+  const tallyOf = arr=>{
+    const byCount = [0,0,0,0];
+    const byCombo = new Map();
+    arr.forEach(f=>{
+      const fl = flagsOf(f);
+      const on = KEYS.filter(k=> fl[k]);
+      byCount[on.length] += 1;
+      const key = on.length ? on.join('+') : '(không)';
+      byCombo.set(key, (byCombo.get(key)||0) + 1);
+    });
+    return { byCount, byCombo, n: arr.length };
+  };
+  const C = tallyOf(caseF), K = tallyOf(ctrlF);
+
+  const LABEL = ['Không tín hiệu nào', 'Đơn (1 tín hiệu)', 'Kép (2 tín hiệu)', 'Cả 3 tín hiệu'];
+  const distribution = [0,1,2,3].map(i=>{
+    const casePct = 100*C.byCount[i]/C.n, controlPct = 100*K.byCount[i]/K.n;
+    return { signals: i, label: LABEL[i],
+             cases: C.byCount[i], casePct,
+             controls: K.byCount[i], controlPct,
+             lift: controlPct ? casePct/controlPct : null };
+  });
+
+  const comboKeys = new Set([...C.byCombo.keys(), ...K.byCombo.keys()]);
+  const combos = Array.from(comboKeys).map(key=>{
+    const c = C.byCombo.get(key)||0, k = K.byCombo.get(key)||0;
+    const casePct = 100*c/C.n, controlPct = 100*k/K.n;
+    return { combo: key,
+             label: key === '(không)' ? 'Không tín hiệu nào'
+                                      : key.split('+').map(x=> NAMES[x]).join(' + '),
+             signals: key === '(không)' ? 0 : key.split('+').length,
+             cases: c, casePct, controls: k, controlPct,
+             lift: controlPct ? casePct/controlPct : null };
+  }).sort((a,b)=> b.casePct - a.casePct);
+
+  return {
+    windowHours: winHours, cases: C.n, controls: K.n,
+    minCases, insufficientSample: C.n < minCases,
+    thresholds, distribution, combos, signalNames: NAMES
+  };
+}
+
+/**
  * B4 — chân dung trước khi bị khoá (NGHIÊN CỨU, không phải báo cáo bảo đảm).
  *
  * Với mỗi lần Block, đo hành vi của chính CID đó trong `windowHours` trước đó;
@@ -2040,22 +2207,10 @@ function computeBlockPrecursors(timeline, cdrRows, opts){
                   : (timeline && timeline.windowEnd) || Date.now();
   const idx = __blockIndex(timeline);
 
-  // CDR gom theo (cid|telco), sắp theo thời gian
-  const byKey = new Map();
-  (cdrRows||[]).forEach(r=>{
-    const cid = normalizeCidNational(r && r.caller_id_number);
-    const code = telcoBlockCode(getTelco(r));
-    const ts = r && r.start_ts != null ? r.start_ts : parseEventTs(r && r.start_stamp);
-    if(!cid || !code || ts == null) return;
-    const k = cid + '|' + code;
-    if(!byKey.has(k)) byKey.set(k, []);
-    byKey.get(k).push({ ts, connected: isConnectedStrict(r), billsec: Number(r.billsec)||0,
-                        dest: String(r.destination_number||''), cause: r.hangup_cause||'' });
-  });
-  byKey.forEach(list=> list.sort((a,b)=> a.ts - b.ts));
+  const { caseWindows, controlWindows } = __precursorWindows(timeline, cdrRows, o, winMs, windowEnd);
 
   const featurize = calls=>{
-    if(!calls.length) return null;
+    if(!calls || !calls.length) return null;
     const con = calls.filter(c=> c.connected);
     const dests = new Set(calls.map(c=> c.dest).filter(Boolean));
     const busy = calls.filter(c=> c.cause === 'USER_BUSY' || c.cause === 'CALL_REJECTED').length;
@@ -2071,28 +2226,8 @@ function computeBlockPrecursors(timeline, cdrRows, opts){
       noAnswerRate: 100*noAns/calls.length
     };
   };
-  const slice = (list, from, to)=> list.filter(c=> c.ts >= from && c.ts < to);
-
-  const cases = [], controls = [];
-  byKey.forEach((list, k)=>{
-    const [cid, telco] = k.split('|');
-    const ivs = idx.get(k) || [];
-    // CASE: cửa sổ ngay trước mỗi lần block
-    ivs.forEach(iv=>{
-      const f = featurize(slice(list, iv.blockedFrom - winMs, iv.blockedFrom));
-      if(f) cases.push(f);
-    });
-    // CONTROL: cửa sổ trượt không bị khoá và không có block trong winMs sau đó
-    if(!list.length) return;
-    const first = list[0].ts, last = list[list.length-1].ts;
-    for(let t = first + winMs; t <= last; t += winMs){
-      if(__blockedAt(ivs, t, windowEnd)) continue;
-      const soon = ivs.some(iv=> iv.blockedFrom > t && iv.blockedFrom <= t + winMs);
-      if(soon) continue;
-      const f = featurize(slice(list, t - winMs, t));
-      if(f) controls.push(f);
-    }
-  });
+  const cases = caseWindows.map(featurize).filter(Boolean);
+  const controls = controlWindows.map(featurize).filter(Boolean);
 
   const METRICS = ['calls','connectRate','avgBillsec','shortCallRate',
                    'distinctDest','repeatRate','busyRejectRate','noAnswerRate'];
@@ -2139,15 +2274,18 @@ function computeBlockPrecursors(timeline, cdrRows, opts){
 function computeBlockMttr(timeline, opts){
   const o = opts || {};
   const deadAfterMin = o.deadAfterMin != null ? o.deadAfterMin : CID_DEAD_AFTER_MIN;
+  const warnAfterMin = o.warnAfterMin != null ? o.warnAfterMin : CID_WARN_AFTER_MIN;
   const ivs = (timeline && timeline.intervals) || [];
   const rec = ivs.filter(iv=> iv.recovered).map(iv=> iv.durationMin).sort((a,b)=> a-b);
   const pct = p => rec.length ? rec[Math.min(rec.length-1, Math.max(0, Math.ceil(rec.length*p/100)-1))] : null;
   const byTelco = {};
   ivs.forEach(iv=>{
     const t = iv.telco || 'Unknown';
-    const b = byTelco[t] || (byTelco[t] = { telco:t, total:0, recovered:0, presumedDead:0, lateRecovery:0, sumMin:0 });
+    const b = byTelco[t] || (byTelco[t] = { telco:t, total:0, recovered:0, atRisk:0,
+                                            presumedDead:0, lateRecovery:0, sumMin:0 });
     b.total += 1;
     if(iv.recovered){ b.recovered += 1; b.sumMin += iv.durationMin; }
+    if(iv.atRisk) b.atRisk += 1;
     if(iv.presumedDead) b.presumedDead += 1;
     if(iv.lateRecovery) b.lateRecovery += 1;
   });
@@ -2156,10 +2294,18 @@ function computeBlockMttr(timeline, opts){
     count: ivs.length,
     recovered: rec.length,
     stillBlocked: ivs.filter(iv=> iv.censored).length,
+    // đỏ = quá 24h chưa mở lại (bao gồm cả nhóm đã quá 48h)
+    atRisk: ivs.filter(iv=> iv.atRisk).length,
+    // đỏ NHƯNG chưa tới mốc chết — nhóm còn cứu được
+    atRiskNotDead: ivs.filter(iv=> iv.atRisk && !iv.presumedDead).length,
     presumedDead: ivs.filter(iv=> iv.presumedDead).length,
     lateRecovery: ivs.filter(iv=> iv.lateRecovery).length,
     lateRecoveryPct: rec.length ? 100*ivs.filter(iv=> iv.lateRecovery).length/rec.length : 0,
-    deadAfterMin,
+    // đã chuyển đỏ nhưng vẫn quay lại — cái giá của việc chốt cứng ở mốc 24h
+    recoveredAfterWarn: ivs.filter(iv=> iv.recoveredAfterWarn).length,
+    recoveredAfterWarnPct: rec.length
+      ? 100*ivs.filter(iv=> iv.recoveredAfterWarn).length/rec.length : 0,
+    deadAfterMin, warnAfterMin,
     p10: pct(10), p25: pct(25), p50: pct(50), p75: pct(75), p90: pct(90), p99: pct(99),
     maxMin: rec.length ? rec[rec.length-1] : null,
     byTelco: Object.values(byTelco).sort((a,b)=> b.total - a.total)
@@ -2186,12 +2332,13 @@ const __exports = {
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
   computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats,
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
-  CID_DEAD_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
+  CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
   normalizeCidNational, deriveRoutingAccountMap, telcoBlockCode,
   buildCidCoverage, computeRoutingLeaks,
   computeBlockPressure, computeBlockBursts, computeDeadNumberLoss,
   computeLoadVsBlockRisk, computeBlockPrecursors,
+  computeBlockSignalPatterns,
   buildCube
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }

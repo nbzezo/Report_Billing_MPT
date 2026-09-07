@@ -1534,11 +1534,11 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
 
     <div id="table_cid_mttr_telco" class="card full" data-tab="cid" draggable="true">
       <h3 style="margin:0 0 6px 0">Thời gian hồi phục theo nhà mạng</h3>
-      <div class="muted">Block = MPT gắn cờ nghi ngờ; Reactive = tool tự mở lại. Cột <b>Chết (24h)</b> theo quy tắc vận hành, cột <b>Hồi phục muộn</b> là phần quy tắc đó đếm nhầm.</div>
+      <div class="muted">Block = MPT gắn cờ nghi ngờ; Reactive = tool tự mở lại. Hai mốc: quá <b>24h</b> chưa mở lại là <b style="color:#c0392b">đỏ</b>, quá <b>48h</b> thì coi như chết. Cột <b>Quay lại sau khi đỏ</b> là phần mà mốc đỏ đếm nhầm.</div>
       <table id="cidMttrTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead><tr>
           <th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Lượt khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đã mở lại</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Còn khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Chết (24h)</th><th style="text-align:right;border:1px solid #eee;padding:6px">Hồi phục muộn</th><th style="text-align:right;border:1px solid #eee;padding:6px">MTTR</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Còn khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đỏ &gt;24h</th><th style="text-align:right;border:1px solid #eee;padding:6px">Chết &gt;48h</th><th style="text-align:right;border:1px solid #eee;padding:6px">MTTR</th>
         </tr></thead><tbody></tbody>
       </table>
     </div>
@@ -1574,6 +1574,35 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
     </div>
 
     <div id="chart_cid_load_risk" class="card large" data-tab="cid" draggable="true"></div>
+
+    <div id="panel_cid_signals" class="card full" data-tab="cid" draggable="true">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0 0 6px 0">Nguyên tắc đơn / kép trước khi khoá số</h3>
+          <div class="muted">Ba tín hiệu: <b>nguyên nhân rớt</b> (tỷ trọng thuê bao từ chối/không nghe), <b>thời lượng kết nối</b>, <b>tần suất quay số</b>. Đơn = 1 tín hiệu bật, kép = 2. Ngưỡng "bất thường" lấy từ phân vị của chính nhóm đối chứng, không đặt tay.</div>
+        </div>
+        <label class="muted" style="font-size:12px">Cửa sổ
+          <select id="cidSignalWindow">
+            <option value="3">3 giờ</option>
+            <option value="6" selected>6 giờ</option>
+            <option value="12">12 giờ</option>
+            <option value="24">24 giờ</option>
+          </select>
+        </label>
+      </div>
+      <div id="cidSignalVerdict" style="margin-top:10px"></div>
+      <table id="cidSignalDist" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Số tín hiệu bật</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Gấp nền</th>
+        </tr></thead><tbody></tbody>
+      </table>
+      <table id="cidSignalCombo" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Tổ hợp cụ thể</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Gấp nền</th>
+        </tr></thead><tbody></tbody>
+      </table>
+      <div id="cidSignalThresholds" class="muted" style="margin-top:8px;font-size:11.5px"></div>
+    </div>
 
     <div id="panel_cid_precursors" class="card full" data-tab="cid" draggable="true">
       <h3 style="margin:0 0 6px 0">Chỉ báo sớm trước khi bị khoá</h3>
@@ -4729,6 +4758,22 @@ function cidFmtHours(min){
 }
 function cidPct(v){ return (v==null || isNaN(v)) ? '—' : v.toFixed(1)+'%'; }
 
+/* Luồng chính chỉ giữ tối đa MAIN_ROW_CAP dòng (worker giữ đủ). Mọi phân tích
+   trong tab này chạy trên `dashState.filtered` nên khi bộ dữ liệu vượt cap thì
+   nó đang tính trên MẪU BỊ CẮT — phải nói ra, không thì các tỷ lệ trông như
+   tính trên toàn bộ. */
+function cidSampleWarning(){
+  const shown = (typeof dashState!=='undefined' && dashState && dashState.filtered)
+    ? dashState.filtered.length : 0;
+  const total = (typeof loadedRowTotal !== 'undefined' && loadedRowTotal) || shown;
+  if(!shown || total <= shown) return '';
+  return '<div style="margin-bottom:8px;padding:8px 10px;border-left:3px solid #E95420;'
+    + 'background:rgba(233,84,32,.06);font-size:11.5px">Bộ dữ liệu <b>'
+    + Number(total).toLocaleString('vi-VN') + '</b> dòng nhưng luồng chính chỉ giữ <b>'
+    + Number(shown).toLocaleString('vi-VN') + '</b> dòng đầu — các con số dưới đây tính trên '
+    + '<b>mẫu bị cắt</b>, không phải toàn bộ. Thu hẹp khoảng ngày hoặc lọc bớt account để có số đầy đủ.</div>';
+}
+
 /* Mốc cửa sổ lấy từ meta.days (khoảng ta CHỦ ĐỊNH quan sát), không suy từ sự
    kiện đầu tiên có trong dữ liệu — nếu không, mẫu số của duty cycle sẽ co giãn
    theo dữ liệu và hai lần chạy khác nhau cho ra tỷ lệ khác nhau. */
@@ -4889,17 +4934,22 @@ function renderCidMttrTable(){
     + '<td '+td+'>'+n(b.total)+'</td>'
     + '<td '+td+'>'+n(b.recovered)+'</td>'
     + '<td '+td+'>'+n(b.total-b.recovered)+'</td>'
+    + '<td '+td+' style="color:#c0392b">'+n(b.atRisk)+'</td>'
     + '<td '+td+'>'+n(b.presumedDead)+'</td>'
-    + '<td '+td+'>'+n(b.lateRecovery)+'</td>'
     + '<td '+td+'>'+cidFmtHours(b.mttrMin)+'</td></tr>').join('')
     + '<tr style="font-weight:700;background:rgba(0,0,0,.03)">'
     + '<td style="border:1px solid #eee;padding:6px">Tổng</td>'
     + '<td '+td+'>'+n(m.count)+'</td>'
     + '<td '+td+'>'+n(m.recovered)+'</td>'
     + '<td '+td+'>'+n(m.stillBlocked)+'</td>'
+    + '<td '+td+' style="color:#c0392b">'+n(m.atRisk)+'</td>'
     + '<td '+td+'>'+n(m.presumedDead)+'</td>'
-    + '<td '+td+'>'+n(m.lateRecovery)+' ('+m.lateRecoveryPct.toFixed(1)+'%)</td>'
-    + '<td '+td+'>p50 '+cidFmtHours(m.p50)+'</td></tr>';
+    + '<td '+td+'>p50 '+cidFmtHours(m.p50)+'</td></tr>'
+    + '<tr><td colspan="7" class="muted" style="border:1px solid #eee;padding:6px">'
+    + 'Đã chuyển đỏ nhưng vẫn quay lại: <b>'+n(m.recoveredAfterWarn)+'</b> ca ('
+    + m.recoveredAfterWarnPct.toFixed(1)+'% số ca đã mở lại) — đó là cái giá của mốc 24h. '
+    + 'Quay lại muộn hơn cả mốc 48h: <b>'+n(m.lateRecovery)+'</b> ('+m.lateRecoveryPct.toFixed(1)+'%).'
+    + '</td></tr>';
 }
 
 function renderCidDutyTable(){
@@ -4917,7 +4967,10 @@ function renderCidDutyTable(){
     + '<td '+td+'>'+d.blockCount+'</td>'
     + '<td '+td+'>'+d.blockedHours.toFixed(0)+'</td>'
     + '<td '+td+'>'+cidFmtHours(d.mttrMin)+'</td>'
-    + '<td '+tl+'>'+(d.currentlyBlocked ? '<span style="color:#c0392b">đang khoá</span>' : 'đang sống')+'</td>'
+    + '<td '+tl+'>'+(!d.currentlyBlocked ? 'đang sống'
+        : d.presumedDead ? '<span style="color:#c0392b;font-weight:700">chết (&gt;48h)</span>'
+        : d.atRisk ? '<span style="color:#c0392b">đỏ (&gt;24h)</span>'
+        : '<span style="color:#E95420">đang khoá</span>')+'</td>'
     + '<td '+tl+' class="muted">'+d.routings.join(', ')+'</td></tr>').join('')
     || '<tr><td colspan="8" class="muted" style="padding:6px">Không có dữ liệu.</td></tr>';
 }
@@ -4938,7 +4991,7 @@ function renderCidWaste(){
     + '<td style="text-align:right;'+cell+'">'+g.calls.toLocaleString('vi-VN')+'</td>'
     + '<td style="text-align:right;'+cell+';'+(tone?'color:'+tone+';font-weight:700':'')+'">'+cidPct(g.connectRate)+'</td>'
     + '<td style="'+cell+'" class="muted">'+hint+'</td></tr>';
-  el.innerHTML =
+  el.innerHTML = cidSampleWarning() +
     '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'
     + '<th style="text-align:left;'+cell+'">Trạng thái CID lúc gọi</th>'
     + '<th style="text-align:right;'+cell+'">Cuộc gọi</th>'
@@ -5025,7 +5078,7 @@ function renderCidLoss(){
     + '<div style="font-size:20px;font-weight:700;'+(tone?'color:'+tone:'')+'">'+v+'</div>'
     + '<div style="font-size:12px;font-weight:600;margin-top:2px">'+label+'</div>'
     + '<div class="muted" style="font-size:11px;margin-top:3px">'+hint+'</div></div>';
-  el.innerHTML =
+  el.innerHTML = cidSampleWarning() +
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     + box(n(L.wastedCalls), 'Lượt bấm phí', L.wastedCallPct.toFixed(1)+'% lưu lượng đang lọc', '#c0392b')
     + box(n(L.lostConnections), 'Kết nối mất', 'suy từ nền '+L.baseConnectRate.toFixed(1)+'% trên '+n(L.baseCalls)+' cuộc', '#c0392b')
@@ -5097,19 +5150,20 @@ function renderCidPrecursors(){
 
   const nCase = r.cases.toLocaleString('vi-VN');
   const nCtrl = r.controls.toLocaleString('vi-VN');
+  const sampleWarn = cidSampleWarning();
   if(r.insufficientSample){
     // Mẫu nhỏ thì Cohen's d dao động cực mạnh — bảng bên dưới có thể đầy chỉ số
     // "rất mạnh" hoàn toàn do nhiễu. Phải nói rõ, không được đọc như kết luận.
-    vd.innerHTML = '<div style="padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+    vd.innerHTML = sampleWarn + '<div style="padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
       + '<b>Mẫu quá nhỏ để kết luận.</b> Chỉ có ' + nCase + ' lần Block có dữ liệu cuộc gọi đi trước '
       + '(cần ít nhất ' + r.minCases + '). Các giá trị d bên dưới dao động rất mạnh ở cỡ mẫu này — '
       + '<b>đừng đọc chúng như tín hiệu</b>. Hãy tải khoảng dữ liệu rộng hơn, hoặc chọn account có nhiều lượt khoá hơn.</div>';
   } else if(r.hasSignal){
-    vd.innerHTML = '<div style="padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+    vd.innerHTML = sampleWarn + '<div style="padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
       + '<b>Có tín hiệu:</b> ' + r.signalMetrics.join(', ') + ' đạt |d| ≥ 0,5 trên ' + nCase
       + ' ca. Có thể cân nhắc dựng cảnh báo trên các chỉ số này.</div>';
   } else {
-    vd.innerHTML = '<div style="padding:8px 10px;border-left:3px solid #8a8a8a;background:rgba(0,0,0,.04)">'
+    vd.innerHTML = sampleWarn + '<div style="padding:8px 10px;border-left:3px solid #8a8a8a;background:rgba(0,0,0,.04)">'
       + '<b>Đã đo, không tìm thấy tín hiệu dùng được.</b> ' + nCase + ' ca vs ' + nCtrl
       + ' đối chứng (cửa sổ ' + r.windowHours + 'h), không chỉ số nào đạt |d| ≥ 0,5. '
       + 'Hướng chênh lệch đúng như kỳ vọng nhưng hai phân bố chồng nhau quá nhiều để cảnh báo cho từng số. '
@@ -5136,11 +5190,83 @@ function renderCidPrecursors(){
   }).join('');
 }
 
+function renderCidSignals(){
+  const vd = document.getElementById('cidSignalVerdict');
+  const t1 = document.querySelector('#cidSignalDist tbody');
+  const t2 = document.querySelector('#cidSignalCombo tbody');
+  const th = document.getElementById('cidSignalThresholds');
+  if(!vd || !t1 || !t2) return;
+  const clear = msg=>{ vd.innerHTML = '<div class="muted">'+msg+'</div>';
+                       t1.innerHTML = ''; t2.innerHTML = ''; if(th) th.textContent = ''; };
+  if(!cidState.loaded || !cidState.timeline) return clear('Chưa tải lịch sử khoá số.');
+  const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
+  if(!rows.length) return clear('Cần dữ liệu cuộc gọi nằm trong cửa sổ lịch sử.');
+
+  const sel = document.getElementById('cidSignalWindow');
+  const hours = sel ? Number(sel.value)||6 : 6;
+  const r = computeBlockSignalPatterns(cidState.timeline, rows,
+              Object.assign({ windowHours: hours }, cidWindowBounds()));
+  if(!r.cases || !r.controls) return clear('Không đủ cửa sổ để so sánh.');
+
+  const pct = v => v.toFixed(1)+'%';
+  const liftCell = l => l == null ? '—'
+    : '<span style="color:'+(l>=1.3?'#c0392b':l<=0.77?'#2e7d32':'inherit')
+      +';font-weight:'+(l>=1.3||l<=0.77?'700':'400')+'">×'+l.toFixed(2)+'</span>';
+  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
+  const tl = 'style="border:1px solid #eee;padding:6px"';
+
+  // Tổ hợp nào thực sự nổi lên so với nền — đây mới là câu trả lời, không phải
+  // con số % thô (nền cũng có sẵn ~50% cửa sổ không tín hiệu nào).
+  const enriched = r.combos.filter(c=> c.signals > 0 && c.lift != null && c.lift >= 1.3 && c.casePct >= 3);
+  vd.innerHTML = cidSampleWarning() + (r.insufficientSample
+    ? '<div style="padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+      + '<b>Mẫu quá nhỏ để kết luận.</b> Chỉ ' + r.cases.toLocaleString('vi-VN')
+      + ' lần khoá có dữ liệu đi trước (cần ít nhất ' + r.minCases + ').</div>'
+    : enriched.length
+      ? '<div style="padding:8px 10px;border-left:3px solid #c0392b;background:rgba(192,57,43,.06)">'
+        + '<b>Nổi lên so với nền:</b> '
+        + enriched.map(c=> c.label+' ('+pct(c.casePct)+', ×'+c.lift.toFixed(2)+')').join(' · ')
+        + '. Tính trên ' + r.cases.toLocaleString('vi-VN') + ' lần khoá vs '
+        + r.controls.toLocaleString('vi-VN') + ' cửa sổ đối chứng.</div>'
+      : '<div style="padding:8px 10px;border-left:3px solid #8a8a8a;background:rgba(0,0,0,.04)">'
+        + '<b>Không tổ hợp nào nổi lên so với nền.</b> ' + r.cases.toLocaleString('vi-VN')
+        + ' lần khoá vs ' + r.controls.toLocaleString('vi-VN')
+        + ' đối chứng — mọi tổ hợp đều xuất hiện xấp xỉ hoặc ít hơn mức bình thường.</div>');
+
+  t1.innerHTML = r.distribution.map(d=>
+    '<tr><td '+tl+'>'+d.label+'</td>'
+    + '<td '+td+'>'+pct(d.casePct)+'</td>'
+    + '<td '+td+'>'+pct(d.controlPct)+'</td>'
+    + '<td '+td+'>'+liftCell(d.lift)+'</td></tr>').join('');
+
+  t2.innerHTML = r.combos.filter(c=> c.casePct >= 1).map(c=>
+    '<tr><td '+tl+'>'+c.label+'</td>'
+    + '<td '+td+'>'+pct(c.casePct)+'</td>'
+    + '<td '+td+'>'+pct(c.controlPct)+'</td>'
+    + '<td '+td+'>'+liftCell(c.lift)+'</td></tr>').join('')
+    || '<tr><td colspan="4" class="muted" style="padding:6px">Không có tổ hợp nào đạt 1%.</td></tr>';
+
+  if(th){
+    const x = r.thresholds;
+    th.innerHTML = 'Ngưỡng lấy từ phân vị đối chứng (p'+x.hiPercentile+' cho cao, p'
+      + x.loPercentile+' cho thấp): nguyên nhân rớt ≥ '+x.causeShareHi.toFixed(1)
+      + '% · thời lượng ≤ '+x.avgBillsecLo.toFixed(1)+'s · tần suất ≥ '
+      + x.callsPerHourHi.toFixed(1)+' cuộc/giờ.'
+      + (x.durationDegenerate
+          ? '<br><b style="color:#E95420">Lưu ý:</b> ngưỡng thời lượng bằng 0 — nghĩa là ít nhất '
+            + x.loPercentile + '% cửa sổ bình thường vốn đã không nối được cuộc nào. '
+            + 'Ở khung này tín hiệu "thời lượng" thực chất là <b>không có cuộc nào nối được</b>, '
+            + 'không phải "cuộc ngắn bất thường".'
+          : '');
+  }
+}
+
 function renderCidTab(){
   renderCidCoverage();
   renderCidBurstTable();
   renderCidLoss();
   renderCidPrecursors();
+  renderCidSignals();
   renderCidMttrTable();
   renderCidDutyTable();
   renderCidWaste();
@@ -5155,6 +5281,9 @@ document.addEventListener('click', ev=>{
   if(!t || !t.id) return;
   if(t.id === 'cidLoadBtn') loadCidEvents(false);
   if(t.id === 'cidSyncBtn') loadCidEvents(true);
+});
+document.addEventListener('change', ev=>{
+  if(ev.target && ev.target.id === 'cidSignalWindow') renderCidSignals();
 });
 
 async function ensureTabRendered(tabName, force=false){
