@@ -692,6 +692,7 @@ function buildCube(enrichedRows, params) {
     // --- Nâng cao ---
     agentPerf: computeAgentPerf(rows),
     gatewayByAccount: computeGatewayByAccount(rows),
+    gatewayFail: computeGatewayFail(rows),
     gatewayFailTimeline: computeGatewayFailTimeline(rows, 30),
     gatewayBlockReconcile: computeGatewayBlockReconcile(rows),
     callbackStats: computeCallbackStats(rows),
@@ -986,6 +987,42 @@ function computeAgentPerf(rows){
 }
 
 /**
+ * So khớp một ô với biểu thức lọc kiểu Excel:
+ *   - chữ: chứa chuỗi, không phân biệt hoa/thường
+ *   - số (isNumeric): toán tử `>`,`>=`,`<`,`<=`,`=` hoặc khoảng `a-b`;
+ *     không có toán tử thì so chuỗi trên giá trị (gõ `13` khớp `13.88`).
+ * Dùng cho bộ lọc từng cột của bảng (vd Gateway theo account).
+ */
+function excelCellMatch(rawValue, expr, isNumeric){
+  expr = String(expr == null ? '' : expr).trim();
+  if(!expr) return true;
+  if(isNumeric){
+    const num = Number(rawValue);
+    const op = expr.match(/^(>=|<=|>|<|=)\s*(-?\d[\d.]*)$/);
+    if(op && Number.isFinite(num)){
+      const t = Number(op[2]);
+      if(op[1] === '>')  return num >  t;
+      if(op[1] === '>=') return num >= t;
+      if(op[1] === '<')  return num <  t;
+      if(op[1] === '<=') return num <= t;
+      return num === t;
+    }
+    const rng = expr.match(/^(-?\d[\d.]*)\s*-\s*(-?\d[\d.]*)$/);
+    if(rng && Number.isFinite(num)){
+      const lo = Number(rng[1]), hi = Number(rng[2]);
+      return num >= Math.min(lo, hi) && num <= Math.max(lo, hi);
+    }
+  }
+  return String(rawValue == null ? '' : rawValue).toLowerCase().indexOf(expr.toLowerCase()) !== -1;
+}
+/** row có qua tất cả bộ lọc cột không. filters = {col: expr}; numericCols = Set. */
+function rowPassesColFilters(row, filters, numericCols){
+  numericCols = numericCols || new Set();
+  return Object.keys(filters || {}).every(col =>
+    excelCellMatch(row ? row[col] : '', filters[col], numericCols.has(col)));
+}
+
+/**
  * Gộp cuộc gọi theo (account_id × gateway). `gateway` do enrichData gắn từ
  * gatewayCidIndex (join qua caller_id_number). Dòng chưa map CID -> gateway ''
  * gom vào nhóm '(chưa map)' để thấy ngay độ phủ.
@@ -1020,6 +1057,46 @@ function computeGatewayByAccount(rows){
       asr: (m.connected+m.noans) ? +(m.connected/(m.connected+m.noans)*100).toFixed(2) : 0,
       failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0
     })).sort((a,b)=> String(a.account_id).localeCompare(String(b.account_id)) || (b.total - a.total));
+    return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
+  });
+}
+
+/**
+ * Fail % theo GATEWAY, gộp toàn bộ account trong phạm vi lọc (đối trọng với
+ * computeGatewayByAccount vốn tách theo account). Chỉ tính cuộc đã map gateway.
+ * accountCount = số account khác nhau chảy qua gateway đó.
+ */
+function computeGatewayFail(rows){
+  return __getAgg(rows, 'computeGatewayFail', ()=>{
+    const map = {};
+    let total = 0, matched = 0;
+    (rows||[]).forEach(r=>{
+      total++;
+      const gw = String(r.gateway || '');
+      if(!gw) return;
+      matched++;
+      let m = map[gw];
+      if(!m) m = map[gw] = { gateway: gw, accounts: new Set(),
+        total:0, connected:0, noans:0, cancelled:0, fail:0, unknown:0, billsec:0 };
+      m.accounts.add(String(r.account_id || 'Unknown'));
+      m.total++;
+      const ct = r.connType || classifyCall(r);
+      if(ct==='Connected'){ m.connected++; m.billsec += Number(r.billsec||0); }
+      else if(ct==='No Answer') m.noans++;
+      else if(ct==='Cancelled') m.cancelled++;
+      else if(ct==='Fail') m.fail++;
+      else m.unknown++;
+    });
+    const rows_ = Object.values(map).map(m=>({
+      gateway: m.gateway,
+      accountCount: m.accounts.size,
+      total: m.total, connected: m.connected, noans: m.noans,
+      cancelled: m.cancelled, fail: m.fail,
+      minutes: +(m.billsec/60).toFixed(2),
+      connectRate: m.total ? +(m.connected/m.total*100).toFixed(2) : 0,
+      asr: (m.connected+m.noans) ? +(m.connected/(m.connected+m.noans)*100).toFixed(2) : 0,
+      failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0
+    })).sort((a,b)=> b.failPct - a.failPct || b.total - a.total);
     return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
   });
 }
@@ -2583,7 +2660,7 @@ const __exports = {
   enrichData, filterData, dedupByUUID,
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax, downsampleSeriesMin,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
-  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, computeGatewayByAccount, computeGatewayFailTimeline, computeGatewayBlockReconcile,
+  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, excelCellMatch, rowPassesColFilters, computeGatewayByAccount, computeGatewayFail, computeGatewayFailTimeline, computeGatewayBlockReconcile,
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,

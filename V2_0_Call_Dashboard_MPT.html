@@ -175,6 +175,13 @@ if(!window.Plotly){
     .dropdown-list .controls-row button{padding:6px 8px}
     .acc-item{display:block;padding:2px 4px}
     .acc-item input{margin-right:8px}
+    /* Danh sách account là cột dọc, không dàn ngang — thắng luật `.adw-filterbar label{display:inline-flex}` bằng #id. */
+    #accountDropdownList{width:320px;max-width:88vw;box-sizing:border-box}
+    #accountListCheckboxes{display:block}
+    #accountListCheckboxes .acc-item{display:flex;width:100%;box-sizing:border-box;align-items:center;gap:6px;white-space:normal;font-size:12.5px;line-height:1.35}
+    #accountListCheckboxes .acc-item input{flex:0 0 auto;margin-right:0}
+    #accountListCheckboxes .acc-item span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+    #accountDropdownList .controls-row{flex-wrap:wrap}
     /* Theo theme sáng/tối — nếu không, chữ trắng trên nền trắng ở chế độ tối. */
     body.adw .dropdown-list{background:var(--card-bg);border-color:var(--border);color:var(--text);box-shadow:var(--shadow-pop,0 10px 30px rgba(0,0,0,.25))}
     body.adw .dropdown-list .acc-item{color:var(--text);border-radius:6px}
@@ -551,16 +558,16 @@ body.adw .adw-filterbar label{display:inline-flex;align-items:center;gap:6px;fon
 /* ---------- Split view ---------- */
 body.adw{--chrome-h:130px}
 body.adw .adw-body{display:flex;align-items:stretch;min-height:calc(100vh - var(--chrome-h))}
-body.adw .adw-sidebar{flex:0 0 236px;width:236px;background:var(--sidebar-bg);border-right:1px solid var(--border);
-  padding:10px 8px;box-sizing:border-box;position:sticky;top:var(--chrome-h);align-self:flex-start;max-height:calc(100vh - var(--chrome-h));overflow:auto}
-body.adw .adw-navlist{display:flex;flex-direction:column;gap:2px;background:transparent;border:0;box-shadow:none;padding:0;margin:0}
-body.adw .adw-navlist .tab-btn{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
-  padding:9px 12px;border:0;border-radius:var(--radius);background:transparent;color:var(--text);font-weight:500;font-size:14px;min-height:38px}
-body.adw .adw-navlist .tab-btn .tab-icon{flex:0 0 auto;opacity:.75}
+body.adw .adw-sidebar{flex:0 0 208px;width:208px;background:var(--sidebar-bg);border-right:1px solid var(--border);
+  padding:14px 10px;box-sizing:border-box;position:sticky;top:var(--chrome-h);align-self:flex-start;max-height:calc(100vh - var(--chrome-h));overflow:auto}
+body.adw .adw-navlist{display:flex;flex-direction:column;gap:6px;background:transparent;border:0;box-shadow:none;padding:0;margin:0}
+body.adw .adw-navlist .tab-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:12px 13px;border:0;border-radius:var(--radius);background:transparent;color:var(--text);font-weight:500;font-size:14.5px;min-height:46px}
+body.adw .adw-navlist .tab-btn .tab-icon{flex:0 0 auto;width:18px;height:18px;opacity:.75}
 body.adw .adw-navlist .tab-btn:hover{background:var(--hover)}
 body.adw .adw-navlist .tab-btn.active{background:var(--accent);color:var(--accent-fg);font-weight:700}
 body.adw .adw-navlist .tab-btn.active .tab-icon{opacity:1}
-body.adw .adw-sidebar-note{display:block;margin-top:14px;padding:0 12px;font-size:11.5px;color:var(--dim);line-height:1.45}
+body.adw .adw-sidebar-note{display:block;margin-top:18px;padding:0 13px;font-size:11.5px;color:var(--dim);line-height:1.5}
 body.adw .adw-main{flex:1;min-width:0}
 body.adw .adw-clamp{width:min(1560px,100%);margin:0 auto;padding:18px 20px 40px;box-sizing:border-box}
 
@@ -1214,23 +1221,58 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       </table>
     </div>
 
-    <div id="table_gateway_by_account" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Gateway theo account</h3>
-      <div class="muted">Gộp cuộc gọi theo <code>account_id × gateway</code>. Gateway lấy từ mapping <code>routing_id</code> đã đồng bộ (tab Vòng đời CID), join qua <code>caller_id_number</code>. Dòng <code>(chưa map)</code> = CID chưa có trong danh sách routing đã gán.</div>
-      <div id="gatewayByAccountCoverage" class="muted" style="margin-top:6px"></div>
-      <table id="gatewayByAccountTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+    <div id="table_gateway_fail" class="card full" data-tab="advanced" draggable="true">
+      <h3 style="margin:0 0 6px 0">Tỷ lệ Fail theo Gateway (tất cả account)</h3>
+      <div class="muted">Gộp toàn bộ cuộc gọi đã map gateway trong phạm vi lọc, <b>không tách theo account</b>. <code>Số account</code> = số account khác nhau đi qua gateway đó. Sắp xếp Fail % giảm dần.</div>
+      <div id="gatewayFailCoverage" class="muted" style="margin-top:6px"></div>
+      <table id="gatewayFailTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">account_id</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Tên account</th>
           <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Số account</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">Connected</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">ASR excl. Fail</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Fail</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">Fail %</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">Talk minutes</th>
         </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div id="table_gateway_by_account" class="card full" data-tab="advanced" draggable="true">
+      <h3 style="margin:0 0 6px 0">Gateway theo account</h3>
+      <div class="muted">Gộp cuộc gọi theo <code>account_id × gateway</code>. Gateway lấy từ mapping <code>routing_id</code> đã đồng bộ (tab Vòng đời CID), join qua <code>caller_id_number</code>. Dòng <code>(chưa map)</code> = CID chưa có trong danh sách routing đã gán.</div>
+      <div id="gatewayByAccountCoverage" class="muted" style="margin-top:6px"></div>
+      <div class="muted" style="margin-top:4px;font-size:11px">Lọc từng cột như Excel: chữ = chứa chuỗi; số = <code>&gt;100</code>, <code>&gt;=80</code>, <code>&lt;50</code>, <code>=0</code> hoặc khoảng <code>10-20</code>.</div>
+      <table id="gatewayByAccountTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+        <thead>
+          <tr>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">account_id</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên account</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Connected</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">ASR excl. Fail</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Fail %</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Talk minutes</th>
+          </tr>
+          <tr class="gw-colfilter">
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="account_id" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="account_name" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="gateway" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="routing_name" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="total" type="text" placeholder="&gt;100" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="connected" type="text" placeholder="&gt;10" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="connectRate" type="text" placeholder="&lt;50" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="asr" type="text" placeholder="&gt;=80" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="failPct" type="text" placeholder="&gt;20" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th style="border:1px solid #eee;padding:3px"><input data-gwf="minutes" type="text" placeholder="&gt;0" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+          </tr>
+        </thead>
         <tbody></tbody>
       </table>
     </div>
@@ -3681,7 +3723,7 @@ function refreshAccountFilter(){
   if(!btn||!list) return;
   btn.addEventListener('click', (e)=>{ e.stopPropagation(); list.style.display = list.style.display==='none'?'block':'none'; });
   document.addEventListener('click', (ev)=>{ if(!list) return; if(list.style.display==='block'){ if(!list.contains(ev.target) && ev.target!==btn) list.style.display='none'; }});
-  if(search){ search.addEventListener('input', ()=>{ const q = search.value.trim().toLowerCase(); Array.from(document.querySelectorAll('#accountListCheckboxes .acc-item')).forEach(item=>{ const text = item.textContent.trim().toLowerCase(); item.style.display = text.indexOf(q) === -1 ? 'none' : 'block'; }); }); }
+  if(search){ search.addEventListener('input', ()=>{ const q = search.value.trim().toLowerCase(); Array.from(document.querySelectorAll('#accountListCheckboxes .acc-item')).forEach(item=>{ const text = item.textContent.trim().toLowerCase(); item.style.display = text.indexOf(q) === -1 ? 'none' : ''; }); }); }
   if(selectAllBtn){ selectAllBtn.addEventListener('click', ()=>{ Array.from(document.querySelectorAll('.acc-checkbox')).forEach(cb=>{ if(cb.parentElement.style.display!=='none') cb.checked=true; }); }); }
   if(clearAllBtn){ clearAllBtn.addEventListener('click', ()=>{ Array.from(document.querySelectorAll('.acc-checkbox')).forEach(cb=> cb.checked=false); }); }
   if(applyBtn){ applyBtn.addEventListener('click', ()=>{ const sel = getSelectedAccounts(); saveAccountFilterIds(sel); const btn=document.getElementById('accountDropdownBtn'); const countEl=document.getElementById('accountCount'); if(btn) btn.innerText = summarizeSelected(sel); if(countEl) countEl.innerText = ''; document.getElementById('accountDropdownList').style.display='none'; updateDashboardWithFilters(); }); }
@@ -4025,7 +4067,7 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-09-08-scientific-reorder-v3';
+const REPORT_ORDER_VERSION='2026-09-09-gateway-fail-report-v4';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
 
 /* ==========================================================================
@@ -4074,7 +4116,7 @@ const REPORT_LAYOUT={
     // hiệu suất account
     'chart_agent_perf','table_agent_perf','chart_account_radar',
     // gateway (gộp về một chỗ)
-    'table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline',
+    'table_gateway_fail','table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline',
     // random number / call fail
     'chart_rn_histogram','report_rn_cf_by_account',
     // QA dữ liệu + bảng thô
@@ -4153,7 +4195,7 @@ function applyDashboardV2Layout(){
   document.querySelectorAll('#reportGrid > .card[data-tab]').forEach(card=>{
     card.classList.remove('layout-wide','layout-narrow','layout-full');
   });
-  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline','table_data_quality','report_rn_cf_by_account','table_card',
+  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_fail','table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline','table_data_quality','report_rn_cf_by_account','table_card',
    'panel_billing_config','panel_billing_kpi','chart_billing_by_period','chart_billing_by_telco','table_billing_by_period','table_billing_by_account'].forEach(id=>{
     const card=resolveReportCard(id); if(card) card.classList.add('layout-full');
   });
@@ -4591,6 +4633,7 @@ function renderAdvancedTab(filtered, colors){
     ()=> { if(typeof renderRN_CF_ReportUnified==='function') renderRN_CF_ReportUnified(filtered); },
     ()=> plotAgentPerformance(filtered, colors, 10),
     ()=> renderAgentPerfTable(filtered),
+    ()=> renderGatewayFailTable(filtered),
     ()=> renderGatewayByAccountTable(filtered),
     ()=> renderGatewayBlockReconcileTable(filtered),
     ()=> safePlot('chart_gateway_fail_timeline', ()=> plotGatewayFailTimeline(filtered, colors)),
@@ -6592,30 +6635,37 @@ function renderAgentPerfTable(rows){
   });
 }
 
-function renderGatewayByAccountTable(rows){
-  const tb = document.querySelector('#gatewayByAccountTable tbody');
-  const cov = document.getElementById('gatewayByAccountCoverage');
+/* excelCellMatch + rowPassesColFilters: ở dashboard-core.js (có unit test).
+   Đọc các ô lọc cột từ DOM: <input data-<attr>="tênCột"> trong thead. */
+function readColFilters(tableEl, attr){
+  const out = {};
+  (tableEl ? Array.from(tableEl.querySelectorAll(`input[${attr}]`)) : []).forEach(inp=>{
+    const v = inp.value.trim();
+    if(v) out[inp.getAttribute(attr)] = v;
+  });
+  return out;
+}
+
+let gwByAccountData = [];
+const GW_BY_ACCOUNT_NUMCOLS = new Set(['total','connected','connectRate','asr','failPct','minutes']);
+
+function renderGwByAccountBody(){
+  const table = document.getElementById('gatewayByAccountTable');
+  const tb = table && table.querySelector('tbody');
   if(!tb) return;
+  const filters = readColFilters(table, 'data-gwf');
+  const shown = gwByAccountData.filter(m => rowPassesColFilters(m, filters, GW_BY_ACCOUNT_NUMCOLS));
   tb.innerHTML = '';
-  const hasMap = gatewayCidIndex && Object.keys(gatewayCidIndex).length > 0;
-  if(!hasMap){
-    if(cov) cov.innerHTML = 'Chưa có mapping Gateway. Vào tab <b>Vòng đời CID</b> → <b>Gateway theo account</b>, gán <code>routing_id</code> rồi <b>Đồng bộ Gateway</b>.';
+  if(!shown.length){
+    tb.innerHTML = `<tr><td colspan="10" class="muted" style="padding:8px;text-align:center">${gwByAccountData.length ? 'Không dòng nào khớp bộ lọc cột.' : ''}</td></tr>`;
     return;
   }
-  if(!rows || !rows.length){ if(cov) cov.textContent = ''; return; }
-  const res = cubeVal('gatewayByAccount', ()=>computeGatewayByAccount(rows)) || { rows:[], coverage:{total:0,matched:0,pct:0} };
-  const data = res.rows || [];
-  if(cov){
-    const c = res.coverage || {};
-    cov.innerHTML = `Độ phủ: <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc join được gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`
-      + ((c.pct||0) < 100 ? ` Phần còn lại là CID chưa nằm trong routing đã gán.` : '');
-  }
-  data.forEach(m=>{
+  shown.forEach(m=>{
     const tr = document.createElement('tr');
     const unmapped = !m.mapped;
     tr.innerHTML = `
       <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.account_id)}</td>
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(getAccountNameForId(m.account_id))}</td>
+      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.account_name)}</td>
       <td style="border:1px solid #eee;padding:6px${unmapped?';color:#9aa5b1':''}">${reportTableEscape(m.gateway)}</td>
       <td style="border:1px solid #eee;padding:6px" class="muted">${reportTableEscape(m.routing_name||'')}</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${m.total.toLocaleString('vi-VN')}</td>
@@ -6623,6 +6673,77 @@ function renderGatewayByAccountTable(rows){
       <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connectRate.toFixed(2)}%</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${m.asr.toFixed(2)}%</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${m.failPct.toFixed(2)}%</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+function renderGatewayByAccountTable(rows){
+  const table = document.getElementById('gatewayByAccountTable');
+  const tb = table && table.querySelector('tbody');
+  const cov = document.getElementById('gatewayByAccountCoverage');
+  if(!tb) return;
+  tb.innerHTML = '';
+  gwByAccountData = [];
+  const hasMap = gatewayCidIndex && Object.keys(gatewayCidIndex).length > 0;
+  if(!hasMap){
+    if(cov) cov.innerHTML = 'Chưa có mapping Gateway. Vào tab <b>Vòng đời CID</b> → <b>Gán Gateway ↔ account</b>, gán <code>routing_id</code> rồi <b>Đồng bộ Gateway</b>.';
+    return;
+  }
+  if(!rows || !rows.length){ if(cov) cov.textContent = ''; return; }
+  const res = cubeVal('gatewayByAccount', ()=>computeGatewayByAccount(rows)) || { rows:[], coverage:{total:0,matched:0,pct:0} };
+  gwByAccountData = (res.rows || []).map(m => {
+    const nm = getAccountNameForId(m.account_id);
+    return { ...m, account_name: (nm && nm !== String(m.account_id)) ? nm : (m.account_name || String(m.account_id)) };
+  });
+  if(cov){
+    const c = res.coverage || {};
+    cov.innerHTML = `Độ phủ: <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc join được gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`
+      + ((c.pct||0) < 100 ? ` Phần còn lại là CID chưa nằm trong routing đã gán.` : '');
+  }
+  if(table && !table._colFilterBound){
+    table._colFilterBound = true;
+    table.addEventListener('input', ev=>{
+      if(ev.target && ev.target.matches('input[data-gwf]')) renderGwByAccountBody();
+    });
+  }
+  renderGwByAccountBody();
+}
+
+function renderGatewayFailTable(rows){
+  const tb = document.querySelector('#gatewayFailTable tbody');
+  const cov = document.getElementById('gatewayFailCoverage');
+  if(!tb) return;
+  tb.innerHTML = '';
+  const hasMap = gatewayCidIndex && Object.keys(gatewayCidIndex).length > 0;
+  if(!hasMap){
+    if(cov) cov.innerHTML = 'Chưa có mapping Gateway (tab <b>Vòng đời CID</b>).';
+    return;
+  }
+  if(!rows || !rows.length){ if(cov) cov.textContent = ''; return; }
+  const res = cubeVal('gatewayFail', ()=>computeGatewayFail(rows)) || { rows:[], coverage:{total:0,matched:0,pct:0} };
+  const data = res.rows || [];
+  if(cov){
+    const c = res.coverage || {};
+    cov.innerHTML = `${data.length} gateway · <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc đã map gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`;
+  }
+  if(!data.length){
+    tb.innerHTML = '<tr><td colspan="9" class="muted" style="padding:8px;text-align:center">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</td></tr>';
+    return;
+  }
+  data.forEach(m=>{
+    const tr = document.createElement('tr');
+    const hot = m.failPct >= 20;
+    tr.innerHTML = `
+      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.gateway)}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.accountCount.toLocaleString('vi-VN')}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.total.toLocaleString('vi-VN')}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connected.toLocaleString('vi-VN')}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connectRate.toFixed(2)}%</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.asr.toFixed(2)}%</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.fail.toLocaleString('vi-VN')}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right${hot?';color:#c0392b;font-weight:700':''}">${m.failPct.toFixed(2)}%</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
     `;
     tb.appendChild(tr);

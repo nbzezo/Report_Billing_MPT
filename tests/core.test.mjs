@@ -1014,6 +1014,62 @@ test('computeGatewayByAccount — gộp account×gateway + độ phủ', () => {
   assert.equal(unmapped.mapped, false);
 });
 
+test('computeGatewayFail — gộp toàn bộ account theo gateway, xếp Fail% giảm dần', () => {
+  const raw = core.normalizeCallRecords([
+    // GIP2_new: 2 account, 4 cuộc, 3 fail -> 75%
+    { account_id:'548', caller_id_number:'0994345507', destination_number:'d1', start_stamp:'2026-09-03 08:00:00', end_stamp:'2026-09-03 08:00:00', duration:0, billsec:0, hangup_cause:'NO_ROUTE_DESTINATION', uuid:'x1' },
+    { account_id:'548', caller_id_number:'0994345507', destination_number:'d2', start_stamp:'2026-09-03 08:01:00', end_stamp:'2026-09-03 08:01:00', duration:0, billsec:0, hangup_cause:'NO_ROUTE_DESTINATION', uuid:'x2' },
+    { account_id:'514', caller_id_number:'0994345507', destination_number:'d3', start_stamp:'2026-09-03 08:02:00', end_stamp:'2026-09-03 08:02:00', duration:0, billsec:0, hangup_cause:'NO_ROUTE_DESTINATION', uuid:'x3' },
+    { account_id:'514', caller_id_number:'0994345507', destination_number:'d4', start_stamp:'2026-09-03 08:03:00', end_stamp:'2026-09-03 08:03:40', duration:40, billsec:30, hangup_cause:'NORMAL_CLEARING', uuid:'x4' },
+    // Digi_bk: 1 account, 2 cuộc, 0 fail -> 0%
+    { account_id:'548', caller_id_number:'02888820733', destination_number:'d5', start_stamp:'2026-09-03 08:04:00', end_stamp:'2026-09-03 08:04:30', duration:30, billsec:20, hangup_cause:'NORMAL_CLEARING', uuid:'x5' },
+    { account_id:'548', caller_id_number:'02888820733', destination_number:'d6', start_stamp:'2026-09-03 08:05:00', end_stamp:'2026-09-03 08:05:00', duration:12, billsec:0, hangup_cause:'ORIGINATOR_CANCEL', uuid:'x6' },
+    // chưa map -> không tính
+    { account_id:'999', caller_id_number:'0900999999', destination_number:'d7', start_stamp:'2026-09-03 08:06:00', end_stamp:'2026-09-03 08:06:00', duration:0, billsec:0, hangup_cause:'NO_ROUTE_DESTINATION', uuid:'x7' }
+  ]);
+  const gwIndex = {
+    '0994345507': { gateway:'GIP2_new', routing_name:'R1', telco_status:{} },
+    '02888820733': { gateway:'Digi_bk', routing_name:'R2', telco_status:{} }
+  };
+  const res = core.computeGatewayFail(core.enrichData(raw, {}, gwIndex));
+  assert.equal(res.coverage.total, 7);
+  assert.equal(res.coverage.matched, 6);
+  assert.deepEqual(res.rows.map(r => r.gateway), ['GIP2_new', 'Digi_bk']);  // Fail% giảm dần
+  const gip = res.rows[0];
+  assert.equal(gip.accountCount, 2);
+  assert.equal(gip.total, 4);
+  assert.equal(gip.fail, 3);
+  assert.equal(gip.failPct, 75);
+  assert.equal(gip.connectRate, 25);
+  assert.equal(res.rows[1].failPct, 0);
+  assert.equal(res.rows[1].accountCount, 1);
+});
+
+test('excelCellMatch — lọc cột kiểu Excel (chữ / toán tử số / khoảng)', () => {
+  // chữ: chứa chuỗi, không phân biệt hoa/thường
+  assert.equal(core.excelCellMatch('HNI_IMAP_VBN', 'imap', false), true);
+  assert.equal(core.excelCellMatch('HNI_IMAP_VBN', 'xyz', false), false);
+  assert.equal(core.excelCellMatch('bất kỳ', '', false), true);          // rỗng -> qua hết
+  // số: toán tử
+  assert.equal(core.excelCellMatch(13.88, '>10', true), true);
+  assert.equal(core.excelCellMatch(13.88, '>20', true), false);
+  assert.equal(core.excelCellMatch(80, '>=80', true), true);
+  assert.equal(core.excelCellMatch(50, '<50', true), false);
+  assert.equal(core.excelCellMatch(0, '=0', true), true);
+  // số: khoảng a-b (kể cả đảo cận)
+  assert.equal(core.excelCellMatch(15, '10-20', true), true);
+  assert.equal(core.excelCellMatch(25, '10-20', true), false);
+  assert.equal(core.excelCellMatch(15, '20-10', true), true);
+  // số: không toán tử -> so chuỗi trên giá trị hiển thị
+  assert.equal(core.excelCellMatch(13.88, '13', true), true);
+  // rowPassesColFilters: AND nhiều cột
+  const row = { gateway:'GIP2_new', failPct: 42, total: 500 };
+  const num = new Set(['failPct','total']);
+  assert.equal(core.rowPassesColFilters(row, { gateway:'gip', failPct:'>40' }, num), true);
+  assert.equal(core.rowPassesColFilters(row, { gateway:'gip', failPct:'>50' }, num), false);
+  assert.equal(core.rowPassesColFilters(row, {}, num), true);
+});
+
 test('computeGatewayFailTimeline — Fail% theo gateway × bucket, đứt đoạn khi rỗng', () => {
   const gwIndex = {
     '0994345507': { gateway: 'GIP2_new', routing_name: 'R', telco_status: {} },
