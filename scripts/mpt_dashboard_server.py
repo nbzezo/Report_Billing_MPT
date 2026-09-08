@@ -435,6 +435,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/gateway-sync":
             self.handle_gateway_sync(parsed)
             return
+        if parsed.path == "/api/gateway-automap":
+            self.handle_gateway_automap(parsed)
+            return
         if parsed.path == "/dashboard":
             self.handle_dashboard(parsed)
             return
@@ -749,6 +752,37 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     job_id, p["done"], p["total"], p["current"]
                 ),
             )
+            self.json_response(result)
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_gateway_automap(self, parsed):
+        """Suy account_id <-> routing_id tu trang MPT `routing/monitoring`
+        (ten routing == ten account), gop vao gateway-map.json, roi dong bo CID
+        nhu nut "Dong bo Gateway". `sync=0` de bo qua buoc tai CID."""
+        query = urllib.parse.parse_qs(parsed.query)
+        profile_id = query.get("profile_id", [""])[-1]
+        job_id = query.get("job_id", [""])[-1]
+        do_sync = query.get("sync", ["1"])[-1] != "0"
+        try:
+            profile = self.server.profile_store.get(profile_id)
+            if not profile:
+                raise ValueError("Không tìm thấy kết nối. Hãy chọn kết nối trước.")
+            accounts = profile.get("accounts") or []
+            if not accounts:
+                accounts = self.get_client(profile_id).get_accounts()
+                self.server.profile_store.update_accounts(profile_id, accounts)
+            store = self._gateway_store(profile_id)
+            result = gateway_map.auto_map(
+                self.get_export_client(profile_id),
+                store,
+                accounts,
+                do_sync=do_sync,
+                progress=lambda p: self.set_export_progress(
+                    job_id, p["done"], p["total"], p["current"]
+                ),
+            )
+            result["status"] = store.status()
             self.json_response(result)
         except Exception as exc:
             self.error_response(exc)

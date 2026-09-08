@@ -1591,12 +1591,14 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
           <h3 style="margin:0 0 6px 0">Gán Gateway ↔ account (mapping + đồng bộ)</h3>
           <div class="muted" id="gwMapNote">
             Gán <code>routing_id</code> (số trong URL <code>routing/cids/&lt;id&gt;</code>) cho từng <code>account_id</code>.
-            Bấm <b>Đồng bộ Gateway</b> để tải danh sách CID + Gateway của từng routing rồi suy CID → account (làm một lần, cache lại).
+            Bấm <b>Tự động từ routing/monitoring</b> để MPT tự suy cặp account ↔ routing theo tên (không mất gì đã gán tay),
+            hoặc <b>Đồng bộ Gateway</b> để tải danh sách CID + Gateway của từng routing rồi suy CID → account (làm một lần, cache lại).
           </div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
           <button id="gwMapAddRow" type="button">+ Dòng</button>
           <button id="gwMapSave" type="button">Lưu mapping</button>
+          <button id="gwMapAuto" type="button">Tự động từ routing/monitoring</button>
           <button id="gwMapSync" type="button" class="primary-btn">Đồng bộ Gateway</button>
         </div>
       </div>
@@ -5636,6 +5638,7 @@ document.addEventListener('click', ev=>{
   if(t.id === 'cidSyncBtn') loadCidEvents(true);
   if(t.id === 'gwMapAddRow') gwMapAddRow();
   if(t.id === 'gwMapSave') saveGatewayMap();
+  if(t.id === 'gwMapAuto') autoMapGateway();
   if(t.id === 'gwMapSync') syncGateway();
 });
 document.addEventListener('change', ev=>{
@@ -5730,6 +5733,44 @@ async function saveGatewayMap(){
   finally{ gwMapState.busy = false; renderGatewayMapPanel(); }
 }
 
+async function autoMapGateway(){
+  const pid = gwProfileId();
+  if(!pid){ toast('Hãy chọn kết nối MPT trước.', true); return; }
+  gwMapReadInputs();
+  // Giữ lại mapping tay đang gõ dở — server sẽ gộp thêm, không ghi đè.
+  await saveGatewayMap();
+  gwMapState.busy = true; gwMapState.error = ''; renderGatewayMapPanel();
+  const jobId = 'gwauto-' + Date.now();
+  const poll = setInterval(async ()=>{
+    try{
+      const r = await fetch('/api/export-progress?job=' + encodeURIComponent(jobId), {cache:'no-store'});
+      if(!r.ok) return;
+      const p = await r.json();
+      if(!p || !p.total) return;
+      const el = document.getElementById('gwMapStatus');
+      if(el) el.textContent = `Đang tải routing ${Math.min(Number(p.done||0)+1, p.total)}/${p.total}` + (p.current ? ` — ${p.current}` : '') + '…';
+    }catch(_){}
+  }, 1200);
+  try{
+    const res = await fetch('/api/gateway-automap?profile_id=' + encodeURIComponent(pid) + '&job_id=' + encodeURIComponent(jobId));
+    const d = await res.json();
+    if(d && d.error) throw new Error(d.error);
+    const accMatched = Object.keys(d.discovered||{}).length;
+    const unmatched = (d.unmatched||[]).length;
+    const cids = (d.sync && d.sync.index && d.sync.index.cidCount) || (d.index && d.index.cidCount) || 0;
+    const errs = (d.sync && d.sync.errors || []).length;
+    toast(`Tự động: ${d.monitoringRoutings} routing trên monitoring → khớp ${accMatched} account`
+      + (d.added ? `, thêm ${d.added} dòng mới` : ', không có dòng mới')
+      + (unmatched ? `, ${unmatched} routing chưa khớp account` : '')
+      + (cids ? `, ${cids.toLocaleString('vi-VN')} CID` : '')
+      + (errs ? `, ${errs} routing lỗi` : '') + '.', unmatched>0 || errs>0);
+    await loadGatewayMap();
+    if(typeof loadGatewayCids === 'function') await loadGatewayCids(true);
+    if(typeof scheduleDashboardUpdate === 'function') scheduleDashboardUpdate();
+  }catch(e){ gwMapState.error = String((e && e.message) || e); }
+  finally{ clearInterval(poll); gwMapState.busy = false; renderGatewayMapPanel(); }
+}
+
 async function syncGateway(){
   const pid = gwProfileId();
   if(!pid){ toast('Hãy chọn kết nối MPT trước.', true); return; }
@@ -5822,7 +5863,7 @@ function renderGatewayMapPanel(){
       renderGatewayMapPanel();
     });
   });
-  ['gwMapAddRow','gwMapSave','gwMapSync'].forEach(id=>{
+  ['gwMapAddRow','gwMapSave','gwMapAuto','gwMapSync'].forEach(id=>{
     const b = document.getElementById(id); if(b) b.disabled = !!gwMapState.busy;
   });
 }

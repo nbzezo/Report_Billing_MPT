@@ -17,6 +17,7 @@ tuy (khong mang), test duoc khong can dang nhap.
 import io
 import json
 import re
+import unicodedata
 import urllib.request
 import xml.etree.ElementTree as ET
 import zipfile
@@ -179,6 +180,115 @@ def fetch_routing_cids(client, routing_id):
         "fetchedAt": datetime.now().isoformat(timespec="seconds"),
     }
     return rows, meta
+
+
+# ----------------------------------------------- tu dong suy mapping tu monitoring
+# Trang `/routing/monitoring`, muc "Routing Auto": moi routing la mot bang nho,
+# caption `<h5><a href=".../routing/cids/<id>">TEN_ROUTING</a></h5>`. Ten routing
+# o day thuong TRUNG ten account (vd HNI_IMAP_DIDONG_PS3) nen suy duoc
+# account_id <-> routing_id ma khong phai go tay.
+
+_CIDS_LINK_RE = re.compile(
+    r'<a\b[^>]*href=["\'][^"\']*?/routing/cids/(\d+)[^"\']*["\'][^>]*>(.*?)</a>',
+    re.I | re.S,
+)
+
+
+def _clean_text(html_fragment):
+    txt = re.sub(r"<[^>]+>", "", html_fragment or "")
+    return unicodedata.normalize("NFC", re.sub(r"\s+", " ", txt)).strip()
+
+
+def parse_monitoring_routings(html):
+    """HTML trang monitoring -> list[{routing_id, routing_name}] (khong trung).
+
+    Doc theo link `/routing/cids/<id>` nen khong phu thuoc bo cuc bang.
+    """
+    seen, out = set(), []
+    for rid, label in _CIDS_LINK_RE.findall(html or ""):
+        if rid in seen:
+            continue
+        seen.add(rid)
+        out.append({"routing_id": rid, "routing_name": _clean_text(label)})
+    return out
+
+
+def fetch_monitoring_routings(client):
+    """GET /routing/monitoring -> parse_monitoring_routings.
+
+    Nem RuntimeError neu khong thay routing nao (thuong la het phien -> MPT tra
+    ve trang dang nhap).
+    """
+    url = f"{client.base_url}/routing/monitoring"
+    req = urllib.request.Request(url)
+    req.add_header("User-Agent", "Mozilla/5.0 MPT Dashboard Local")
+    html = client.opener.open(req, timeout=90).read().decode("utf-8", errors="replace")
+    routings = parse_monitoring_routings(html)
+    if not routings:
+        raise RuntimeError(
+            "routing/monitoring: khong thay routing nao "
+            "(co the het phien dang nhap)."
+        )
+    return routings
+
+
+def _norm_name(value):
+    """Ten -> khoa so khop: bo dau, ha thuong, bo ky tu khong phai chu-so."""
+    s = unicodedata.normalize("NFKD", str(value or ""))
+    s = "".join(c for c in s if not unicodedata.combining(c))
+    return re.sub(r"[^a-z0-9]", "", s.lower())
+
+
+def match_routings_to_accounts(routings, accounts):
+    """(routings tu monitoring, accounts [{id,name}]) ->
+    ({account_id: [{routing_id, routing_name}]}, unmatched: list).
+
+    Khop ten routing == ten account: uu tien khop chinh xac roi khop chuan hoa.
+    """
+    by_exact, by_norm = {}, {}
+    for acc in accounts or []:
+        aid = str(acc.get("id") or "").strip()
+        name = str(acc.get("name") or "").strip()
+        if not aid or not name:
+            continue
+        by_exact.setdefault(name, aid)
+        by_norm.setdefault(_norm_name(name), aid)
+
+    mapping, unmatched = {}, []
+    for r in routings:
+        rid, rname = r["routing_id"], r["routing_name"]
+        aid = by_exact.get(rname) or by_norm.get(_norm_name(rname))
+        if not aid:
+            unmatched.append(r)
+            continue
+        entries = mapping.setdefault(aid, [])
+        if not any(e["routing_id"] == rid for e in entries):
+            entries.append({"routing_id": rid, "routing_name": rname})
+    return mapping, unmatched
+
+
+def merge_maps(base, discovered):
+    """Gop mapping tu dong vao mapping tay: giu het cai cu, them cai moi, KHONG
+    xoa gi (nguoi dung co the da sua tay). Trung routing_id thi giu ban cu,
+    chi dien routing_name neu ban cu con trong. -> (merged, so dong them moi).
+    """
+    out = {}
+    for acc, entries in (base or {}).items():
+        acc = str(acc).strip()
+        if acc:
+            out[acc] = [dict(e) for e in entries]
+
+    added = 0
+    for acc, entries in (discovered or {}).items():
+        cur = out.setdefault(acc, [])
+        for e in entries:
+            hit = next((x for x in cur if x.get("routing_id") == e["routing_id"]), None)
+            if hit is None:
+                cur.append(dict(e))
+                added += 1
+            elif not hit.get("routing_name") and e.get("routing_name"):
+                hit["routing_name"] = e["routing_name"]
+    return out, added
 
 
 # ---------------------------------------------------------------- cache + chi muc
@@ -374,6 +484,37 @@ def sync(client, store, mapping=None, progress=None):
             "builtAt": built["builtAt"],
         },
     }
+
+
+def auto_map(client, store, accounts, do_sync=True, progress=None):
+    """Suy account_id <-> routing_id tu /routing/monitoring, gop vao map hien
+    co, luu lai. do_sync=True thi tai luon CID + Gateway cho tung routing
+    (giong nut "Dong bo Gateway"); nguoc lai chi dung lai chi muc tu cache cu.
+    """
+    client.login()
+    routings = fetch_monitoring_routings(client)
+    discovered, unmatched = match_routings_to_accounts(routings, accounts)
+    merged, added = merge_maps(store.load_map(), discovered)
+    clean = store.save_map(merged)
+
+    result = {
+        "monitoringRoutings": len(routings),
+        "discovered": discovered,
+        "unmatched": unmatched,
+        "added": added,
+        "map": clean,
+    }
+    if do_sync:
+        result["sync"] = sync(client, store, clean, progress=progress)
+    else:
+        built = store.rebuild_index(clean)
+        result["index"] = {
+            "cidCount": built["cidCount"],
+            "conflicts": built["conflicts"],
+            "multiAccountRoutings": built["multiAccountRoutings"],
+            "builtAt": built["builtAt"],
+        }
+    return result
 
 
 # ---------------------------------------------------------------- CLI (tuy chon)

@@ -12,6 +12,7 @@ GM = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(GM)
 
 FIXTURE = ROOT / "tests" / "fixtures" / "routing_export_6151.xlsx"
+MONITORING_FIXTURE = ROOT / "tests" / "fixtures" / "routing_monitoring.html"
 
 
 class XlsxParseTests(unittest.TestCase):
@@ -152,6 +153,108 @@ class StoreTests(unittest.TestCase):
             self.assertTrue(st["routings"][0]["cached"])
             self.assertEqual(st["routings"][0]["cidCount"], 266)
             self.assertEqual(st["index"]["cidCount"], 266)
+
+
+class MonitoringAutoMapTests(unittest.TestCase):
+    """Tu dong suy account_id <-> routing_id tu trang /routing/monitoring."""
+
+    def test_parse_monitoring_routings_reads_cids_links(self):
+        html = MONITORING_FIXTURE.read_text("utf-8")
+        routings = GM.parse_monitoring_routings(html)
+        self.assertEqual(
+            routings,
+            [
+                {"routing_id": "494", "routing_name": "HNI_Onschool263_3cx"},
+                {"routing_id": "777", "routing_name": "HNI_BAOAN_SIP"},
+                {"routing_id": "5950", "routing_name": "SIP_SCEX_OTP_C2C"},
+                {"routing_id": "5962", "routing_name": "HNI_Palfish_SIP"},
+            ],
+        )
+
+    def test_parse_ignores_duplicates_and_absolute_urls(self):
+        html = (
+            '<a href="https://host/routing/cids/6151?x=1">SIP_MTC_AUTOCALL</a>'
+            '<a href="/routing/cids/6151">again</a>'          # trung id -> bo
+            '<a href="/routing/reports">not a routing</a>'
+        )
+        self.assertEqual(
+            GM.parse_monitoring_routings(html),
+            [{"routing_id": "6151", "routing_name": "SIP_MTC_AUTOCALL"}],
+        )
+
+    def test_match_routings_to_accounts_by_name(self):
+        routings = [
+            {"routing_id": "5976", "routing_name": "HNI_IMAP_DIDONG_PS3"},
+            {"routing_id": "6151", "routing_name": "sip mtc autocall"},   # khop chuan hoa
+            {"routing_id": "9999", "routing_name": "KHONG_CO_ACCOUNT"},
+        ]
+        accounts = [
+            {"id": "368", "name": "HNI_IMAP_DIDONG_PS3"},
+            {"id": "548", "name": "SIP_MTC_AUTOCALL"},
+        ]
+        mapping, unmatched = GM.match_routings_to_accounts(routings, accounts)
+        self.assertEqual(mapping["368"], [{"routing_id": "5976",
+                                          "routing_name": "HNI_IMAP_DIDONG_PS3"}])
+        self.assertEqual(mapping["548"], [{"routing_id": "6151",
+                                          "routing_name": "sip mtc autocall"}])
+        self.assertEqual(unmatched, [{"routing_id": "9999",
+                                      "routing_name": "KHONG_CO_ACCOUNT"}])
+
+    def test_merge_maps_keeps_manual_entries_and_adds_new(self):
+        base = {
+            "548": [{"routing_id": "6151", "routing_name": "SIP_MTC_AUTOCALL"}],
+            "368": [{"routing_id": "5976", "routing_name": ""}],   # ten con trong
+        }
+        discovered = {
+            "368": [{"routing_id": "5976", "routing_name": "HNI_IMAP_DIDONG_PS3"}],
+            "514": [{"routing_id": "6118", "routing_name": "HNI_TALA2_SIP"}],
+        }
+        merged, added = GM.merge_maps(base, discovered)
+        self.assertEqual(added, 1)                                  # chi 514 la moi
+        self.assertEqual(merged["548"], base["548"])                # giu nguyen
+        self.assertEqual(merged["368"][0]["routing_name"], "HNI_IMAP_DIDONG_PS3")
+        self.assertEqual(merged["514"], discovered["514"])
+
+    def test_auto_map_writes_map_and_index_without_sync(self):
+        class FakeClient:
+            base_url = "https://host"
+
+            def login(self):
+                pass
+
+            class _Opener:
+                @staticmethod
+                def open(req, timeout=0):
+                    class R:
+                        headers = {"Content-Type": "text/html"}
+
+                        @staticmethod
+                        def read():
+                            return MONITORING_FIXTURE.read_bytes()
+
+                    return R()
+
+            opener = _Opener()
+
+        with tempfile.TemporaryDirectory() as tmp:
+            store = GM.GatewayMapStore(tmp, "profile-x")
+            store.save_map({"244": [{"routing_id": "777",
+                                     "routing_name": "HNI_BAOAN_SIP"}]})  # tay
+            accounts = [
+                {"id": "225", "name": "HNI_Onschool263_3cx"},
+                {"id": "244", "name": "HNI_BAOAN_SIP"},
+                {"id": "334", "name": "SIP_SCEX_OTP_C2C"},
+            ]
+            result = GM.auto_map(FakeClient(), store, accounts, do_sync=False)
+            self.assertEqual(result["monitoringRoutings"], 4)
+            self.assertEqual(result["added"], 2)          # 494 + 5950 (777 da co)
+            self.assertEqual(len(result["unmatched"]), 1)  # 5962 HNI_Palfish_SIP
+            on_disk = json.loads(
+                (Path(tmp) / "config" / "gateway-map.json").read_text("utf-8")
+            )
+            self.assertEqual(sorted(on_disk), ["225", "244", "334"])
+            self.assertEqual(on_disk["244"], [{"routing_id": "777",
+                                               "routing_name": "HNI_BAOAN_SIP"}])
 
 
 if __name__ == "__main__":
