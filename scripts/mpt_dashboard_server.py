@@ -23,6 +23,7 @@ from time import monotonic
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import routing_events  # noqa: E402  (can sys.path o tren de chay ca khi import truc tiep)
+import gateway_map  # noqa: E402
 
 
 class _DataBlob(ctypes.Structure):
@@ -425,6 +426,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/cid-events":
             self.handle_cid_events(parsed)
             return
+        if parsed.path == "/api/gateway-map":
+            self.handle_gateway_map_get(parsed)
+            return
+        if parsed.path == "/api/gateway-cids":
+            self.handle_gateway_cids(parsed)
+            return
+        if parsed.path == "/api/gateway-sync":
+            self.handle_gateway_sync(parsed)
+            return
         if parsed.path == "/dashboard":
             self.handle_dashboard(parsed)
             return
@@ -445,6 +455,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/clientlog":
             self.handle_client_log()
+            return
+        if parsed.path == "/api/gateway-map":
+            self.handle_gateway_map_post()
             return
         self.send_error(404)
 
@@ -671,6 +684,72 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             # biet "0 block that su" voi "khong quan sat duoc".
             self.json_response({"events": events, "meta": meta,
                                 "routings": cache.read_routings()})
+        except Exception as exc:
+            self.error_response(exc)
+
+    # ------------------------------------------------------------------ Gateway
+    # Nguon: trang MPT `routing/cids/<routing_id>` -> nut Export -> .xlsx.
+    # MPT khong gan account; nguoi dung gan tay routing_id <-> account_id o giao
+    # dien, luu config/gateway-map.json. Dong bo tai .xlsx tung routing roi suy
+    # CID -> account mot lan, cache xuong config/.cache/gateway/<profile>/.
+
+    def _gateway_store(self, profile_id):
+        return gateway_map.GatewayMapStore(self.server.root, profile_id)
+
+    def handle_gateway_map_get(self, parsed):
+        query = urllib.parse.parse_qs(parsed.query)
+        profile_id = query.get("profile_id", [""])[-1]
+        try:
+            self.json_response(self._gateway_store(profile_id).status())
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_gateway_map_post(self):
+        try:
+            payload = self.read_json_body()
+            profile_id = payload.get("profile_id", "")
+            store = self._gateway_store(profile_id)
+            store.save_map(payload.get("map") or {})
+            store.rebuild_index()   # map doi -> chi muc CID phai theo (dung cache raw san co)
+            self.json_response(store.status())
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_gateway_cids(self, parsed):
+        """Chi muc CID -> {account_id, routing_id, routing_name, gateway,
+        telco_status} cho dashboard join voi caller_id_number."""
+        query = urllib.parse.parse_qs(parsed.query)
+        profile_id = query.get("profile_id", [""])[-1]
+        try:
+            idx = self._gateway_store(profile_id).read_index()
+            self.json_response({
+                "index": idx.get("index", {}),
+                "cidCount": idx.get("cidCount", 0),
+                "builtAt": idx.get("builtAt"),
+                "conflicts": idx.get("conflicts", []),
+                "multiAccountRoutings": idx.get("multiAccountRoutings", {}),
+            })
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_gateway_sync(self, parsed):
+        query = urllib.parse.parse_qs(parsed.query)
+        profile_id = query.get("profile_id", [""])[-1]
+        job_id = query.get("job_id", [""])[-1]
+        try:
+            store = self._gateway_store(profile_id)
+            if not store.load_map():
+                raise ValueError("Chưa gán routing_id cho account nào. Hãy điền bảng mapping rồi Lưu trước.")
+            # Client rieng nhu cid-events: sync GET vao routing/exportCid, tranh
+            # dung chung client dang phuc vu danh sach account.
+            result = gateway_map.sync(
+                self.get_export_client(profile_id),
+                store,
+                progress=lambda p: self.set_export_progress(
+                    job_id, p["done"], p["total"], p["current"]
+                ),
+            )
+            self.json_response(result)
         except Exception as exc:
             self.error_response(exc)
 
