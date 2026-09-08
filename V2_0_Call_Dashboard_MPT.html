@@ -1588,7 +1588,7 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
     <div id="panel_gateway_map" class="card full" data-tab="cid" draggable="true">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
         <div>
-          <h3 style="margin:0 0 6px 0">Gateway theo account</h3>
+          <h3 style="margin:0 0 6px 0">Gán Gateway ↔ account (mapping + đồng bộ)</h3>
           <div class="muted" id="gwMapNote">
             Gán <code>routing_id</code> (số trong URL <code>routing/cids/&lt;id&gt;</code>) cho từng <code>account_id</code>.
             Bấm <b>Đồng bộ Gateway</b> để tải danh sách CID + Gateway của từng routing rồi suy CID → account (làm một lần, cache lại).
@@ -4095,9 +4095,9 @@ applyPreferredReportOrder();
 
 const PRIMARY_REPORTS={
   overview:['chart_conn_donut','chart_answer_gauge','chart_direction_split','chart_minutes_account'],
-  quality:['chart_stack_prefix_pct','chart_dur_share_prefix','chart_telco_conn_stacked','chart_hangup_heatmap','chart_mos_histogram','chart_quality_by_telco'],
+  quality:['chart_stack_prefix_pct','chart_dur_share_prefix','chart_telco_conn_stacked','chart_hangup_heatmap','chart_mos_histogram','chart_quality_by_telco','chart_gateway_fail_timeline'],
   time:['report_chart_asr_time','chart_call_funnel','chart_caller_participation_heatmap','chart_minutes_day','chart_golden_hours_rate','chart_top_time_slots'],
-  advanced:['panel_alerts','chart_agent_perf','table_agent_perf','chart_account_radar','table_data_quality']
+  advanced:['panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_by_account','table_gateway_block_reconcile','chart_account_radar','table_data_quality']
 };
 function savedReportExpanded(tab){
   try{ return localStorage.getItem(`reports-expanded-${tab}`)==='1'; }catch(e){ return false; }
