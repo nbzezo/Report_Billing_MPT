@@ -38,9 +38,29 @@ MUTEX_NAME = "Global\\MPTCallDashboard.SingleInstance"
 _ERROR_ALREADY_EXISTS = 183
 _MB_ICONERROR = 0x10
 _MB_ICONINFO = 0x40
-# Chạy powershell mà KHÔNG bật cửa sổ console — nếu không, vòng poll đóng cửa sổ
-# (gọi powershell mỗi vài giây) sẽ làm cửa sổ terminal nhấp nháy liên tục.
+# Chạy powershell/icacls mà KHÔNG có cửa sổ console. Dưới pythonw.exe hoặc bản
+# đóng gói --windowed (không có console sẵn), mỗi lần subprocess gọi một tiến
+# trình console sẽ bung MỘT cửa sổ terminal mới. CREATE_NO_WINDOW một mình từng
+# không đủ trên vài máy -> kèm luôn STARTUPINFO ẩn cửa sổ cho chắc.
 _NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+def _hidden_startupinfo():
+    if not sys.platform.startswith("win"):
+        return None
+    si = subprocess.STARTUPINFO()
+    si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    si.wShowWindow = 0  # SW_HIDE
+    return si
+
+
+def _run_hidden(cmd, **kwargs):
+    """subprocess.run() nhưng đảm bảo không bao giờ hiện cửa sổ terminal."""
+    kwargs["creationflags"] = kwargs.get("creationflags", 0) | _NO_WINDOW
+    si = _hidden_startupinfo()
+    if si is not None:
+        kwargs.setdefault("startupinfo", si)
+    return subprocess.run(cmd, **kwargs)
 
 
 def _message(text, flags):
@@ -100,11 +120,10 @@ def _kill_stale_windows(marker):
         "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
     )
     try:
-        subprocess.run(
+        _run_hidden(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
             capture_output=True, timeout=15,
             env=dict(os.environ, MPT_EDGE_MARKER=marker),
-            creationflags=_NO_WINDOW,
         )
         time.sleep(1.0)
     except Exception:
@@ -123,10 +142,9 @@ def _profile_windows_alive(marker):
     )
     try:
         env = dict(os.environ, MPT_EDGE_MARKER=marker)
-        out = subprocess.run(
+        out = _run_hidden(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
             capture_output=True, text=True, timeout=15, env=env,
-            creationflags=_NO_WINDOW,
         )
         return (out.stdout or "").strip() not in ("", "0")
     except Exception:
@@ -193,19 +211,21 @@ def main():
         return
 
     try:
-        # KHÔNG tin proc.wait(): Edge/Chrome hay bàn giao URL cho tiến trình sẵn
-        # có rồi thoát ngay. Poll tiến trình theo --user-data-dir; cần 3 lần "chết"
-        # liên tiếp mới tắt server, lỗi poll coi như còn sống.
+        marker = str(profile)
+        # Vừa kill hết cửa sổ hồ sơ này ở trên -> lần mở đầu gần như luôn là
+        # tiến trình của chính `proc`, nên proc.wait() đủ và KHÔNG cần gọi
+        # powershell trong lúc chạy. Chỉ khi Edge bàn giao URL cho một msedge.exe
+        # sẵn có rồi proc thoát sớm thì mới poll (chậm, 8s) để bắt lúc đóng.
         try:
             proc.wait()
         except Exception:
             pass
-        marker = str(profile)
-        time.sleep(4)  # để cửa sổ kịp mở và tiến trình con xuất hiện
-        misses = 0
-        while misses < 3:
-            misses = 0 if _profile_windows_alive(marker) else misses + 1
-            time.sleep(3)
+        time.sleep(3)  # để cửa sổ / tiến trình con kịp xuất hiện nếu có bàn giao
+        if _profile_windows_alive(marker):
+            misses = 0
+            while misses < 2:
+                time.sleep(8)
+                misses = 0 if _profile_windows_alive(marker) else misses + 1
     finally:
         shutdown()
         del guard

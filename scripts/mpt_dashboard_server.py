@@ -85,10 +85,19 @@ class SecretProtector:
         try:
             import subprocess
 
+            # Không hiện cửa sổ console khi chạy dưới pythonw / bản --windowed.
+            no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            startupinfo = None
+            if os.name == "nt":
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                startupinfo.wShowWindow = 0  # SW_HIDE
             subprocess.run(
                 ["icacls", str(path), "/inheritance:r", "/grant:r", f"{user}:F"],
                 capture_output=True,
                 check=False,
+                creationflags=no_window,
+                startupinfo=startupinfo,
             )
         except Exception:
             pass
