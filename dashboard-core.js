@@ -1021,6 +1021,83 @@ function computeGatewayByAccount(rows){
   });
 }
 
+/**
+ * Fail % theo (gateway × bucket thời gian). Chỉ tính cuộc đã map gateway.
+ * Trả buckets (epoch ms) + series mỗi gateway; failPct để null ở bucket rỗng
+ * để đường biểu đồ đứt đoạn thay vì tụt về 0.
+ */
+function computeGatewayFailTimeline(rows, bucketMin){
+  bucketMin = bucketMin || 30;
+  const bucketMs = bucketMin * 60000;
+  const byGw = {};
+  (rows||[]).forEach(r=>{
+    const gw = r.gateway || '';
+    if(!gw) return;
+    const ts = (r.start_ts != null && Number.isFinite(Number(r.start_ts)))
+      ? Number(r.start_ts)
+      : Date.parse(String(r.start_stamp||'').replace(' ','T'));
+    if(!Number.isFinite(ts)) return;
+    const b = Math.floor(ts / bucketMs) * bucketMs;
+    const m = byGw[gw] || (byGw[gw] = new Map());
+    let cell = m.get(b);
+    if(!cell){ cell = { total:0, fail:0 }; m.set(b, cell); }
+    cell.total++;
+    if((r.connType || classifyCall(r)) === 'Fail') cell.fail++;
+  });
+  const allBuckets = new Set();
+  Object.values(byGw).forEach(m=> m.forEach((_, b)=> allBuckets.add(b)));
+  const buckets = Array.from(allBuckets).sort((a,b)=> a-b);
+  const series = Object.keys(byGw).sort().map(gw=>{
+    const m = byGw[gw];
+    return {
+      gateway: gw,
+      total:  buckets.map(b=> (m.get(b)||{}).total || 0),
+      fail:   buckets.map(b=> (m.get(b)||{}).fail  || 0),
+      failPct: buckets.map(b=>{ const c = m.get(b); return (c && c.total) ? +(c.fail/c.total*100).toFixed(2) : null; })
+    };
+  });
+  return { bucketMin, buckets, series };
+}
+
+/**
+ * Đối chiếu trạng thái chặn telco khai trong export (gw_telco_status: ON/PAUSE
+ * theo viettel/mobi/vina/other) với Fail thực tế của cuộc gọi tới telco đó.
+ * Gộp theo (gateway × nhóm telco × trạng thái khai) — PAUSE và ON là hai dòng
+ * riêng vì các CID cùng gateway có thể khác trạng thái.
+ */
+const _GW_TELCO_KEY = { VT:'viettel', MB:'mobi', VN:'vina', OT:'other', '':'other' };
+function computeGatewayBlockReconcile(rows){
+  const map = {};
+  (rows||[]).forEach(r=>{
+    const gw = r.gateway || '';
+    const stt = r.gw_telco_status;
+    if(!gw || !stt || typeof stt !== 'object') return;
+    const tkey = _GW_TELCO_KEY[telcoBlockCode(getTelco(r))] || 'other';
+    const declared = String(stt[tkey] || '').toUpperCase();
+    if(declared !== 'ON' && declared !== 'PAUSE') return;
+    const k = gw + ' ' + tkey + ' ' + declared;
+    let m = map[k];
+    if(!m) m = map[k] = { gateway: gw, telco: tkey, declared, total:0, fail:0, connected:0, noans:0 };
+    m.total++;
+    const ct = r.connType || classifyCall(r);
+    if(ct === 'Fail') m.fail++;
+    else if(ct === 'Connected') m.connected++;
+    else if(ct === 'No Answer') m.noans++;
+  });
+  return Object.values(map).map(m=>{
+    const failPct = m.total ? +(m.fail/m.total*100).toFixed(2) : 0;
+    const connPct = m.total ? +(m.connected/m.total*100).toFixed(2) : 0;
+    let verdict;
+    if(m.declared === 'PAUSE' && connPct >= 20) verdict = 'PAUSE nhưng vẫn kết nối nhiều — export có thể cũ';
+    else if(m.declared === 'PAUSE') verdict = 'Khớp: đang chặn, gần như không kết nối';
+    else if(m.declared === 'ON' && failPct >= 50) verdict = 'ON nhưng Fail cao — nghi bị chặn chưa ghi nhận';
+    else verdict = 'Khớp: mở, kết nối bình thường';
+    return { ...m, failPct, connPct, verdict };
+  }).sort((a,b)=> String(a.gateway).localeCompare(String(b.gateway))
+    || String(a.telco).localeCompare(String(b.telco))
+    || a.declared.localeCompare(b.declared));
+}
+
 function computeCallbackStats(rows){
   const byDn={};
   (rows||[]).forEach(r=>{
@@ -2503,7 +2580,7 @@ const __exports = {
   enrichData, filterData, dedupByUUID,
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax, downsampleSeriesMin,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
-  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, computeGatewayByAccount,
+  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, computeGatewayByAccount, computeGatewayFailTimeline, computeGatewayBlockReconcile,
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,

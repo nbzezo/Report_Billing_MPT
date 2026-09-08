@@ -1007,3 +1007,63 @@ test('computeGatewayByAccount — gộp account×gateway + độ phủ', () => {
   assert.equal(unmapped.total, 1);
   assert.equal(unmapped.mapped, false);
 });
+
+test('computeGatewayFailTimeline — Fail% theo gateway × bucket, đứt đoạn khi rỗng', () => {
+  const gwIndex = {
+    '0994345507': { gateway: 'GIP2_new', routing_name: 'R', telco_status: {} },
+    '02888820733': { gateway: 'Digi_bk', routing_name: 'R', telco_status: {} }
+  };
+  const mk = (cid, ts, hc, uuid) => ({ account_id:'548', caller_id_number:cid, destination_number:'0900000001',
+    start_stamp: ts, end_stamp: ts, duration: hc==='NORMAL_CLEARING'?30:0, billsec: hc==='NORMAL_CLEARING'?20:0,
+    hangup_cause: hc, uuid });
+  const raw = core.normalizeCallRecords([
+    mk('0994345507', '2026-09-05 09:00:00', 'NORMAL_CLEARING', 't1'),
+    mk('0994345507', '2026-09-05 09:10:00', 'NO_ROUTE_DESTINATION', 't2'),  // cùng bucket 09:00
+    mk('0994345507', '2026-09-05 10:05:00', 'NO_ROUTE_DESTINATION', 't3'),  // bucket 10:00
+    mk('02888820733', '2026-09-05 09:20:00', 'NORMAL_CLEARING', 't4'),      // Digi_bk bucket 09:00
+    { account_id:'548', caller_id_number:'0900999999', destination_number:'0900000001',
+      start_stamp:'2026-09-05 09:30:00', end_stamp:'2026-09-05 09:30:00', duration:0, billsec:0,
+      hangup_cause:'NO_ROUTE_DESTINATION', uuid:'t5' }  // chưa map -> bỏ
+  ]);
+  const tl = core.computeGatewayFailTimeline(core.enrichData(raw, {}, gwIndex), 30);
+  assert.equal(tl.bucketMin, 30);
+  assert.equal(tl.buckets.length, 2);   // gộp 30 phút: {09:00, 10:00}
+  const gip = tl.series.find(s => s.gateway === 'GIP2_new');
+  const digi = tl.series.find(s => s.gateway === 'Digi_bk');
+  // bucket đầu (09:00): GIP có 2 cuộc, 1 fail -> 50
+  assert.equal(gip.failPct[0], 50);
+  // bucket có 10:05 cho GIP -> 100; Digi không có cuộc -> null (đứt đoạn)
+  const idx10 = tl.buckets.findIndex(b => new Date(b).getHours() === 10);
+  assert.equal(gip.failPct[idx10], 100);
+  assert.equal(digi.failPct[idx10], null);
+});
+
+test('computeGatewayBlockReconcile — đối chiếu PAUSE/ON với Fail thực tế', () => {
+  const gwIndex = {
+    // CID này khai PAUSE cho Viettel
+    '0994345507': { gateway: 'GIP2_new', routing_name: 'R', telco_status: { viettel:'PAUSE', mobi:'ON', vina:'ON', other:'ON' } },
+    // CID này khai ON hết
+    '02888820733': { gateway: 'Digi_bk', routing_name: 'R', telco_status: { viettel:'ON', mobi:'ON', vina:'ON', other:'ON' } }
+  };
+  const mk = (cid, telco, hc, uuid) => ({ account_id:'548', caller_id_number:cid, destination_number:'0900000001',
+    start_stamp:'2026-09-05 09:00:00', end_stamp:'2026-09-05 09:00:00',
+    duration: hc==='NORMAL_CLEARING'?30:0, billsec: hc==='NORMAL_CLEARING'?20:0, hangup_cause:hc, uuid, telco });
+  const raw = core.normalizeCallRecords([
+    mk('0994345507', 'VIETTEL', 'NO_ROUTE_DESTINATION', 'r1'),   // PAUSE + Fail -> khớp
+    mk('0994345507', 'VIETTEL', 'NO_ROUTE_DESTINATION', 'r2'),   // PAUSE + Fail
+    mk('0994345507', 'VIETTEL', 'NORMAL_CLEARING', 'r3'),        // PAUSE + Connected (1/3 = 33% >=20 -> "export có thể cũ")
+    mk('02888820733', 'VIETTEL', 'NO_ROUTE_DESTINATION', 'r4'),  // ON + Fail
+    mk('02888820733', 'VIETTEL', 'NO_ROUTE_DESTINATION', 'r5'),  // ON + Fail (2/2 = 100% >=50 -> "nghi bị chặn")
+  ]);
+  const rec = core.computeGatewayBlockReconcile(core.enrichData(raw, {}, gwIndex));
+  const pause = rec.find(m => m.gateway === 'GIP2_new' && m.telco === 'viettel');
+  assert.equal(pause.declared, 'PAUSE');
+  assert.equal(pause.total, 3);
+  assert.equal(pause.fail, 2);
+  assert.equal(pause.connPct, 33.33);
+  assert.match(pause.verdict, /export có thể cũ/);
+  const on = rec.find(m => m.gateway === 'Digi_bk' && m.telco === 'viettel');
+  assert.equal(on.declared, 'ON');
+  assert.equal(on.failPct, 100);
+  assert.match(on.verdict, /nghi bị chặn/);
+});

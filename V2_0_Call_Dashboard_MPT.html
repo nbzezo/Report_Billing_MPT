@@ -1235,6 +1235,23 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       </table>
     </div>
 
+    <div id="table_gateway_block_reconcile" class="card full" data-tab="advanced" draggable="true">
+      <h3 style="margin:0 0 6px 0">Đối chiếu chặn telco ↔ Fail</h3>
+      <div class="muted">So trạng thái khai trong export routing (<code>ON</code>/<code>PAUSE</code> theo Viettel/Mobi/Vina/Other của từng CID) với Fail thực tế của cuộc gọi tới nhà mạng đó trong CDR. Gộp theo <code>gateway × nhóm telco × trạng thái khai</code>.</div>
+      <table id="gatewayBlockReconcileTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Nhóm telco</th>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Khai báo</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Fail %</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Connect %</th>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Nhận xét</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
     <div id="chart_callback_dist" class="card small" data-tab="time" draggable="true"></div>
 
     <div id="table_callback_top" class="card full" data-tab="time" draggable="true">
@@ -1308,6 +1325,7 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
     <!-- ===== [GROUP 1 NEW] Nhóm 1: Chất lượng & ổn định cuộc gọi ===== -->
     <div id="chart_fail_streak_dist" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_fail_streak_timeline" class="card small" data-tab="quality" draggable="true"></div>
+    <div id="chart_gateway_fail_timeline" class="card large" data-tab="quality" draggable="true"></div>
     <div id="chart_hangup_heatmap" class="card large" data-tab="quality" draggable="true"></div>
     <div id="chart_mos_histogram" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_quality_by_telco" class="card small" data-tab="quality" draggable="true"></div>
@@ -4005,7 +4023,7 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-09-08-gateway-by-account-v1';
+const REPORT_ORDER_VERSION='2026-09-08-gateway-surfaces-v2';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
 const PREFERRED_REPORT_ORDER={
   overview:[
@@ -4016,7 +4034,7 @@ const PREFERRED_REPORT_ORDER={
     'chart_stack_prefix_pct','chart_dur_share_prefix','chart_telco_conn_stacked',
     'chart_avgdur_prefix','chart_avgdur_vs_rate','chart_dest_telco_share',
     'table_hangup_breakdown','table_fail_reason','chart_hangup_heatmap',
-    'chart_fail_streak_dist','chart_fail_streak_timeline',
+    'chart_fail_streak_dist','chart_fail_streak_timeline','chart_gateway_fail_timeline',
     'chart_mos_histogram','chart_quality_by_telco','chart_mos_vs_packetloss',
     'table_top_dest'
   ],
@@ -4032,7 +4050,7 @@ const PREFERRED_REPORT_ORDER={
     'chart_line_health_trend','table_line_anomalies'
   ],
   advanced:[
-    'panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_by_account','chart_account_radar',
+    'panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_by_account','table_gateway_block_reconcile','chart_account_radar',
     'table_data_quality','chart_rn_histogram','report_rn_cf_by_account','table_card'
   ],
   billing:[
@@ -4093,7 +4111,7 @@ function applyDashboardV2Layout(){
   document.querySelectorAll('#reportGrid > .card[data-tab]').forEach(card=>{
     card.classList.remove('layout-wide','layout-narrow','layout-full');
   });
-  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_by_account','table_data_quality','report_rn_cf_by_account','table_card',
+  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_by_account','table_gateway_block_reconcile','table_data_quality','report_rn_cf_by_account','table_card',
    'panel_billing_config','panel_billing_kpi','chart_billing_by_period','chart_billing_by_telco','table_billing_by_period','table_billing_by_account'].forEach(id=>{
     const card=resolveReportCard(id); if(card) card.classList.add('layout-full');
   });
@@ -4265,8 +4283,17 @@ function ensureDataTablePagerUI(){
     <button id="dataTablePrev">Prev</button>
     <span id="dataTablePageInfo" class="muted"></span>
     <button id="dataTableNext">Next</button>
+    <label class="muted" style="display:flex;align-items:center;gap:6px">Gateway
+      <select id="dataTableGatewayFilter" style="padding:2px 6px"><option value="">Tất cả</option></select>
+    </label>
   `;
   table.insertAdjacentElement('afterend', controls);
+
+  document.getElementById('dataTableGatewayFilter').addEventListener('change', (e)=>{
+    tablePagingState.dataTable.gwFilter = e.target.value || '';
+    tablePagingState.dataTable.page = 0;
+    renderDataTablePage();
+  });
 
   document.getElementById('dataTablePageSize').addEventListener('change', (e)=>{
     tablePagingState.dataTable.pageSize = parseInt(e.target.value||'20',10);
@@ -4290,7 +4317,19 @@ function renderDataTablePage(){
   if(!table) return;
 
   const st = tablePagingState.dataTable;
-  const rows = st.rows || [];
+  const allRows = st.rows || [];
+
+  // Bộ lọc gateway riêng cho bảng chi tiết (không đụng cube/biểu đồ khác).
+  const gwSel = document.getElementById('dataTableGatewayFilter');
+  if(gwSel){
+    const seen = new Set();
+    allRows.forEach(r=>{ if(r && ('gateway' in r)) seen.add(r.gateway || '(chưa map)'); });
+    const opts = Array.from(seen).sort();
+    const want = '<option value="">Tất cả</option>' + opts.map(g=>`<option value="${reportTableEscape(g)}">${reportTableEscape(g)}</option>`).join('');
+    if(gwSel.dataset.sig !== want){ gwSel.innerHTML = want; gwSel.dataset.sig = want; gwSel.value = st.gwFilter || ''; }
+    gwSel.parentElement.style.display = opts.length ? '' : 'none';
+  }
+  const rows = st.gwFilter ? allRows.filter(r=> (r.gateway || '(chưa map)') === st.gwFilter) : allRows;
   const pageSize = st.pageSize || 20;
   const maxPage = Math.max(0, Math.ceil(rows.length / pageSize) - 1);
   if(st.page > maxPage) st.page = maxPage;
@@ -4311,7 +4350,14 @@ function renderDataTablePage(){
     return;
   }
 
-  const cols = Object.keys(rows[0]).slice(0, 20); // keep existing intent: show a subset of columns
+  // Ưu tiên vài cột hay dùng (gồm gateway/routing) rồi tới phần còn lại, giữ ý
+  // cũ là chỉ hiện một tập cột.
+  const preferred = ['account_id','account_name','caller_id_number','destination_number',
+    'connType','gateway','routing_name','telco','start_stamp','duration','billsec','hangup_cause'];
+  const present = new Set(Object.keys(rows[0]));
+  const cols = [];
+  preferred.forEach(c=>{ if(present.has(c)){ cols.push(c); present.delete(c); } });
+  for(const c of present){ if(cols.length >= 22) break; if(c === 'gw_telco_status') continue; cols.push(c); }
   cols.forEach(c=>{
     const th=document.createElement('th');
     th.innerText=c;
@@ -4459,6 +4505,7 @@ function renderQualityTab(filtered, colors){
     ()=> safePlot('chart_avgdur_vs_rate', ()=> plotAvgDurationVsConnectRate(filtered, colors)),
     ()=> safePlot('chart_fail_streak_dist',     ()=> plotFailStreakDistribution(filtered, colors)),
     ()=> safePlot('chart_fail_streak_timeline', ()=> plotFailStreakTimeline(filtered, colors)),
+    ()=> safePlot('chart_gateway_fail_timeline',()=> plotGatewayFailTimeline(filtered, colors)),
     ()=> safePlot('chart_hangup_heatmap',       ()=> plotHangupHeatmap(filtered)),
     ()=> safePlot('chart_mos_histogram',    ()=> plotMosHistogram(filtered, colors)),
     ()=> safePlot('chart_quality_by_telco', ()=> plotQualityByTelco(filtered, colors)),
@@ -4504,6 +4551,7 @@ function renderAdvancedTab(filtered, colors){
     ()=> plotAgentPerformance(filtered, colors, 10),
     ()=> renderAgentPerfTable(filtered),
     ()=> renderGatewayByAccountTable(filtered),
+    ()=> renderGatewayBlockReconcileTable(filtered),
     ()=> renderDataQuality(filtered),
     ()=> renderAdvancedAlerts(filtered),
     ()=> renderTableTab(filtered),
@@ -6495,6 +6543,60 @@ function renderGatewayByAccountTable(rows){
       <td style="border:1px solid #eee;padding:6px;text-align:right">${m.asr.toFixed(2)}%</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${m.failPct.toFixed(2)}%</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
+function plotGatewayFailTimeline(rows, colors){
+  const elId = 'chart_gateway_fail_timeline';
+  if(!gatewayCidIndex || !Object.keys(gatewayCidIndex).length)
+    return showNoData(elId, 'Chưa có mapping Gateway — vào tab Vòng đời CID để gán routing_id');
+  const tl = computeGatewayFailTimeline(rows, 30);
+  if(!tl.buckets.length) return showNoData(elId, 'Không có cuộc gọi đã map gateway trong khoảng lọc');
+  const x = tl.buckets.map(b=> new Date(b));
+  const traces = tl.series.map(s=>({
+    x, y: s.failPct, name: s.gateway, type:'scatter', mode:'lines+markers',
+    connectgaps:false, marker:{size:5},
+    customdata: s.total,
+    hovertemplate: s.gateway + '<br>%{x|%d/%m %H:%M}<br>Fail: %{y:.2f}%<br>Cuộc: %{customdata}<extra></extra>'
+  }));
+  Plotly.react(elId, traces, {
+    title:'Fail % theo Gateway (bucket 30 phút)',
+    height: 380,
+    xaxis:{ title:'Thời gian' },
+    yaxis:{ title:'Fail %', rangemode:'tozero' },
+    legend:{ orientation:'h', y:-0.28 },
+    margin:{ t:40, r:16, b:60, l:48 }
+  }, {responsive:true});
+}
+
+function renderGatewayBlockReconcileTable(rows){
+  const tb = document.querySelector('#gatewayBlockReconcileTable tbody');
+  if(!tb) return;
+  tb.innerHTML = '';
+  const hasMap = gatewayCidIndex && Object.keys(gatewayCidIndex).length > 0;
+  if(!hasMap){
+    tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:8px">Chưa có mapping Gateway (tab Vòng đời CID).</td></tr>';
+    return;
+  }
+  const data = computeGatewayBlockReconcile(rows || []);
+  if(!data.length){
+    tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:8px">Không có cuộc gọi nào vừa map gateway vừa có trạng thái telco để đối chiếu.</td></tr>';
+    return;
+  }
+  const TLABEL = { viettel:'Viettel', mobi:'Mobi', vina:'Vina', other:'Other' };
+  data.forEach(m=>{
+    const warn = /export có thể cũ|nghi bị chặn/.test(m.verdict);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.gateway)}</td>
+      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(TLABEL[m.telco]||m.telco)}</td>
+      <td style="border:1px solid #eee;padding:6px">${m.declared === 'PAUSE' ? '<b style="color:#c0392b">PAUSE</b>' : 'ON'}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.total.toLocaleString('vi-VN')}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.failPct.toFixed(2)}%</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connPct.toFixed(2)}%</td>
+      <td style="border:1px solid #eee;padding:6px${warn?';color:#c0392b':';color:#5a6b5a'}">${reportTableEscape(m.verdict)}</td>
     `;
     tb.appendChild(tr);
   });
