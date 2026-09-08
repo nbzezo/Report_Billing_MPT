@@ -814,7 +814,12 @@ class CidTabTests(unittest.TestCase):
 
     def test_render_duoc_noi_vao_ensure_tab_rendered(self):
         self.assertIn("else if(tabName==='cid') renderCidTab();", self.HTML)
-        self.assertIn("cid:true};", self.HTML)   # tab moi hien tat ca the
+        # Tab CID nay co trong REPORT_LAYOUT (nguon duy nhat) voi primary/secondary
+        self.assertIn("cid:{ primary:", self.HTML)
+        # panel cau hinh (mapping gateway) nam CUOI thu tu tab CID
+        cid_block = self.HTML.split("cid:{ primary:", 1)[1].split("]}", 1)[0]
+        self.assertTrue(cid_block.rstrip().rstrip("\n").rstrip().endswith("'panel_gateway_map'"),
+                        "panel_gateway_map phai la card cuoi cung cua tab CID")
 
     def test_tab_luoi_nap_qua_api_rieng_khong_an_theo_bo_loc_CDR(self):
         self.assertIn("fetch('/api/cid-events?'", self.HTML)

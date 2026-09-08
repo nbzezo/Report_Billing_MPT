@@ -1325,7 +1325,7 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
     <!-- ===== [GROUP 1 NEW] Nhóm 1: Chất lượng & ổn định cuộc gọi ===== -->
     <div id="chart_fail_streak_dist" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_fail_streak_timeline" class="card small" data-tab="quality" draggable="true"></div>
-    <div id="chart_gateway_fail_timeline" class="card large" data-tab="quality" draggable="true"></div>
+    <div id="chart_gateway_fail_timeline" class="card large" data-tab="advanced" draggable="true"></div>
     <div id="chart_hangup_heatmap" class="card large" data-tab="quality" draggable="true"></div>
     <div id="chart_mos_histogram" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_quality_by_telco" class="card small" data-tab="quality" draggable="true"></div>
@@ -4023,42 +4023,80 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-09-08-gateway-surfaces-v2';
+const REPORT_ORDER_VERSION='2026-09-08-scientific-reorder-v3';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
-const PREFERRED_REPORT_ORDER={
-  overview:[
-    'chart_conn_donut','chart_answer_gauge','chart_direction_split',
-    'chart_minutes_account'
-  ],
-  quality:[
-    'chart_stack_prefix_pct','chart_dur_share_prefix','chart_telco_conn_stacked',
-    'chart_avgdur_prefix','chart_avgdur_vs_rate','chart_dest_telco_share',
-    'table_hangup_breakdown','table_fail_reason','chart_hangup_heatmap',
-    'chart_fail_streak_dist','chart_fail_streak_timeline','chart_gateway_fail_timeline',
-    'chart_mos_histogram','chart_quality_by_telco','chart_mos_vs_packetloss',
-    'table_top_dest'
-  ],
-  time:[
-    'report_chart_asr_time','chart_call_funnel',
-    'chart_caller_participation_heatmap',
-    'chart_minutes_day',
-    'chart_golden_hours_rate','chart_top_time_slots','chart_time_heatmap','chart_compare_timeline',
-    'chart_concurrent_calls','chart_concurrent_by_telco','chart_ccu_by_telco','table_ccu_by_telco',
-    'chart_duration_hist','chart_answer_delay_telco',
-    'chart_short_call_rate','chart_short_call_by_account','chart_billsec_duration_gap','chart_retry_pattern',
-    'chart_callback_dist','table_callback_top',
-    'chart_line_health_trend','table_line_anomalies'
-  ],
-  advanced:[
-    'panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_by_account','table_gateway_block_reconcile','chart_account_radar',
-    'table_data_quality','chart_rn_histogram','report_rn_cf_by_account','table_card'
-  ],
-  billing:[
+
+/* ==========================================================================
+   NGUỒN DUY NHẤT cho bố cục báo cáo mỗi tab.
+   `order` = thứ tự hiển thị trái→phải, trên→dưới trong lưới.
+   `primary` = số card ĐẦU trong `order` hiện mặc định; phần còn lại thu gọn
+   sau nút "Hiển thị tất cả …". primary >= order.length -> hiện hết.
+   Nguyên tắc sắp xếp: theo phễu vòng đời cuộc gọi (nỗ lực → đổ chuông →
+   kết nối → nói chuyện → chất lượng thoại → cước), primary = xem-nhanh,
+   secondary = nhóm chẩn đoán sâu, card cấu hình xuống cuối.
+   PREFERRED_REPORT_ORDER và PRIMARY_REPORTS suy ra từ đây — sửa 1 chỗ.
+   ========================================================================== */
+const REPORT_LAYOUT={
+  overview:{ primary:99, order:[
+    'chart_conn_donut','chart_answer_gauge','chart_direction_split','chart_minutes_account'
+  ]},
+  quality:{ primary:4, order:[
+    // xem nhanh: kết nối + tại sao hỏng
+    'chart_stack_prefix_pct','chart_telco_conn_stacked','chart_hangup_heatmap','table_fail_reason',
+    // chẩn đoán fail
+    'table_hangup_breakdown','chart_fail_streak_dist','chart_fail_streak_timeline',
+    // nhắm số đích
+    'table_top_dest','chart_dest_telco_share',
+    // kinh tế thời lượng gọi
+    'chart_avgdur_prefix','chart_dur_share_prefix','chart_avgdur_vs_rate',
+    // chất lượng thoại
+    'chart_mos_histogram','chart_quality_by_telco','chart_mos_vs_packetloss'
+  ]},
+  time:{ primary:6, order:[
+    // xem nhanh vận hành
+    'report_chart_asr_time','chart_minutes_day','chart_golden_hours_rate',
+    'chart_call_funnel','chart_concurrent_calls','chart_line_health_trend',
+    // thời điểm & tham gia
+    'chart_top_time_slots','chart_time_heatmap','chart_compare_timeline','chart_caller_participation_heatmap',
+    // tải kênh / Erlang
+    'chart_concurrent_by_telco','chart_ccu_by_telco','table_ccu_by_telco','chart_answer_delay_telco',
+    // hành vi gọi lại
+    'chart_retry_pattern','chart_callback_dist','table_callback_top',
+    // cuộc ngắn
+    'chart_short_call_rate','chart_short_call_by_account','chart_billsec_duration_gap','chart_duration_hist',
+    // sức khỏe đầu số
+    'table_line_anomalies'
+  ]},
+  advanced:{ primary:6, order:[
+    'panel_alerts',
+    // hiệu suất account
+    'chart_agent_perf','table_agent_perf','chart_account_radar',
+    // gateway (gộp về một chỗ)
+    'table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline',
+    // random number / call fail
+    'chart_rn_histogram','report_rn_cf_by_account',
+    // QA dữ liệu + bảng thô
+    'table_data_quality','table_card'
+  ]},
+  cid:{ primary:5, order:[
+    // khả dụng / hồi phục
+    'panel_cid_coverage','chart_cid_availability','table_cid_mttr_telco','chart_cid_mttr','table_cid_duty',
+    // áp lực / mất mát
+    'chart_cid_pressure','table_cid_bursts','panel_cid_waste','panel_cid_loss',
+    // rủi ro & chỉ báo sớm
+    'chart_cid_load_risk','panel_cid_signals','table_cid_signals_account','panel_cid_precursors',
+    // cấu hình / đồng bộ (làm một lần) — để cuối
+    'panel_gateway_map'
+  ]},
+  billing:{ primary:99, order:[
     'panel_billing_config','panel_billing_kpi',
     'chart_billing_by_period','chart_billing_by_telco','chart_billing_by_prefix',
     'table_billing_by_period','table_billing_by_account'
-  ]
+  ]}
 };
+const PREFERRED_REPORT_ORDER=Object.fromEntries(
+  Object.entries(REPORT_LAYOUT).map(([tab,v])=>[tab,v.order])
+);
 
 function resolveReportCard(id){
   const direct=document.getElementById(id);
@@ -4093,16 +4131,18 @@ function applyPreferredReportOrder(){
 }
 applyPreferredReportOrder();
 
-const PRIMARY_REPORTS={
-  overview:['chart_conn_donut','chart_answer_gauge','chart_direction_split','chart_minutes_account'],
-  quality:['chart_stack_prefix_pct','chart_dur_share_prefix','chart_telco_conn_stacked','chart_hangup_heatmap','chart_mos_histogram','chart_quality_by_telco','chart_gateway_fail_timeline'],
-  time:['report_chart_asr_time','chart_call_funnel','chart_caller_participation_heatmap','chart_minutes_day','chart_golden_hours_rate','chart_top_time_slots'],
-  advanced:['panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_by_account','table_gateway_block_reconcile','chart_account_radar','table_data_quality']
-};
+// Suy từ REPORT_LAYOUT: primary = `primary` card đầu trong `order`.
+const PRIMARY_REPORTS=Object.fromEntries(
+  Object.entries(REPORT_LAYOUT).map(([tab,v])=>[tab, v.order.slice(0, v.primary)])
+);
 function savedReportExpanded(tab){
   try{ return localStorage.getItem(`reports-expanded-${tab}`)==='1'; }catch(e){ return false; }
 }
-const tabReportExpanded={overview:true,quality:savedReportExpanded('quality'),time:savedReportExpanded('time'),advanced:savedReportExpanded('advanced'),billing:true,cid:true};
+// Tab có primary >= số card (overview/billing) hiện hết nên coi như luôn "mở".
+const tabReportExpanded=Object.fromEntries(Object.keys(REPORT_LAYOUT).map(tab=>{
+  const v=REPORT_LAYOUT[tab];
+  return [tab, v.primary>=v.order.length ? true : savedReportExpanded(tab)];
+}));
 
 function applyDashboardV2Layout(){
   document.body.classList.add('adw');
@@ -4111,7 +4151,7 @@ function applyDashboardV2Layout(){
   document.querySelectorAll('#reportGrid > .card[data-tab]').forEach(card=>{
     card.classList.remove('layout-wide','layout-narrow','layout-full');
   });
-  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_by_account','table_gateway_block_reconcile','table_data_quality','report_rn_cf_by_account','table_card',
+  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline','table_data_quality','report_rn_cf_by_account','table_card',
    'panel_billing_config','panel_billing_kpi','chart_billing_by_period','chart_billing_by_telco','table_billing_by_period','table_billing_by_account'].forEach(id=>{
     const card=resolveReportCard(id); if(card) card.classList.add('layout-full');
   });
@@ -4505,7 +4545,6 @@ function renderQualityTab(filtered, colors){
     ()=> safePlot('chart_avgdur_vs_rate', ()=> plotAvgDurationVsConnectRate(filtered, colors)),
     ()=> safePlot('chart_fail_streak_dist',     ()=> plotFailStreakDistribution(filtered, colors)),
     ()=> safePlot('chart_fail_streak_timeline', ()=> plotFailStreakTimeline(filtered, colors)),
-    ()=> safePlot('chart_gateway_fail_timeline',()=> plotGatewayFailTimeline(filtered, colors)),
     ()=> safePlot('chart_hangup_heatmap',       ()=> plotHangupHeatmap(filtered)),
     ()=> safePlot('chart_mos_histogram',    ()=> plotMosHistogram(filtered, colors)),
     ()=> safePlot('chart_quality_by_telco', ()=> plotQualityByTelco(filtered, colors)),
@@ -4552,6 +4591,7 @@ function renderAdvancedTab(filtered, colors){
     ()=> renderAgentPerfTable(filtered),
     ()=> renderGatewayByAccountTable(filtered),
     ()=> renderGatewayBlockReconcileTable(filtered),
+    ()=> safePlot('chart_gateway_fail_timeline', ()=> plotGatewayFailTimeline(filtered, colors)),
     ()=> renderDataQuality(filtered),
     ()=> renderAdvancedAlerts(filtered),
     ()=> renderTableTab(filtered),
