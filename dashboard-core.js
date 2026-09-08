@@ -691,6 +691,9 @@ function buildCube(enrichedRows, params) {
     answerRateByAccountPerDay: computeAnswerRateByAccountPerDay(rows),
     // --- Nâng cao ---
     agentPerf: computeAgentPerf(rows),
+    gatewayByAccount: computeGatewayByAccount(rows),
+    gatewayFailTimeline: computeGatewayFailTimeline(rows, 30),
+    gatewayBlockReconcile: computeGatewayBlockReconcile(rows),
     callbackStats: computeCallbackStats(rows),
     retryPattern: computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account'),
     concurrency: {

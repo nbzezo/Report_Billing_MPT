@@ -6522,7 +6522,7 @@ function renderGatewayByAccountTable(rows){
     return;
   }
   if(!rows || !rows.length){ if(cov) cov.textContent = ''; return; }
-  const res = computeGatewayByAccount(rows) || { rows:[], coverage:{total:0,matched:0,pct:0} };
+  const res = cubeVal('gatewayByAccount', ()=>computeGatewayByAccount(rows)) || { rows:[], coverage:{total:0,matched:0,pct:0} };
   const data = res.rows || [];
   if(cov){
     const c = res.coverage || {};
@@ -6552,8 +6552,8 @@ function plotGatewayFailTimeline(rows, colors){
   const elId = 'chart_gateway_fail_timeline';
   if(!gatewayCidIndex || !Object.keys(gatewayCidIndex).length)
     return showNoData(elId, 'Chưa có mapping Gateway — vào tab Vòng đời CID để gán routing_id');
-  const tl = computeGatewayFailTimeline(rows, 30);
-  if(!tl.buckets.length) return showNoData(elId, 'Không có cuộc gọi đã map gateway trong khoảng lọc');
+  const tl = cubeVal('gatewayFailTimeline', ()=>computeGatewayFailTimeline(rows, 30));
+  if(!tl || !tl.buckets || !tl.buckets.length) return showNoData(elId, 'Không có cuộc gọi đã map gateway trong khoảng lọc');
   const x = tl.buckets.map(b=> new Date(b));
   const traces = tl.series.map(s=>({
     x, y: s.failPct, name: s.gateway, type:'scatter', mode:'lines+markers',
@@ -6580,7 +6580,7 @@ function renderGatewayBlockReconcileTable(rows){
     tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:8px">Chưa có mapping Gateway (tab Vòng đời CID).</td></tr>';
     return;
   }
-  const data = computeGatewayBlockReconcile(rows || []);
+  const data = cubeVal('gatewayBlockReconcile', ()=>computeGatewayBlockReconcile(rows || [])) || [];
   if(!data.length){
     tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:8px">Không có cuộc gọi nào vừa map gateway vừa có trạng thái telco để đối chiếu.</td></tr>';
     return;

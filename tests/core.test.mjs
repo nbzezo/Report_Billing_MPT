@@ -137,9 +137,15 @@ test('buildCube — phủ đủ các nhóm biểu đồ 5 tab', () => {
 
   for (const k of ['overview', 'byPrefix', 'minutesPerDay', 'accountKPIs', 'topDest',
     'destTelcoShare', 'telcoConnBreakdown', 'dailyPrefixStats', 'timeHeatmap', 'goldenHours',
-    'answerRateByAccountPerDay', 'agentPerf', 'callbackStats', 'retryPattern', 'concurrency', 'billing']) {
+    'answerRateByAccountPerDay', 'agentPerf', 'gatewayByAccount', 'gatewayFailTimeline',
+    'gatewayBlockReconcile', 'callbackStats', 'retryPattern', 'concurrency', 'billing']) {
     assert.ok(k in cube, `thiếu cube.${k}`);
   }
+  // gateway trên toàn bộ dòng (không có gwIndex -> mọi cuộc vào nhóm '(chưa map)')
+  assert.equal(cube.gatewayByAccount.coverage.total, 3);
+  assert.equal(cube.gatewayByAccount.coverage.matched, 0);
+  assert.deepEqual(cube.gatewayFailTimeline.series, []);   // chưa map gateway -> không series
+  assert.deepEqual(cube.gatewayBlockReconcile, []);
   assert.equal(cube.timeHeatmap.length, 7);
   assert.equal(cube.timeHeatmap[0].length, 24);
   assert.equal(cube.goldenHours.zRate.length, 7);
