@@ -1214,6 +1214,27 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       </table>
     </div>
 
+    <div id="table_gateway_by_account" class="card full" data-tab="advanced" draggable="true">
+      <h3 style="margin:0 0 6px 0">Gateway theo account</h3>
+      <div class="muted">Gộp cuộc gọi theo <code>account_id × gateway</code>. Gateway lấy từ mapping <code>routing_id</code> đã đồng bộ (tab Vòng đời CID), join qua <code>caller_id_number</code>. Dòng <code>(chưa map)</code> = CID chưa có trong danh sách routing đã gán.</div>
+      <div id="gatewayByAccountCoverage" class="muted" style="margin-top:6px"></div>
+      <table id="gatewayByAccountTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">account_id</th>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Tên account</th>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Connected</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">ASR excl. Fail</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Fail %</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Talk minutes</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
     <div id="chart_callback_dist" class="card small" data-tab="time" draggable="true"></div>
 
     <div id="table_callback_top" class="card full" data-tab="time" draggable="true">
@@ -2409,7 +2430,7 @@ async function applyLoadedRows(rows){
     if(ing.meta) setDateRangeInputs(ing.meta.dateMin, ing.meta.dateMax, ing.meta.count);
     else adjustDateRangeToData(enriched);
   }else{
-    enriched = enrichData(rows, accountNameMap); rawData=enriched;
+    enriched = enrichData(rows, accountNameMap, gatewayCidIndex); rawData=enriched;
     loadedAccountIds = null;
     setLoadedRowCap(enriched.length, enriched.length);
     resetDashboardCaches();
@@ -2433,7 +2454,7 @@ async function applyLoadedText(text){
   }else{
     rows=normalizeCallRecords(parseCSVRobust(text));
     const ded=dedupByUUID(rows);
-    enriched=enrichData(ded.rows,accountNameMap); rawData=enriched;
+    enriched=enrichData(ded.rows,accountNameMap,gatewayCidIndex); rawData=enriched;
     loadedAccountIds=null;
     setLoadedRowCap(enriched.length,enriched.length);
     resetDashboardCaches();
@@ -2702,6 +2723,30 @@ function showNoData(id, msg){ const el=document.getElementById(id); if(!el) retu
 
 // ---------- Mapping helpers ----------
 let accountNameMap = { "351": "VCLASS BOT" }; // ví dụ mặc định
+// CID (đã normalizeCidNational) -> {account_id, routing_id, routing_name, gateway, telco_status}
+// Nạp từ /api/gateway-cids khi chọn kết nối MPT; enrichData join qua caller_id_number.
+let gatewayCidIndex = {};
+async function loadGatewayCids(rerender){
+  const pid = (typeof mptActiveProfileId !== 'undefined') ? mptActiveProfileId : '';
+  if(!pid){ gatewayCidIndex = {}; return; }
+  try{
+    const res = await fetch('/api/gateway-cids?profile_id=' + encodeURIComponent(pid));
+    const d = await res.json();
+    gatewayCidIndex = (d && d.index && typeof d.index === 'object') ? d.index : {};
+  }catch(_){ gatewayCidIndex = {}; }
+  if(rerender && typeof rawData !== 'undefined' && rawData && rawData.length){
+    try{
+      if(dashWorker.available()){
+        const ing = await dashWorker.reenrich(accountNameMap);
+        if(ing && ing.rows){ enriched = ing.rows; rawData = enriched; }
+      }else{
+        enriched = enrichData(rawData, accountNameMap, gatewayCidIndex); rawData = enriched;
+      }
+      if(typeof resetDashboardCaches === 'function') resetDashboardCaches();
+      if(typeof updateDashboardWithFilters === 'function') await updateDashboardWithFilters();
+    }catch(e){ console.warn('reenrich sau loadGatewayCids lỗi', e); }
+  }
+}
 function loadMap(){
   try{
     // 1) Load from embedded JSON inside HTML (portable across machines)
@@ -3960,7 +4005,7 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-09-08-quality-fail-reason-v1';
+const REPORT_ORDER_VERSION='2026-09-08-gateway-by-account-v1';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
 const PREFERRED_REPORT_ORDER={
   overview:[
@@ -3987,7 +4032,7 @@ const PREFERRED_REPORT_ORDER={
     'chart_line_health_trend','table_line_anomalies'
   ],
   advanced:[
-    'panel_alerts','chart_agent_perf','table_agent_perf','chart_account_radar',
+    'panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_by_account','chart_account_radar',
     'table_data_quality','chart_rn_histogram','report_rn_cf_by_account','table_card'
   ],
   billing:[
@@ -4048,7 +4093,7 @@ function applyDashboardV2Layout(){
   document.querySelectorAll('#reportGrid > .card[data-tab]').forEach(card=>{
     card.classList.remove('layout-wide','layout-narrow','layout-full');
   });
-  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_data_quality','report_rn_cf_by_account','table_card',
+  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_by_account','table_data_quality','report_rn_cf_by_account','table_card',
    'panel_billing_config','panel_billing_kpi','chart_billing_by_period','chart_billing_by_telco','table_billing_by_period','table_billing_by_account'].forEach(id=>{
     const card=resolveReportCard(id); if(card) card.classList.add('layout-full');
   });
@@ -4458,6 +4503,7 @@ function renderAdvancedTab(filtered, colors){
     ()=> { if(typeof renderRN_CF_ReportUnified==='function') renderRN_CF_ReportUnified(filtered); },
     ()=> plotAgentPerformance(filtered, colors, 10),
     ()=> renderAgentPerfTable(filtered),
+    ()=> renderGatewayByAccountTable(filtered),
     ()=> renderDataQuality(filtered),
     ()=> renderAdvancedAlerts(filtered),
     ()=> renderTableTab(filtered),
@@ -6417,6 +6463,43 @@ function renderAgentPerfTable(rows){
   });
 }
 
+function renderGatewayByAccountTable(rows){
+  const tb = document.querySelector('#gatewayByAccountTable tbody');
+  const cov = document.getElementById('gatewayByAccountCoverage');
+  if(!tb) return;
+  tb.innerHTML = '';
+  const hasMap = gatewayCidIndex && Object.keys(gatewayCidIndex).length > 0;
+  if(!hasMap){
+    if(cov) cov.innerHTML = 'Chưa có mapping Gateway. Vào tab <b>Vòng đời CID</b> → <b>Gateway theo account</b>, gán <code>routing_id</code> rồi <b>Đồng bộ Gateway</b>.';
+    return;
+  }
+  if(!rows || !rows.length){ if(cov) cov.textContent = ''; return; }
+  const res = computeGatewayByAccount(rows) || { rows:[], coverage:{total:0,matched:0,pct:0} };
+  const data = res.rows || [];
+  if(cov){
+    const c = res.coverage || {};
+    cov.innerHTML = `Độ phủ: <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc join được gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`
+      + ((c.pct||0) < 100 ? ` Phần còn lại là CID chưa nằm trong routing đã gán.` : '');
+  }
+  data.forEach(m=>{
+    const tr = document.createElement('tr');
+    const unmapped = !m.mapped;
+    tr.innerHTML = `
+      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.account_id)}</td>
+      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(getAccountNameForId(m.account_id))}</td>
+      <td style="border:1px solid #eee;padding:6px${unmapped?';color:#9aa5b1':''}">${reportTableEscape(m.gateway)}</td>
+      <td style="border:1px solid #eee;padding:6px" class="muted">${reportTableEscape(m.routing_name||'')}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.total.toLocaleString('vi-VN')}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connected.toLocaleString('vi-VN')}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connectRate.toFixed(2)}%</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.asr.toFixed(2)}%</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.failPct.toFixed(2)}%</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
+    `;
+    tb.appendChild(tr);
+  });
+}
+
 // 5) QA placeholder (nếu có qa_score/transcript sẽ mở rộng sau)
 // 6) Call-back / gọi lặp (destination_number repeats)
 // computeCallbackStats -> dashboard-core.js
@@ -6850,7 +6933,7 @@ fileInput.addEventListener('change', async (e)=>{
       setLoadedRowCap(enriched.length, (ingUp.meta && ingUp.meta.count) || enriched.length);
     }else{
       const ded = dedupByUUID(allRows);
-      enriched = enrichData(ded.rows, accountNameMap);
+      enriched = enrichData(ded.rows, accountNameMap, gatewayCidIndex);
       removedDedup = ded.removed;
       loadedAccountIds = null;
       setLoadedRowCap(enriched.length, enriched.length);
@@ -7169,9 +7252,9 @@ const dashWorker=(()=>{
   }
   return {
     available:()=>!!ensure(),
-    ingest:(text,opts)=>call('ingest',{text,cap:MAIN_ROW_CAP,...opts},45000),
-    ingestRows:(rows,opts)=>call('ingestRows',{rows,cap:MAIN_ROW_CAP,...opts},45000),
-    reenrich:nameMap=>call('reenrich',{nameMap,cap:MAIN_ROW_CAP},30000),
+    ingest:(text,opts)=>call('ingest',{text,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex,...opts},45000),
+    ingestRows:(rows,opts)=>call('ingestRows',{rows,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex,...opts},45000),
+    reenrich:nameMap=>call('reenrich',{nameMap,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex},30000),
     cube:params=>call('cube',{params},25000),
     billing:cfg=>call('billing',{cfg},20000),
     page:(offset,limit,params)=>call('page',{offset,limit,params},10000)
@@ -7234,7 +7317,7 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
       rows = normalizeCallRecords(rows);
       for(const row of rows) row.__source_file = dataUrl;
       const ded = dedupByUUID(rows);
-      enriched = enrichData(ded.rows, accountNameMap); rawData = enriched;
+      enriched = enrichData(ded.rows, accountNameMap, gatewayCidIndex); rawData = enriched;
       removedDup = ded.removed; total = enriched.length;
       loadedAccountIds = null;
       setLoadedRowCap(enriched.length, total);
@@ -7434,6 +7517,7 @@ async function mptSelectProfile(profileId,loadAccounts=true){
     return;
   }
   if(loadAccounts) await mptFetchAccounts(false);
+  loadGatewayCids(true).catch(()=>{});
 }
 
 function mptQueryFromLocation(){

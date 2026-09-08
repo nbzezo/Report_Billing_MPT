@@ -954,3 +954,56 @@ test('downsampleSeriesMax van giu dinh — hai ham khong lan nhau', () => {
   assert.equal(Math.min(...core.downsampleSeriesMin(x, y, 10).y), 5);
   assert.equal(Math.max(...core.downsampleSeriesMax(x, y, 10).y), 95);
 });
+
+test('enrichData — gắn gateway/routing_name từ gatewayCidIndex (join qua caller_id_number)', () => {
+  const raw = core.normalizeCallRecords([
+    { account_id: '548', caller_id_number: '0994345507', destination_number: '0900000001',
+      start_stamp: '2026-09-03 08:00:00', end_stamp: '2026-09-03 08:01:00',
+      duration: 60, billsec: 40, hangup_cause: 'NORMAL_CLEARING', uuid: 'g1' },
+    // 84-prefix trong CDR phải khớp CID dạng 0... trong index
+    { account_id: '548', caller_id_number: '842888820733', destination_number: '0900000002',
+      start_stamp: '2026-09-03 08:02:00', end_stamp: '2026-09-03 08:02:00',
+      duration: 0, billsec: 0, hangup_cause: 'NO_ROUTE_DESTINATION', uuid: 'g2' },
+    // CID không có trong index -> gateway rỗng
+    { account_id: '548', caller_id_number: '0900999999', destination_number: '0900000003',
+      start_stamp: '2026-09-03 08:03:00', end_stamp: '2026-09-03 08:03:30',
+      duration: 30, billsec: 20, hangup_cause: 'NORMAL_CLEARING', uuid: 'g3' }
+  ]);
+  const gwIndex = {
+    '0994345507': { account_id: '548', routing_id: '6151', routing_name: 'SIP_MTC_AUTOCALL', gateway: 'GIP2_new', telco_status: { viettel: 'PAUSE' } },
+    '02888820733': { account_id: '548', routing_id: '6151', routing_name: 'SIP_MTC_AUTOCALL', gateway: 'Digi_bk', telco_status: {} }
+  };
+  const enriched = core.enrichData(raw, {}, gwIndex);
+  assert.equal(enriched[0].gateway, 'GIP2_new');
+  assert.equal(enriched[0].routing_name, 'SIP_MTC_AUTOCALL');
+  assert.deepEqual(enriched[0].gw_telco_status, { viettel: 'PAUSE' });
+  assert.equal(enriched[1].gateway, 'Digi_bk');       // 84... -> 0... join
+  assert.equal(enriched[2].gateway, '');              // ngoài index
+  // không truyền index -> không có gateway, không vỡ
+  assert.equal(core.enrichData(raw, {})[0].gateway, '');
+});
+
+test('computeGatewayByAccount — gộp account×gateway + độ phủ', () => {
+  const raw = core.normalizeCallRecords([
+    { account_id: '548', caller_id_number: '0994345507', destination_number: '0900000001',
+      start_stamp: '2026-09-03 08:00:00', end_stamp: '2026-09-03 08:01:00', duration: 60, billsec: 60, hangup_cause: 'NORMAL_CLEARING', uuid: 'a1' },
+    { account_id: '548', caller_id_number: '0994345507', destination_number: '0900000002',
+      start_stamp: '2026-09-03 08:01:00', end_stamp: '2026-09-03 08:01:00', duration: 0, billsec: 0, hangup_cause: 'NO_ROUTE_DESTINATION', uuid: 'a2' },
+    { account_id: '548', caller_id_number: '0994999999', destination_number: '0900000003',
+      start_stamp: '2026-09-03 08:02:00', end_stamp: '2026-09-03 08:02:30', duration: 30, billsec: 20, hangup_cause: 'NORMAL_CLEARING', uuid: 'a3' }
+  ]);
+  const gwIndex = { '0994345507': { account_id: '548', routing_name: 'SIP_MTC_AUTOCALL', gateway: 'GIP2_new', telco_status: {} } };
+  const res = core.computeGatewayByAccount(core.enrichData(raw, {}, gwIndex));
+  assert.equal(res.coverage.total, 3);
+  assert.equal(res.coverage.matched, 2);
+  assert.equal(res.coverage.pct, 66.67);
+  const gip = res.rows.find(r => r.gateway === 'GIP2_new');
+  assert.equal(gip.total, 2);
+  assert.equal(gip.connected, 1);
+  assert.equal(gip.fail, 1);
+  assert.equal(gip.failPct, 50);
+  assert.equal(gip.connectRate, 50);
+  const unmapped = res.rows.find(r => r.gateway === '(chưa map)');
+  assert.equal(unmapped.total, 1);
+  assert.equal(unmapped.mapped, false);
+});

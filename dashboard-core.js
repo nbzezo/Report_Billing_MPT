@@ -368,11 +368,14 @@ function normalizeCallRecords(rows) {
 
 // ---------- Enrich / filter / dedup ----------
 /**
- * @param {Array} arr             bản ghi đã normalize
- * @param {Object} accountNameMap map id -> tên hiển thị (worker truyền vào; trang truyền accountNameMap toàn cục)
+ * @param {Array}  arr             bản ghi đã normalize
+ * @param {Object} accountNameMap  map id -> tên hiển thị (worker truyền vào; trang truyền accountNameMap toàn cục)
+ * @param {Object} gatewayCidIndex map CID (đã normalizeCidNational) -> {gateway, routing_name, telco_status, ...}
+ *                                 Nguồn: /api/gateway-cids (suy 1 lần từ MPT routing/exportCid). Không có -> bỏ qua.
  */
-function enrichData(arr, accountNameMap) {
+function enrichData(arr, accountNameMap, gatewayCidIndex) {
   const nameMap = accountNameMap || {};
+  const gwIndex = (gatewayCidIndex && typeof gatewayCidIndex === 'object') ? gatewayCidIndex : null;
   return arr.map(r => {
     const acc = (r.account_id === undefined || r.account_id === null) ? 'Unknown' : String(r.account_id);
     const mappedName = (r.account_name && String(r.account_name).trim())
@@ -381,6 +384,8 @@ function enrichData(arr, accountNameMap) {
 
     const start_ts = (() => { const v = String(r.start_stamp || ''); const t = Date.parse(v.replace(' ', 'T')); return isNaN(t) ? null : t; })();
     const end_ts = (() => { const v = String(r.end_stamp || ''); if (!v) return null; const t = Date.parse(v.replace(' ', 'T')); return isNaN(t) ? null : t; })();
+
+    const gw = gwIndex ? gwIndex[normalizeCidNational(r.caller_id_number)] : null;
 
     return {
       ...r,
@@ -391,7 +396,10 @@ function enrichData(arr, accountNameMap) {
       date: dateKey(r.start_stamp),
       hour: (r.start_stamp || '').slice(11, 13),
       start_ts,
-      end_ts
+      end_ts,
+      gateway: gw ? String(gw.gateway || '') : '',
+      routing_name: gw ? String(gw.routing_name || '') : '',
+      gw_telco_status: gw ? (gw.telco_status || null) : null
     };
   });
 }
@@ -971,6 +979,45 @@ function computeAgentPerf(rows){
     return {...a, rate, asr, minutes: a.billsec/60, avgCon, shortRate};
   });
 
+  });
+}
+
+/**
+ * Gộp cuộc gọi theo (account_id × gateway). `gateway` do enrichData gắn từ
+ * gatewayCidIndex (join qua caller_id_number). Dòng chưa map CID -> gateway ''
+ * gom vào nhóm '(chưa map)' để thấy ngay độ phủ.
+ */
+function computeGatewayByAccount(rows){
+  return __getAgg(rows, 'computeGatewayByAccount', ()=>{
+    const map = {};
+    let total = 0, matched = 0;
+    (rows||[]).forEach(r=>{
+      total++;
+      const acc = String(r.account_id || 'Unknown');
+      const gwRaw = String(r.gateway || '');
+      if(gwRaw) matched++;
+      const gw = gwRaw || '(chưa map)';
+      const key = acc + ' ' + gw;
+      let m = map[key];
+      if(!m) m = map[key] = { account_id: acc, account_name: String(r.account_name || acc),
+        gateway: gw, routing_name: String(r.routing_name || ''), mapped: !!gwRaw,
+        total:0, connected:0, noans:0, cancelled:0, fail:0, unknown:0, billsec:0 };
+      m.total++;
+      const ct = r.connType || classifyCall(r);
+      if(ct==='Connected'){ m.connected++; m.billsec += Number(r.billsec||0); }
+      else if(ct==='No Answer') m.noans++;
+      else if(ct==='Cancelled') m.cancelled++;
+      else if(ct==='Fail') m.fail++;
+      else m.unknown++;
+    });
+    const rows_ = Object.values(map).map(m=>({
+      ...m,
+      minutes: +(m.billsec/60).toFixed(2),
+      connectRate: m.total ? +(m.connected/m.total*100).toFixed(2) : 0,
+      asr: (m.connected+m.noans) ? +(m.connected/(m.connected+m.noans)*100).toFixed(2) : 0,
+      failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0
+    })).sort((a,b)=> String(a.account_id).localeCompare(String(b.account_id)) || (b.total - a.total));
+    return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
   });
 }
 
@@ -2456,7 +2503,7 @@ const __exports = {
   enrichData, filterData, dedupByUUID,
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax, downsampleSeriesMin,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
-  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats,
+  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, computeGatewayByAccount,
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,

@@ -60,7 +60,7 @@ function parseCSV(text) {
 }
 
 // ---- Trạng thái giữ trong worker -----------------------------------------
-var state = { deduped: [], enriched: [], nameMap: {} };
+var state = { deduped: [], enriched: [], nameMap: {}, gwIndex: null };
 
 function metaOf(deduped, enriched, removed) {
   const dates = enriched.map(r => r.date).filter(d => d && d !== 'Unknown').sort();
@@ -77,12 +77,13 @@ function metaOf(deduped, enriched, removed) {
 
 // cap: số dòng đã enrich gửi về luồng chính (0/undefined = tất cả). Toàn bộ vẫn
 // nằm trong worker để buildCube/page tính CHÍNH XÁC trên mọi dòng.
-function ingestFromRows(rawRows, sourceLabel, nameMap, cap) {
+function ingestFromRows(rawRows, sourceLabel, nameMap, cap, gwIndex) {
   if (sourceLabel) for (const r of rawRows) r.__source_file = sourceLabel;
   const ded = dedupByUUID(rawRows);
   state.deduped = ded.rows;
   state.nameMap = nameMap || {};
-  state.enriched = enrichData(state.deduped, state.nameMap);
+  if (gwIndex !== undefined) state.gwIndex = gwIndex || null;
+  state.enriched = enrichData(state.deduped, state.nameMap, state.gwIndex);
   const meta = metaOf(state.deduped, state.enriched, ded.removed);
   const rows = (cap && state.enriched.length > cap) ? state.enriched.slice(0, cap) : state.enriched;
   return { meta: meta, rows: rows, capped: rows.length < state.enriched.length };
@@ -103,16 +104,17 @@ function handle(msg) {
       let rows = msg.isJSON ? JSON.parse(String(msg.text || 'null')) : parseCSV(String(msg.text || ''));
       if (!Array.isArray(rows)) rows = [];
       rows = normalizeCallRecords(rows);
-      self.postMessage({ id, ...ingestFromRows(rows, msg.sourceLabel, msg.nameMap, msg.cap) });
+      self.postMessage({ id, ...ingestFromRows(rows, msg.sourceLabel, msg.nameMap, msg.cap, msg.gwIndex) });
       return;
     }
     if (type === 'ingestRows') {
-      self.postMessage({ id, ...ingestFromRows(msg.rows || [], msg.sourceLabel, msg.nameMap, msg.cap) });
+      self.postMessage({ id, ...ingestFromRows(msg.rows || [], msg.sourceLabel, msg.nameMap, msg.cap, msg.gwIndex) });
       return;
     }
     if (type === 'reenrich') {
       state.nameMap = msg.nameMap || {};
-      state.enriched = enrichData(state.deduped, state.nameMap);
+      if (msg.gwIndex !== undefined) state.gwIndex = msg.gwIndex || null;
+      state.enriched = enrichData(state.deduped, state.nameMap, state.gwIndex);
       const meta = metaOf(state.deduped, state.enriched, 0);
       const rows = (msg.cap && state.enriched.length > msg.cap) ? state.enriched.slice(0, msg.cap) : state.enriched;
       self.postMessage({ id, meta: meta, rows: rows, capped: rows.length < state.enriched.length });

@@ -283,7 +283,7 @@ class WorkerProtocolTests(unittest.TestCase):
         self.assertIn("self.postMessage(parseCSV(d))", self.WORKER)
 
     def test_worker_stores_state_and_builds_cube_from_it(self):
-        self.assertIn("state = { deduped: [], enriched: [], nameMap: {} }", self.WORKER)
+        self.assertIn("state = { deduped: [], enriched: [], nameMap: {}, gwIndex: null }", self.WORKER)
         self.assertIn("buildCube(state.enriched, msg.params", self.WORKER)
 
     def test_html_load_paths_use_worker_with_main_thread_fallback(self):
@@ -293,7 +293,7 @@ class WorkerProtocolTests(unittest.TestCase):
         self.assertIn("dashWorker.ingestRows(allRows,", html)   # file upload
         self.assertIn("dashWorker.ingestRows(rows,", html)      # applyLoadedRows (snapshot)
         # mỗi nhánh worker phải có else fallback dùng core trực tiếp
-        self.assertIn("enrichData(ded.rows, accountNameMap)", html)
+        self.assertIn("enrichData(ded.rows, accountNameMap, gatewayCidIndex)", html)
 
 
 class CubeRenderPipelineTests(unittest.TestCase):
