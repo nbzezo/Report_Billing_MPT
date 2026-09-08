@@ -1087,6 +1087,23 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
         <tbody></tbody>
       </table>
     </div>
+    <div id="table_fail_reason" class="card full" data-tab="quality" draggable="true">
+      <h3 style="margin:0 0 6px 0">Thống kê lý do Fail</h3>
+      <div class="muted">Gộp theo <code>hangup_cause</code> cho các cuộc bị phân loại <code>Fail</code>. Cột “Nhánh phân loại” cho biết cuộc rơi vào Fail vì <b>nguyên nhân mạng / định tuyến</b> (<code>hangup_cause</code> thuộc <code>Fail_Hangup_cause</code>) hay chỉ vì <b>suy đoán <code>duration = 0</code></b> (không có thông tin nào khác).</div>
+      <div id="failReasonSummary" class="muted" style="margin-top:6px"></div>
+      <table id="failReasonTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+        <thead><tr>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">hangup_cause</th>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Nhánh phân loại</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Số cuộc Fail</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">% trong tổng Fail</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">% trên tổng lượt gọi</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Số account</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Số đích</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
     <div id="chart_minutes_account" class="card small" data-tab="overview" draggable="true"></div>
     <div id="chart_compare_timeline" class="card small" data-tab="time" draggable="true"></div>
     <div id="chart_time_heatmap" class="card small" data-tab="time" draggable="true"></div>
@@ -2864,6 +2881,69 @@ function renderHangupBreakdownTable(rows, limit=30){
   });
 }
 
+/**
+ * Bảng "Thống kê lý do Fail": gộp thuần theo hangup_cause cho các cuộc Fail.
+ * Cột "Nhánh phân loại" tách hai đường đi trong classifyCall:
+ *   - "Nguyên nhân mạng / định tuyến": hangup_cause thuộc Fail_Hangup_cause
+ *   - "Suy đoán: duration = 0": không rơi vào set nào, bị xếp Fail ở nhánh cuối
+ */
+function renderFailReasonTable(rows, limit=40){
+  const tb = document.querySelector('#failReasonTable tbody');
+  const sum = document.getElementById('failReasonSummary');
+  if(!tb) return;
+  tb.innerHTML = '';
+  if(sum) sum.textContent = '';
+  if(!rows || !rows.length) return;
+
+  const failSet = (typeof Fail_Hangup_cause !== 'undefined' && Fail_Hangup_cause) ? Fail_Hangup_cause : new Set();
+  const map = new Map();   // causeKey -> {label, network, count, accs:Set, dests:Set}
+  let totalCalls = 0, totalFail = 0, networkFail = 0, guessFail = 0;
+
+  rows.forEach(r=>{
+    totalCalls++;
+    if((r.connType || classifyCall(r)) !== 'Fail') return;
+    totalFail++;
+    const key = String(r.hangup_cause || '').trim().toUpperCase();
+    const isNetwork = failSet.has(key);
+    if(isNetwork) networkFail++; else guessFail++;
+    let e = map.get(key);
+    if(!e){ e = {label: key || '(trống)', network: isNetwork, count:0, accs:new Set(), dests:new Set()}; map.set(key, e); }
+    e.count++;
+    const acc = String(r.account_id || r.account_name || '').trim(); if(acc) e.accs.add(acc);
+    const dn = String(r.destination_number || r.out_number || '').trim(); if(dn) e.dests.add(dn);
+  });
+
+  if(!totalFail){
+    if(sum) sum.textContent = 'Không có cuộc nào bị phân loại Fail trong phạm vi lọc hiện tại.';
+    return;
+  }
+
+  if(sum){
+    const pv = n => n.toLocaleString('vi-VN');
+    sum.textContent =
+      `Tổng Fail: ${pv(totalFail)} / ${pv(totalCalls)} lượt gọi (${(totalFail/totalCalls*100).toFixed(2)}%). `
+      + `Nguyên nhân mạng / định tuyến: ${pv(networkFail)} (${(networkFail/totalFail*100).toFixed(2)}% số Fail) • `
+      + `Suy đoán duration = 0: ${pv(guessFail)} (${(guessFail/totalFail*100).toFixed(2)}% số Fail).`;
+  }
+
+  Array.from(map.values())
+    .sort((a,b)=> b.count - a.count)
+    .slice(0, limit)
+    .forEach(e=>{
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="border:1px solid #eee;padding:6px">${reportTableEscape(e.label)}</td>
+        <td style="border:1px solid #eee;padding:6px">${e.network ? 'Nguyên nhân mạng / định tuyến' : 'Suy đoán: duration = 0'}</td>
+        <td style="border:1px solid #eee;padding:6px;text-align:right">${e.count.toLocaleString('vi-VN')}</td>
+        <td style="border:1px solid #eee;padding:6px;text-align:right">${(e.count/totalFail*100).toFixed(2)}%</td>
+        <td style="border:1px solid #eee;padding:6px;text-align:right">${(e.count/totalCalls*100).toFixed(2)}%</td>
+        <td style="border:1px solid #eee;padding:6px;text-align:right">${e.accs.size.toLocaleString('vi-VN')}</td>
+        <td style="border:1px solid #eee;padding:6px;text-align:right">${e.dests.size.toLocaleString('vi-VN')}</td>
+      `;
+      tb.appendChild(tr);
+    });
+}
+
 // minutesPerDay -> dashboard-core.js
 
 
@@ -3848,7 +3928,7 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-08-24-quality-direction-billing-v2';
+const REPORT_ORDER_VERSION='2026-09-08-quality-fail-reason-v1';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
 const PREFERRED_REPORT_ORDER={
   overview:[
@@ -3858,7 +3938,7 @@ const PREFERRED_REPORT_ORDER={
   quality:[
     'chart_stack_prefix_pct','chart_dur_share_prefix','chart_telco_conn_stacked',
     'chart_avgdur_prefix','chart_avgdur_vs_rate','chart_dest_telco_share',
-    'table_hangup_breakdown','chart_hangup_heatmap',
+    'table_hangup_breakdown','table_fail_reason','chart_hangup_heatmap',
     'chart_fail_streak_dist','chart_fail_streak_timeline',
     'chart_mos_histogram','chart_quality_by_telco','chart_mos_vs_packetloss',
     'table_top_dest'
@@ -3936,7 +4016,7 @@ function applyDashboardV2Layout(){
   document.querySelectorAll('#reportGrid > .card[data-tab]').forEach(card=>{
     card.classList.remove('layout-wide','layout-narrow','layout-full');
   });
-  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_data_quality','report_rn_cf_by_account','table_card',
+  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_data_quality','report_rn_cf_by_account','table_card',
    'panel_billing_config','panel_billing_kpi','chart_billing_by_period','chart_billing_by_telco','table_billing_by_period','table_billing_by_account'].forEach(id=>{
     const card=resolveReportCard(id); if(card) card.classList.add('layout-full');
   });
@@ -4294,6 +4374,7 @@ function renderQualityTab(filtered, colors){
   return renderSteps([
     ()=> safePlot('chart_stack_prefix_pct', ()=> plotStackPrefixPct(pref, colors)),
     ()=> renderHangupBreakdownTable(filtered, 30),
+    ()=> renderFailReasonTable(filtered, 40),
     ()=> safePlot('chart_dest_telco_share', ()=> plotDestTelcoShare(filtered, colors)),
     ()=> safePlot('chart_telco_conn_stacked', ()=> plotTelcoConnStacked(filtered, colors)),
     ()=> safePlot('chart_avgdur_prefix', ()=> plotAvgDurationByPrefix(filtered, colors)),
