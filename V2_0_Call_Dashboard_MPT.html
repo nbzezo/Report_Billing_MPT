@@ -1546,6 +1546,38 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       <div id="cidCoverageBody" style="margin-top:10px"></div>
     </div>
 
+    <div id="panel_gateway_map" class="card full" data-tab="cid" draggable="true">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0 0 6px 0">Gateway theo account</h3>
+          <div class="muted" id="gwMapNote">
+            Gán <code>routing_id</code> (số trong URL <code>routing/cids/&lt;id&gt;</code>) cho từng <code>account_id</code>.
+            Bấm <b>Đồng bộ Gateway</b> để tải danh sách CID + Gateway của từng routing rồi suy CID → account (làm một lần, cache lại).
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button id="gwMapAddRow" type="button">+ Dòng</button>
+          <button id="gwMapSave" type="button">Lưu mapping</button>
+          <button id="gwMapSync" type="button" class="primary-btn">Đồng bộ Gateway</button>
+        </div>
+      </div>
+      <div id="gwMapStatus" class="muted" style="margin-top:8px"></div>
+      <div style="overflow:auto;max-height:360px;margin-top:8px">
+        <table id="gwMapTable" style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead><tr>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">account_id</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên account</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">routing_id</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên routing (ghi chú)</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">CID</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
+            <th style="border:1px solid #eee;padding:6px"></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
     <div id="chart_cid_availability" class="card large" data-tab="cid" draggable="true"></div>
     <div id="chart_cid_mttr" class="card small" data-tab="cid" draggable="true"></div>
 
@@ -5460,6 +5492,7 @@ function renderCidTab(){
   safePlot('chart_cid_mttr', ()=> plotCidMttr());
   safePlot('chart_cid_pressure', ()=> plotCidPressure());
   safePlot('chart_cid_load_risk', ()=> plotCidLoadRisk());
+  renderGatewayMapPanel();
 }
 
 document.addEventListener('click', ev=>{
@@ -5467,10 +5500,198 @@ document.addEventListener('click', ev=>{
   if(!t || !t.id) return;
   if(t.id === 'cidLoadBtn') loadCidEvents(false);
   if(t.id === 'cidSyncBtn') loadCidEvents(true);
+  if(t.id === 'gwMapAddRow') gwMapAddRow();
+  if(t.id === 'gwMapSave') saveGatewayMap();
+  if(t.id === 'gwMapSync') syncGateway();
 });
 document.addEventListener('change', ev=>{
   if(ev.target && ev.target.id === 'cidSignalWindow') renderCidSignals();
 });
+
+/* ==========================================================================
+   [SECTION] GATEWAY MAP — gán routing_id ↔ account_id, đồng bộ .xlsx từ MPT
+   Nguồn: /routing/cids/<routing_id> → nút Export → /routing/exportCid/<id>.
+   MPT không gắn account nên người dùng gán tay ở đây; server suy CID→account
+   một lần rồi cache (config/.cache/gateway/<profile>/gateway-cids.json).
+   ========================================================================== */
+const gwMapState = { loaded:false, loading:false, busy:false, error:'',
+                     rows:[/* {account_id, routing_id, routing_name} */],
+                     status:null, cids:null };
+
+function gwProfileId(){ return (typeof mptActiveProfileId !== 'undefined') ? mptActiveProfileId : ''; }
+
+function gwRowsFromMap(map){
+  const rows = [];
+  Object.keys(map||{}).sort().forEach(acc=>{
+    (map[acc]||[]).forEach(e=>{
+      rows.push({ account_id:acc, routing_id:String(e.routing_id||''),
+                  routing_name:String(e.routing_name||'') });
+    });
+  });
+  return rows;
+}
+function gwMapFromRows(){
+  const out = {};
+  gwMapState.rows.forEach(r=>{
+    const acc = String(r.account_id||'').trim();
+    const rid = String(r.routing_id||'').trim();
+    if(!acc || !rid) return;
+    (out[acc] = out[acc] || []).push({ routing_id:rid, routing_name:String(r.routing_name||'').trim() });
+  });
+  return out;
+}
+
+async function loadGatewayMap(){
+  const pid = gwProfileId();
+  if(!pid){ gwMapState.error = 'Hãy chọn kết nối MPT trước.'; renderGatewayMapPanel(); return; }
+  if(gwMapState.loading) return;
+  gwMapState.loading = true; gwMapState.error = ''; renderGatewayMapPanel();
+  try{
+    const res = await fetch('/api/gateway-map?profile_id=' + encodeURIComponent(pid));
+    const d = await res.json();
+    if(d && d.error) throw new Error(d.error);
+    gwMapState.status = d;
+    gwMapState.rows = gwRowsFromMap(d.map);
+    if(!gwMapState.rows.length) gwMapState.rows = [{ account_id:'', routing_id:'', routing_name:'' }];
+    gwMapState.loaded = true;
+  }catch(e){ gwMapState.error = String((e && e.message) || e); }
+  finally{ gwMapState.loading = false; renderGatewayMapPanel(); }
+}
+
+function gwMapAddRow(){
+  gwMapReadInputs();
+  gwMapState.rows.push({ account_id:'', routing_id:'', routing_name:'' });
+  renderGatewayMapPanel();
+}
+function gwMapReadInputs(){
+  const tb = document.querySelector('#gwMapTable tbody');
+  if(!tb) return;
+  const trs = Array.from(tb.querySelectorAll('tr[data-i]'));
+  trs.forEach(tr=>{
+    const i = Number(tr.getAttribute('data-i'));
+    if(!gwMapState.rows[i]) return;
+    gwMapState.rows[i].account_id  = tr.querySelector('[data-f="account_id"]').value;
+    gwMapState.rows[i].routing_id  = tr.querySelector('[data-f="routing_id"]').value;
+    gwMapState.rows[i].routing_name = tr.querySelector('[data-f="routing_name"]').value;
+  });
+}
+
+async function saveGatewayMap(){
+  const pid = gwProfileId();
+  if(!pid){ toast('Hãy chọn kết nối MPT trước.', true); return; }
+  gwMapReadInputs();
+  gwMapState.busy = true; renderGatewayMapPanel();
+  try{
+    const res = await fetch('/api/gateway-map', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ profile_id: pid, map: gwMapFromRows() })
+    });
+    const d = await res.json();
+    if(d && d.error) throw new Error(d.error);
+    gwMapState.status = d;
+    gwMapState.rows = gwRowsFromMap(d.map);
+    if(!gwMapState.rows.length) gwMapState.rows = [{ account_id:'', routing_id:'', routing_name:'' }];
+    toast('Đã lưu mapping Gateway.');
+  }catch(e){ toast('Lỗi lưu mapping: ' + ((e && e.message) || e), true); }
+  finally{ gwMapState.busy = false; renderGatewayMapPanel(); }
+}
+
+async function syncGateway(){
+  const pid = gwProfileId();
+  if(!pid){ toast('Hãy chọn kết nối MPT trước.', true); return; }
+  gwMapReadInputs();
+  // Lưu mapping hiện tại trước khi đồng bộ để server kéo đúng routing_id.
+  await saveGatewayMap();
+  gwMapState.busy = true; gwMapState.error = ''; renderGatewayMapPanel();
+  const jobId = 'gwsync-' + Date.now();
+  const poll = setInterval(async ()=>{
+    try{
+      const r = await fetch('/api/export-progress?job=' + encodeURIComponent(jobId), {cache:'no-store'});
+      if(!r.ok) return;
+      const p = await r.json();
+      if(!p || !p.total) return;
+      const el = document.getElementById('gwMapStatus');
+      if(el) el.textContent = `Đang tải routing ${Math.min(Number(p.done||0)+1, p.total)}/${p.total}` + (p.current ? ` — ${p.current}` : '') + '…';
+    }catch(_){}
+  }, 1200);
+  try{
+    const res = await fetch('/api/gateway-sync?profile_id=' + encodeURIComponent(pid) + '&job_id=' + encodeURIComponent(jobId));
+    const d = await res.json();
+    if(d && d.error) throw new Error(d.error);
+    const errs = (d.errors||[]).length;
+    const conf = (d.index && d.index.conflicts || []).length;
+    toast(`Đồng bộ Gateway xong: ${d.routings.length} routing, ${d.index.cidCount} CID`
+      + (errs ? `, ${errs} routing lỗi` : '') + (conf ? `, ${conf} CID xung đột` : '') + '.', errs>0);
+    await loadGatewayMap();
+    if(typeof loadGatewayCids === 'function') await loadGatewayCids(true);
+    if(typeof scheduleDashboardUpdate === 'function') scheduleDashboardUpdate();
+  }catch(e){ gwMapState.error = String((e && e.message) || e); }
+  finally{ clearInterval(poll); gwMapState.busy = false; renderGatewayMapPanel(); }
+}
+
+function gwStatusLine(){
+  const s = gwMapState.status;
+  if(!s) return '';
+  const bits = [];
+  const idx = s.index || {};
+  if(idx.builtAt) bits.push(`${(idx.cidCount||0).toLocaleString('vi-VN')} CID · đồng bộ ${String(idx.builtAt).replace('T',' ')}`);
+  else bits.push('Chưa đồng bộ lần nào.');
+  const conf = (idx.conflicts||[]).length;
+  if(conf) bits.push(`<b style="color:#c0392b">${conf} CID bị 2 account giành</b>`);
+  const multi = Object.keys(idx.multiAccountRoutings||{}).length;
+  if(multi) bits.push(`${multi} routing gán cho nhiều account`);
+  return bits.join(' • ');
+}
+
+function renderGatewayMapPanel(){
+  const tb = document.querySelector('#gwMapTable tbody');
+  const st = document.getElementById('gwMapStatus');
+  if(!tb) return;
+  if(!gwMapState.loaded && !gwMapState.loading && !gwMapState.error && gwProfileId()){
+    loadGatewayMap();
+    return;
+  }
+  if(st){
+    if(gwMapState.loading) st.textContent = 'Đang tải mapping…';
+    else if(gwMapState.error) st.innerHTML = '<span style="color:#c0392b">' + reportTableEscape(gwMapState.error) + '</span>';
+    else st.innerHTML = gwStatusLine();
+  }
+  const nameOf = id => {
+    const s = String(id||'');
+    if(typeof getAccountNameForId === 'function'){ const n = getAccountNameForId(s); if(n && n !== s) return n; }
+    return '';
+  };
+  const routings = ((gwMapState.status||{}).routings)||[];
+  const rmeta = {};
+  routings.forEach(r=>{ rmeta[String(r.routing_id)] = r; });
+  tb.innerHTML = '';
+  gwMapState.rows.forEach((row, i)=>{
+    const m = rmeta[String(row.routing_id||'').trim()] || {};
+    const gws = m.gateways ? Object.entries(m.gateways).map(([g,c])=>`${g}: ${c}`).join(', ') : '';
+    const tr = document.createElement('tr');
+    tr.setAttribute('data-i', String(i));
+    tr.innerHTML =
+      `<td style="border:1px solid #eee;padding:4px"><input data-f="account_id" value="${reportTableEscape(row.account_id)}" style="width:90px" inputmode="numeric"></td>`
+    + `<td style="border:1px solid #eee;padding:4px" class="muted">${reportTableEscape(nameOf(row.account_id))}</td>`
+    + `<td style="border:1px solid #eee;padding:4px"><input data-f="routing_id" value="${reportTableEscape(row.routing_id)}" style="width:80px" inputmode="numeric"></td>`
+    + `<td style="border:1px solid #eee;padding:4px"><input data-f="routing_name" value="${reportTableEscape(row.routing_name)}" style="width:170px"></td>`
+    + `<td style="border:1px solid #eee;padding:4px;text-align:right">${m.cidCount ? Number(m.cidCount).toLocaleString('vi-VN') : '—'}</td>`
+    + `<td style="border:1px solid #eee;padding:4px" class="muted">${reportTableEscape(gws)}</td>`
+    + `<td style="border:1px solid #eee;padding:4px;text-align:center"><button type="button" data-gwdel="${i}" title="Xoá dòng">✕</button></td>`;
+    tb.appendChild(tr);
+  });
+  tb.querySelectorAll('button[data-gwdel]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      gwMapReadInputs();
+      gwMapState.rows.splice(Number(btn.getAttribute('data-gwdel')), 1);
+      if(!gwMapState.rows.length) gwMapState.rows = [{ account_id:'', routing_id:'', routing_name:'' }];
+      renderGatewayMapPanel();
+    });
+  });
+  ['gwMapAddRow','gwMapSave','gwMapSync'].forEach(id=>{
+    const b = document.getElementById(id); if(b) b.disabled = !!gwMapState.busy;
+  });
+}
 
 async function ensureTabRendered(tabName, force=false){
   if(!dashState) return;
