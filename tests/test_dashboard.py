@@ -976,3 +976,50 @@ class CidPerAccountAndPerfTests(unittest.TestCase):
         # giu max se che mat chinh cac dot tut — thu duy nhat dang nhin
         self.assertIn("function downsampleSeriesMin", self.CORE)
         self.assertIn("downsampleSeriesMin(series[t].times", self.HTML)
+
+
+class CidReadabilityOnReportLayoutTests(unittest.TestCase):
+    """Tom tat dau trang + nhan nhom mau xay LAI tren nen REPORT_LAYOUT/Gateway
+    (khong dung PRIMARY_REPORTS/tabReportExpanded rieng nhu ban truoc — ban do
+    da bi thay the boi REPORT_LAYOUT tu nhanh Gateway)."""
+
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_tom_tat_va_nhan_nhom_tao_bang_JS_khong_phai_HTML_tinh(self):
+        # KHONG duoc co san trong HTML tinh — neu co nghia la lai dung kieu cu
+        # (dinh vi tinh, se lech khi REPORT_LAYOUT/keo-tha sap xep lai the).
+        self.assertNotIn('<div id="panel_cid_summary"', self.HTML)
+        self.assertNotIn('<div id="cidGroupAvail"', self.HTML)
+        self.assertIn("function createCidExtras()", self.HTML)
+        self.assertIn("function positionCidExtras()", self.HTML)
+        self.assertIn("function renderCidSummaryStrip()", self.HTML)
+
+    def test_dinh_vi_bang_resolveReportCard_giong_toggle_co_san(self):
+        # dam bao dung DUNG co che positionReportToggles() da dung (anchor bang
+        # resolveReportCard), khong tu che ra kieu dinh vi rieng de sai lech
+        # voi cac the bi boc lai (chart_cid_pressure, chart_cid_load_risk).
+        self.assertIn("resolveReportCard('panel_cid_coverage')", self.HTML)
+        self.assertIn("resolveReportCard(g.anchor)", self.HTML)
+        self.assertIn("  positionReportToggles();\n  positionCidExtras();\n}\napplyDashboardV2Layout();", self.HTML)
+        self.assertIn("    positionReportToggles();\n    positionCidExtras();\n  }catch(e){}\n}", self.HTML)
+
+    def test_4_nhom_mau_khop_dung_REPORT_LAYOUT_cid_order(self):
+        for anchor in ("panel_cid_coverage", "chart_cid_pressure", "chart_cid_load_risk", "panel_gateway_map"):
+            self.assertIn(f"anchor:'{anchor}'", self.HTML)
+
+    def test_bang_ky_thuat_van_an_sau_details(self):
+        self.assertIn('<details class="cid-detail-toggle">', self.HTML)
+        self.assertIn("Xem bảng chi tiết (Cohen's d", self.HTML)
+        self.assertIn("Xem bảng chi tiết (phân bố, tổ hợp, ngưỡng phân vị)", self.HTML)
+
+    def test_khong_dung_lai_co_che_PRIMARY_REPORTS_cu_rieng_cho_cid(self):
+        # Co che REPORT_LAYOUT (tu nhanh Gateway) da la nguon duy nhat; khong
+        # duoc tao lai bien tabReportExpanded/PRIMARY_REPORTS rieng cho cid.
+        self.assertIn("const PRIMARY_REPORTS=Object.fromEntries(", self.HTML)
+        self.assertNotIn("cid:savedReportExpanded('cid')", self.HTML)
+        self.assertNotIn("cid:true};", self.HTML)
+
+    def test_cid_stat_box_dung_chung(self):
+        self.assertIn("function cidStatBox(value, label, hint, tone)", self.HTML)
+        self.assertIn("const box = (label, value, hint, tone) => cidStatBox(value, label, hint, tone);", self.HTML)
+        self.assertIn("const box = cidStatBox;", self.HTML)

@@ -588,6 +588,12 @@ body.adw .status-chip{border-radius:999px;font-weight:700;font-size:11.5px}
 /* ---------- Report grid ---------- */
 body.adw #reportGrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin:0;padding-bottom:24px;align-items:start}
 body.adw #reportGrid>.card[data-tab]{grid-column:span 6;min-width:0}
+body.adw #reportGrid>.card.cid-tier-header{box-shadow:none;background:transparent;border:0;border-left:4px solid var(--cid-tier-color,var(--accent));border-radius:4px;padding:8px 14px;margin:6px 0 2px}
+body.adw #reportGrid>.card.cid-tier-header h3{font-size:14px;margin:0}
+body.adw #reportGrid>.card.cid-summary-panel{background:var(--hover,rgba(0,0,0,.03))}
+.cid-detail-toggle{margin-top:10px}
+.cid-detail-toggle>summary{cursor:pointer;font-size:12px;color:var(--dim,#666);user-select:none}
+.cid-detail-toggle[open]>summary{margin-bottom:6px}
 body.adw #reportGrid>.card.layout-full,body.adw #reportGrid>.card.full{grid-column:1/-1}
 body.adw .chart-report-card>[id^="chart_"]{height:376px!important;min-height:376px}
 body.adw #reportGrid>.chart-report-card.layout-full>[id^="chart_"]{height:416px!important;min-height:416px}
@@ -1723,17 +1729,20 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
         </label>
       </div>
       <div id="cidSignalVerdict" style="margin-top:10px"></div>
-      <table id="cidSignalDist" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
-        <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Số tín hiệu bật</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Gấp nền</th>
-        </tr></thead><tbody></tbody>
-      </table>
-      <table id="cidSignalCombo" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px">
-        <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Tổ hợp cụ thể</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Gấp nền</th>
-        </tr></thead><tbody></tbody>
-      </table>
-      <div id="cidSignalThresholds" class="muted" style="margin-top:8px;font-size:11.5px"></div>
+      <details class="cid-detail-toggle">
+        <summary>Xem bảng chi tiết (phân bố, tổ hợp, ngưỡng phân vị)</summary>
+        <table id="cidSignalDist" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+          <thead><tr>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Số tín hiệu bật</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Gấp nền</th>
+          </tr></thead><tbody></tbody>
+        </table>
+        <table id="cidSignalCombo" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px">
+          <thead><tr>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Tổ hợp cụ thể</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Gấp nền</th>
+          </tr></thead><tbody></tbody>
+        </table>
+        <div id="cidSignalThresholds" class="muted" style="margin-top:8px;font-size:11.5px"></div>
+      </details>
     </div>
 
     <div id="table_cid_signals_account" class="card full" data-tab="cid" draggable="true">
@@ -1752,12 +1761,15 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       <h3 style="margin:0 0 6px 0">Chỉ báo sớm trước khi bị khoá</h3>
       <div class="muted">So hành vi của chính CID đó trong cửa sổ trước mỗi lần Block với các cửa sổ đối chứng không bị khoá. <b>Cohen's d</b> đo mức tách bằng độ lệch chuẩn — chênh lệch % lớn trên một chỉ số nhiễu vẫn có thể vô dụng.</div>
       <div id="cidPrecursorVerdict" style="margin-top:10px"></div>
-      <table id="cidPrecursorTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
-        <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Chỉ số</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước Block</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Chênh</th><th style="text-align:right;border:1px solid #eee;padding:6px">Cohen's d</th><th style="text-align:left;border:1px solid #eee;padding:6px">Đánh giá</th>
-        </tr></thead><tbody></tbody>
-      </table>
+      <details class="cid-detail-toggle">
+        <summary>Xem bảng chi tiết (Cohen's d từng chỉ số)</summary>
+        <table id="cidPrecursorTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+          <thead><tr>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Chỉ số</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước Block</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đối chứng</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Chênh</th><th style="text-align:right;border:1px solid #eee;padding:6px">Cohen's d</th><th style="text-align:left;border:1px solid #eee;padding:6px">Đánh giá</th>
+          </tr></thead><tbody></tbody>
+        </table>
+      </details>
     </div>
 
     <div id="panel_cid_loss" class="card full" data-tab="cid" draggable="true">
@@ -4067,7 +4079,7 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-09-09-gateway-fail-report-v4';
+const REPORT_ORDER_VERSION='2026-09-09-cid-readability-v5';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
 
 /* ==========================================================================
@@ -4219,6 +4231,48 @@ function positionReportToggles(){
   });
 }
 
+/* Tom tat dau trang + nhan nhom mau cho tab CID — tao 1 lan bang JS (khong
+   phai HTML tinh) de khong bao gio can dong bo thu cong voi REPORT_LAYOUT.cid.order:
+   dinh vi luon bang resolveReportCard() giong het positionReportToggles() o tren,
+   nen keo-tha hay doi REPORT_LAYOUT deu khong lam lech. */
+const CID_TIER_GROUPS=[
+  { id:'cidGroupAvail', icon:'🔵', label:'Khả dụng / hồi phục', color:'#3584e4', anchor:'panel_cid_coverage' },
+  { id:'cidGroupLoss',  icon:'🟠', label:'Áp lực / mất mát',    color:'#E95420', anchor:'chart_cid_pressure' },
+  { id:'cidGroupRisk',  icon:'🟣', label:'Rủi ro & chỉ báo sớm', color:'#9141ac', anchor:'chart_cid_load_risk' },
+  { id:'cidGroupCfg',   icon:'⚙️', label:'Cấu hình / đồng bộ',   color:'#616161', anchor:'panel_gateway_map' }
+];
+function createCidExtras(){
+  if(document.getElementById('panel_cid_summary')) return; // idempotent
+  const grid=document.getElementById('reportGrid');
+  if(!grid || !document.getElementById('panel_cid_coverage')) return; // tab CID chua ton tai (build cu)
+
+  const summary=document.createElement('div');
+  summary.id='panel_cid_summary';
+  summary.className='card full cid-summary-panel';
+  summary.setAttribute('data-tab','cid');
+  summary.innerHTML='<h3 style="margin:0 0 6px 0">Tóm tắt nhanh</h3><div id="cidSummaryStrip"></div>';
+  grid.appendChild(summary);
+
+  CID_TIER_GROUPS.forEach(g=>{
+    const h=document.createElement('div');
+    h.id=g.id; h.className='card full cid-tier-header'; h.setAttribute('data-tab','cid');
+    h.style.setProperty('--cid-tier-color', g.color);
+    h.innerHTML=`<h3>${g.icon} ${g.label}</h3>`;
+    grid.appendChild(h);
+  });
+}
+function positionCidExtras(){
+  createCidExtras();
+  const summary=document.getElementById('panel_cid_summary');
+  const firstCidCard=resolveReportCard('panel_cid_coverage');
+  if(summary && firstCidCard) firstCidCard.parentNode.insertBefore(summary, firstCidCard);
+  CID_TIER_GROUPS.forEach(g=>{
+    const header=document.getElementById(g.id);
+    const anchor=resolveReportCard(g.anchor);
+    if(header && anchor) anchor.parentNode.insertBefore(header, anchor);
+  });
+}
+
 function applyProgressiveDisclosure(){
   const grid=document.getElementById('reportGrid');
   if(!grid) return;
@@ -4243,6 +4297,7 @@ function applyProgressiveDisclosure(){
     updateReportToggle(tab);
   });
   positionReportToggles();
+  positionCidExtras();
 }
 applyDashboardV2Layout();
 applyProgressiveDisclosure();
@@ -5062,6 +5117,53 @@ function cidFmtHours(min){
 }
 function cidPct(v){ return (v==null || isNaN(v)) ? '—' : v.toFixed(1)+'%'; }
 
+/* Khung "the so lieu" dung chung cho tom tat, phu song va ton that — thay vi
+   moi cho tu dinh nghia rieng mot ban giong het nhau. */
+function cidStatBox(value, label, hint, tone){
+  return '<div style="flex:1 1 150px;min-width:150px;padding:10px 12px;border:1px solid var(--border,#e1e8f2);border-radius:10px">'
+    + '<div style="font-size:20px;font-weight:700;'+(tone?'color:'+tone:'')+'">'+value+'</div>'
+    + '<div style="font-size:12px;font-weight:600;margin-top:2px">'+label+'</div>'
+    + '<div class="muted" style="font-size:11px;margin-top:3px">'+hint+'</div></div>';
+}
+
+/* Dai tom tat dau tab: doc trong vai giay truoc khi vao cac the chi tiet ben
+   duoi. Chi dung du lieu da co san (khong tinh toan them). */
+function renderCidSummaryStrip(){
+  const el = document.getElementById('cidSummaryStrip');
+  if(!el) return;
+  if(!cidState.loaded || !cidState.timeline){
+    el.innerHTML = '<div class="muted" style="padding:2px">Bấm <b>Tải từ cache</b> ở thẻ "Lịch sử khoá số" bên dưới để xem tóm tắt.</div>';
+    return;
+  }
+  const m = computeBlockMttr(cidState.timeline);
+  const accounts = (typeof mptAccounts !== 'undefined' && mptAccounts) ? mptAccounts : [];
+  const cov = buildCidCoverage({ routings: cidState.routings, accounts, events: cidState.events });
+  const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
+
+  const boxes = [
+    cidStatBox(m.stillBlocked.toLocaleString('vi-VN'), 'CID đang bị khoá',
+      m.presumedDead.toLocaleString('vi-VN')+' trong đó coi như đã chết (>48h)',
+      m.stillBlocked ? '#c0392b' : '#2e7d32'),
+    cidStatBox(cidFmtHours(m.p50), 'Hồi phục (trung vị)',
+      m.lateRecoveryPct.toFixed(1)+'% ca quay lại muộn hơn dự kiến', ''),
+    cidStatBox(cov.stats.unobservable, 'Ngoài phạm vi theo dõi',
+      cov.stats.unobservable
+        ? cov.unobservable.map(x=>x.name).slice(0,2).join(', ') + (cov.unobservable.length>2?'…':'')
+        : 'mọi account đều quan sát được',
+      cov.stats.unobservable ? '#c0392b' : '#2e7d32')
+  ];
+  if(rows.length){
+    const leaks = cidLeaks(rows);
+    boxes.push(cidStatBox(leaks.wastedCalls.toLocaleString('vi-VN'), 'Cuộc gọi lãng phí (đang lọc)',
+      leaks.checked ? (100*leaks.wastedCalls/leaks.checked).toFixed(1)+'% lưu lượng nhắm vào số đã chết' : '',
+      leaks.wastedCalls ? '#c0392b' : '#2e7d32'));
+  } else {
+    boxes.push(cidStatBox('—', 'Cuộc gọi lãng phí',
+      'cần tải dữ liệu cuộc gọi ở Nguồn dữ liệu MPT', ''));
+  }
+  el.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'+boxes.join('')+'</div>';
+}
+
 /* Luồng chính chỉ giữ tối đa MAIN_ROW_CAP dòng (worker giữ đủ). Mọi phân tích
    trong tab này chạy trên `dashState.filtered` nên khi bộ dữ liệu vượt cap thì
    nó đang tính trên MẪU BỊ CẮT — phải nói ra, không thì các tỷ lệ trông như
@@ -5178,11 +5280,7 @@ function renderCidCoverage(){
   if((m.truncatedDays||[]).length) warn.push(m.truncatedDays.length+' ngày chạm trần 2.000 dòng của MPT nên có thể thiếu sự kiện.');
   if((cov.stats.eventRoutingsNotListed||[]).length) warn.push(cov.stats.eventRoutingsNotListed.length+' routing có sự kiện nhưng không có trong danh sách routing.');
 
-  const box = (label, value, hint, tone) =>
-    '<div style="flex:1 1 150px;min-width:150px;padding:10px 12px;border:1px solid var(--border,#e1e8f2);border-radius:10px">'
-    + '<div style="font-size:20px;font-weight:700;'+(tone?'color:'+tone:'')+'">'+value+'</div>'
-    + '<div style="font-size:12px;font-weight:600;margin-top:2px">'+label+'</div>'
-    + '<div class="muted" style="font-size:11px;margin-top:3px">'+hint+'</div></div>';
+  const box = (label, value, hint, tone) => cidStatBox(value, label, hint, tone);
 
   el.innerHTML =
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
@@ -5406,11 +5504,7 @@ function renderCidLoss(){
   if(!L.wastedCalls){
     el.innerHTML = '<div class="muted">Không có cuộc gọi nào nhắm vào số đã chết trong phạm vi đang lọc — không có tổn thất để tính.</div>'; return; }
   const n = v => Math.round(v).toLocaleString('vi-VN');
-  const box = (v, label, hint, tone) =>
-    '<div style="flex:1 1 160px;min-width:160px;padding:10px 12px;border:1px solid var(--border,#e1e8f2);border-radius:10px">'
-    + '<div style="font-size:20px;font-weight:700;'+(tone?'color:'+tone:'')+'">'+v+'</div>'
-    + '<div style="font-size:12px;font-weight:600;margin-top:2px">'+label+'</div>'
-    + '<div class="muted" style="font-size:11px;margin-top:3px">'+hint+'</div></div>';
+  const box = cidStatBox;
   el.innerHTML = cidSampleWarning() +
     '<div style="display:flex;gap:10px;flex-wrap:wrap">'
     + box(n(L.wastedCalls), 'Lượt bấm phí', L.wastedCallPct.toFixed(1)+'% lưu lượng đang lọc', '#c0392b')
@@ -5658,6 +5752,7 @@ function renderCidSignalsByAccount(){
 
 function renderCidTab(){
   cidCalcCache = { rows: null, leaks: null, windows: new Map() };
+  renderCidSummaryStrip();
   renderCidCoverage();
   renderCidBurstTable();
   renderCidLoss();
@@ -5972,6 +6067,7 @@ function loadGridOrder(){
       if(el) grid.appendChild(el);
     });
     positionReportToggles();
+    positionCidExtras();
   }catch(e){}
 }
 
