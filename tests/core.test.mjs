@@ -1129,3 +1129,34 @@ test('computeGatewayBlockReconcile — đối chiếu PAUSE/ON với Fail thực
   assert.equal(on.failPct, 100);
   assert.match(on.verdict, /nghi bị chặn/);
 });
+
+test('buildLlmContext — chỉ giữ trường liên quan tab, cắt top-N mảng lớn', () => {
+  const bigTopDest = Array.from({ length: 50 }, (_, i) => ({ dn: `09${i}`, total: i, con: 0, fail: i }));
+  const bigEvents = Array.from({ length: 100 }, (_, i) => ({ id: i }));
+  const cube = {
+    meta: { rows: 10 },
+    overview: { connectRate: 50 },
+    byPrefix: { _090: { total: 1 } },
+    topDest: bigTopDest,
+    retryPattern: { events: bigEvents, accArr: [] },
+    gatewayFail: { some: 'thing' } // chỉ thuộc tab advanced
+  };
+  const quality = core.buildLlmContext(cube, 'quality');
+  assert.ok(quality.meta && quality.overview && quality.topDest);
+  assert.equal(quality.topDest.length, 20);
+  // Sắp giảm dần theo total — CID có total lớn nhất (49) phải đứng đầu.
+  assert.equal(quality.topDest[0].total, 49);
+  assert.equal(quality.gatewayFail, undefined); // không thuộc tab quality
+
+  const time = core.buildLlmContext(cube, 'time');
+  assert.equal(time.retryPattern.events.length, 20);
+  assert.equal(time.retryPattern.eventsTotalCount, 100);
+  assert.equal(time.topDest, undefined); // topDest không thuộc tab time
+
+  assert.equal(core.buildLlmContext(null, 'overview'), null);
+});
+
+test('buildLlmContext — extra gộp thêm vào context (vd dữ liệu CID rời cube)', () => {
+  const out = core.buildLlmContext({ meta: {} }, 'cid', { cidSummary: { locked: 3 } });
+  assert.deepEqual(out.cidSummary, { locked: 3 });
+});

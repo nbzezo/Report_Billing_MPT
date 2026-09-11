@@ -15,7 +15,13 @@ a = Analysis(
     pathex=[str(ROOT / "scripts")],
     binaries=[],
     datas=[],
-    hiddenimports=["mpt_dashboard_server", "routing_events"],
+    hiddenimports=[
+        "mpt_dashboard_server", "routing_events",
+        "llm_client", "llm_providers", "llm_providers._openai_compat",
+        "llm_providers.anthropic_provider", "llm_providers.gemini_provider",
+        "llm_providers.deepseek_provider", "llm_providers.gateway_provider",
+        "risk_engine",
+    ],
     excludes=["tkinter"],
 )
 pyz = PYZ(a.pure)

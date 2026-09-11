@@ -24,6 +24,7 @@ from time import monotonic
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import routing_events  # noqa: E402  (can sys.path o tren de chay ca khi import truc tiep)
 import gateway_map  # noqa: E402
+import llm_client  # noqa: E402
 
 
 class _DataBlob(ctypes.Structure):
@@ -164,6 +165,8 @@ DEFAULT_DOMAINS = [
 EXPORT_CACHE_TTL_SECONDS = 10 * 60
 EXPORT_CACHE_MAX_ITEMS = 8
 EXPORT_PROGRESS_TTL_SECONDS = 15 * 60
+RISK_ANALYSIS_CACHE_TTL_SECONDS = 10 * 60
+RISK_ANALYSIS_CACHE_MAX_ITEMS = 8
 
 
 def normalize_domain(value):
@@ -300,6 +303,152 @@ class ProfileStore:
                 break
         if changed:
             self.save_all(profiles)
+
+
+class LlmConfigStore:
+    """Cau hinh AI toan app (khong theo tung profile MPT - API key AI la
+    credential rieng, doc lap tai khoan MPT dang xem): config/llm_config.json.
+
+    4 provider doc lap (anthropic/gemini/deepseek/gateway), moi provider 1 API
+    key rieng ma hoa bang CHUNG 1 SecretProtector/secret.key voi mat khau MPT
+    (cung thu muc config/, cung trust boundary - xem SecretProtector ở trên).
+    4 tinh nang (summary/explain/chat/riskReport) bat/tat rieng, moi tinh nang
+    co the ghi de provider rieng (None = dung activeProvider).
+    """
+
+    PROVIDER_KEYS = ("anthropic", "gemini", "deepseek", "gateway")
+    FEATURE_KEYS = ("summary", "explain", "chat", "riskReport")
+    DEFAULT_BASE_URL = {
+        "deepseek": "https://api.deepseek.com",
+        "gateway": "http://localhost:20128/v1",
+    }
+
+    def __init__(self, root):
+        self.root = Path(root)
+        self.config_dir = self.root / "config"
+        self.path = self.config_dir / "llm_config.json"
+        self.secrets = SecretProtector(self.config_dir / "secret.key")
+
+    def _default(self):
+        providers = {}
+        for key in self.PROVIDER_KEYS:
+            item = {"apiKeyEncrypted": "", "model": ""}
+            if key in self.DEFAULT_BASE_URL:
+                item["baseUrl"] = self.DEFAULT_BASE_URL[key]
+            providers[key] = item
+        features = {key: {"enabled": True, "provider": None} for key in self.FEATURE_KEYS}
+        return {"activeProvider": "", "providers": providers, "features": features}
+
+    def _read_raw(self):
+        merged = self._default()
+        if not self.path.exists():
+            return merged
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+        except Exception:
+            return merged
+        if not isinstance(data, dict):
+            return merged
+        if data.get("activeProvider") in self.PROVIDER_KEYS:
+            merged["activeProvider"] = data["activeProvider"]
+        for key in self.PROVIDER_KEYS:
+            merged["providers"][key].update((data.get("providers") or {}).get(key) or {})
+        for key in self.FEATURE_KEYS:
+            merged["features"][key].update((data.get("features") or {}).get(key) or {})
+        return merged
+
+    def _write_raw(self, data):
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+    def public_status(self):
+        """Trạng thái an toàn trả cho client - KHÔNG bao giờ chứa API key thật."""
+        raw = self._read_raw()
+        providers = {}
+        for key, item in raw["providers"].items():
+            entry = {"hasApiKey": bool(item.get("apiKeyEncrypted")),
+                      "model": item.get("model", "")}
+            if "baseUrl" in item:
+                entry["baseUrl"] = item.get("baseUrl", "")
+            providers[key] = entry
+        return {
+            "activeProvider": raw["activeProvider"],
+            "providers": providers,
+            "features": raw["features"],
+        }
+
+    def save(self, payload):
+        raw = self._read_raw()
+        active = payload.get("activeProvider")
+        if active in self.PROVIDER_KEYS:
+            raw["activeProvider"] = active
+        for key, incoming in (payload.get("providers") or {}).items():
+            if key not in self.PROVIDER_KEYS or not isinstance(incoming, dict):
+                continue
+            current = raw["providers"][key]
+            api_key = (incoming.get("apiKey") or "").strip()
+            if api_key:
+                current["apiKeyEncrypted"] = self.secrets.protect(api_key)
+            elif incoming.get("clearApiKey"):
+                current["apiKeyEncrypted"] = ""
+            if "model" in incoming:
+                current["model"] = (incoming.get("model") or "").strip()
+            if "baseUrl" in incoming and key in self.DEFAULT_BASE_URL:
+                current["baseUrl"] = (
+                    (incoming.get("baseUrl") or "").strip() or self.DEFAULT_BASE_URL[key]
+                )
+        for key, incoming in (payload.get("features") or {}).items():
+            if key not in self.FEATURE_KEYS or not isinstance(incoming, dict):
+                continue
+            current = raw["features"][key]
+            if "enabled" in incoming:
+                current["enabled"] = bool(incoming["enabled"])
+            if "provider" in incoming:
+                provider = incoming.get("provider")
+                current["provider"] = provider if provider in self.PROVIDER_KEYS else None
+        self._write_raw(raw)
+        return self.public_status()
+
+    def resolve(self, feature_key):
+        """{"provider","apiKey","model","baseUrl"} đã giải mã, sẵn sàng truyền
+        thẳng cho llm_client.send_for_feature(); None nếu tính năng đang tắt
+        hoặc chưa cấu hình đủ (thiếu key/model) - gọi nơi dùng phải coi đó là
+        "chưa sẵn sàng", không phải lỗi."""
+        raw = self._read_raw()
+        feature = raw["features"].get(feature_key)
+        if not feature or not feature.get("enabled"):
+            return None
+        provider_key = feature.get("provider") or raw["activeProvider"]
+        if provider_key not in self.PROVIDER_KEYS:
+            return None
+        item = raw["providers"].get(provider_key) or {}
+        api_key = self.secrets.unprotect(item.get("apiKeyEncrypted", ""))
+        if not api_key or not item.get("model"):
+            return None
+        return {
+            "provider": provider_key,
+            "apiKey": api_key,
+            "model": item.get("model", ""),
+            "baseUrl": item.get("baseUrl"),
+        }
+
+    def resolve_provider(self, provider_key):
+        """Như resolve() nhưng theo đúng 1 provider cụ thể, bỏ qua feature - dùng
+        cho nút "Kiểm tra kết nối" khi ô API key/model để trống (giữ giá trị đã
+        lưu) trong lúc test."""
+        if provider_key not in self.PROVIDER_KEYS:
+            return None
+        raw = self._read_raw()
+        item = raw["providers"].get(provider_key) or {}
+        api_key = self.secrets.unprotect(item.get("apiKeyEncrypted", ""))
+        return {
+            "provider": provider_key,
+            "apiKey": api_key,
+            "model": item.get("model", ""),
+            "baseUrl": item.get("baseUrl"),
+        }
 
 
 class MptClient:
@@ -447,6 +596,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/gateway-automap":
             self.handle_gateway_automap(parsed)
             return
+        if parsed.path == "/api/llm-config":
+            self.handle_llm_config_get()
+            return
         if parsed.path == "/dashboard":
             self.handle_dashboard(parsed)
             return
@@ -470,6 +622,18 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/gateway-map":
             self.handle_gateway_map_post()
+            return
+        if parsed.path == "/api/llm-config":
+            self.handle_llm_config_post()
+            return
+        if parsed.path == "/api/llm-config/test":
+            self.handle_llm_config_test()
+            return
+        if parsed.path == "/api/llm-ask":
+            self.handle_llm_ask()
+            return
+        if parsed.path == "/api/risk-analysis":
+            self.handle_risk_analysis()
             return
         self.send_error(404)
 
@@ -796,33 +960,195 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         except Exception as exc:
             self.error_response(exc)
 
+    # ------------------------------------------------------------------ LLM
+    # Cau hinh + goi 4 provider LLM doc lap (llm_client.py). Opt-in triet de:
+    # chua cau hinh/tat feature -> resolve() tra None -> handler bao loi 400
+    # ro rang thay vi im lang goi mang.
+
+    def handle_llm_config_get(self):
+        self.json_response(self.server.llm_config_store.public_status())
+
+    def handle_llm_config_post(self):
+        try:
+            status = self.server.llm_config_store.save(self.read_json_body())
+            self.json_response(status)
+        except Exception as exc:
+            self.error_response(exc, 400)
+
+    def handle_llm_config_test(self):
+        """apiKey/model/baseUrl rỗng trong payload = dùng lại giá trị đã lưu
+        cho đúng provider đó (test sau khi Lưu mà không gõ lại key)."""
+        try:
+            payload = self.read_json_body()
+            provider = payload.get("provider", "")
+            if provider not in LlmConfigStore.PROVIDER_KEYS:
+                raise ValueError("provider không hợp lệ.")
+            api_key = (payload.get("apiKey") or "").strip()
+            model = (payload.get("model") or "").strip()
+            base_url = payload.get("baseUrl")
+            if not api_key or not model or base_url is None:
+                saved = self.server.llm_config_store.resolve_provider(provider) or {}
+                api_key = api_key or saved.get("apiKey", "")
+                model = model or saved.get("model", "")
+                if base_url is None:
+                    base_url = saved.get("baseUrl")
+        except Exception as exc:
+            self.error_response(exc, 400)
+            return
+        try:
+            result = llm_client.test_provider(provider, api_key, model, base_url)
+        except ValueError as exc:
+            # Thiếu key/model/baseUrl — lỗi phía người dùng, chưa hề gọi mạng.
+            self.error_response(exc, 400)
+            return
+        except Exception as exc:
+            # Gọi mạng/HTTP thất bại thật sự (key sai, hết hạn, cổng không phản hồi...).
+            self.error_response(exc, 502)
+            return
+        self.json_response(result)
+
+    def handle_llm_ask(self):
+        try:
+            payload = self.read_json_body()
+            mode = payload.get("mode", "")
+            if mode not in ("summary", "explain", "chat"):
+                raise ValueError("mode không hợp lệ (cần summary/explain/chat).")
+            cfg = self.server.llm_config_store.resolve(mode)
+            if not cfg:
+                raise llm_client.LlmNotConfiguredError(
+                    "Tính năng AI này chưa được cấu hình hoặc đang tắt. "
+                    "Mở menu ☰ → Cấu hình LLM."
+                )
+            history = payload.get("history") or []
+            messages = []
+            for turn in history[-6:]:
+                role = turn.get("role") if isinstance(turn, dict) else None
+                content = turn.get("content") if isinstance(turn, dict) else None
+                if role in ("user", "assistant") and content:
+                    messages.append({"role": role, "content": str(content)[:4000]})
+            context = payload.get("context")
+            question = str(payload.get("question", ""))[:2000]
+            user_text = "Dữ liệu (JSON):\n" + json.dumps(context, ensure_ascii=False)
+            if question:
+                user_text += "\n\nCâu hỏi: " + question
+            messages.append({"role": "user", "content": user_text})
+        except Exception as exc:
+            self.error_response(exc, 400)
+            return
+        try:
+            result = llm_client.send_for_feature(cfg, mode, messages)
+        except Exception as exc:
+            self.error_response(exc, 502)
+            return
+        self.json_response(result)
+
+    # ------------------------------------------------------- Risk analysis
+    # Tinh nang 2 (Phase 4): tu dong hoa scripts/risk_engine.py (port cua skill
+    # telecom-cid-risk-optimizer) tren du lieu du an da co san — CDR qua
+    # _export_calldata_csv (dung chung voi handle_calldata), routing qua
+    # GatewayMapStore, block/reactive events qua RoutingEventCache. LLM
+    # (neu da cau hinh + bat riskReport) chi viet narrative tu JSON da tinh
+    # san — khong tu tinh lai so lieu (nguyen tac muc 1.1/36 cua skill).
+
+    def _get_cached_risk_analysis(self, key):
+        with self.server.risk_analysis_cache_lock:
+            item = self.server.risk_analysis_cache.get(key)
+            if not item:
+                return None
+            created, data = item
+            if monotonic() - created > RISK_ANALYSIS_CACHE_TTL_SECONDS:
+                del self.server.risk_analysis_cache[key]
+                return None
+            self.server.risk_analysis_cache.move_to_end(key)
+            return data
+
+    def _cache_risk_analysis(self, key, data):
+        with self.server.risk_analysis_cache_lock:
+            self.server.risk_analysis_cache[key] = (monotonic(), data)
+            self.server.risk_analysis_cache.move_to_end(key)
+            while len(self.server.risk_analysis_cache) > RISK_ANALYSIS_CACHE_MAX_ITEMS:
+                self.server.risk_analysis_cache.popitem(last=False)
+
+    def handle_risk_analysis(self):
+        try:
+            payload = self.read_json_body()
+            profile_id = payload.get("profile_id", "")
+            if not profile_id:
+                raise ValueError("Thiếu profile_id.")
+            telco = (payload.get("telco") or "Viettel").strip()
+            account_id = payload.get("account_id", "0") or "0"
+            from_day = payload.get("from_day", "")
+            to_day = payload.get("to_day", "")
+            cache_key = json.dumps(
+                {"profile_id": profile_id, "account_id": account_id,
+                 "from_day": from_day, "to_day": to_day, "telco": telco},
+                sort_keys=True,
+            )
+        except Exception as exc:
+            self.error_response(exc, 400)
+            return
+
+        cached = self._get_cached_risk_analysis(cache_key)
+        if cached is not None:
+            self.json_response(cached)
+            return
+
+        try:
+            params = {
+                "profile_id": profile_id, "account_id": account_id,
+                "from_day": from_day, "to_day": to_day,
+                "caller_number": "", "dest_number": "", "outbound": "",
+                "hangupcause": "0", "calltype": "", "telco": "0",
+            }
+            csv_bytes, _cache_state = self._export_calldata_csv(params)
+            gateway_index = self._gateway_store(profile_id).read_index().get("index", {})
+            events, _events_meta = routing_events.RoutingEventCache(
+                self.server.root, profile_id
+            ).load_window()
+        except Exception as exc:
+            self.error_response(exc)
+            return
+
+        try:
+            import risk_engine
+        except ImportError:
+            self.error_response(RuntimeError(
+                "Chưa cài thư viện phân tích rủi ro (pandas/numpy/openpyxl). "
+                "Chạy: python -m pip install -r requirements.txt"
+            ), 500)
+            return
+
+        try:
+            analysis = risk_engine.run_analysis(csv_bytes, gateway_index, events, telco)
+        except Exception as exc:
+            self.error_response(exc, 400)
+            return
+
+        result = {"analysis": analysis, "narrative": None, "narrativeError": None,
+                   "narrativeProvider": None, "narrativeModel": None}
+        cfg = self.server.llm_config_store.resolve("riskReport")
+        if cfg:
+            try:
+                messages = [{"role": "user", "content":
+                             "Dữ liệu phân tích rủi ro CID/Gateway (JSON):\n" +
+                             json.dumps(analysis, ensure_ascii=False)}]
+                narrative = llm_client.send_for_feature(cfg, "risk_report", messages)
+                result["narrative"] = narrative["text"]
+                result["narrativeProvider"] = narrative["providerLabel"]
+                result["narrativeModel"] = narrative["model"]
+            except Exception as exc:
+                result["narrativeError"] = str(exc)
+
+        self._cache_risk_analysis(cache_key, result)
+        self.json_response(result)
+
     def handle_calldata(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
         params = {key: values[-1] for key, values in query.items()}
         # job_id chỉ để báo tiến độ, không được tham gia khóa cache.
         job_id = params.pop("job_id", "")
         try:
-            data = self.get_cached_export(params)
-            cache_state = "HIT" if data is not None else "MISS"
-            if data is None:
-                account_ids = [x for x in params.get("account_id", "").split(",") if x and x != "0"]
-                profile_id = params.get("profile_id", "")
-                client = self.get_export_client(profile_id)
-                names = self.account_names(profile_id)
-                if len(account_ids) <= 1:
-                    data = client.export_csv(params)
-                else:
-                    data = self.merge_account_exports(
-                        client,
-                        params,
-                        account_ids,
-                        progress=lambda done, current: self.set_export_progress(
-                            job_id, done, len(account_ids), current
-                        ),
-                        names=names,
-                    )
-                data = self.inject_account_names(data, names)
-                self.cache_export(params, data)
+            data, cache_state = self._export_calldata_csv(params, job_id)
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
             self.send_header("Content-Disposition", "inline; filename=calldata.csv")
@@ -832,6 +1158,32 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.wfile.write(data)
         except Exception as exc:
             self.error_response(exc)
+
+    def _export_calldata_csv(self, params, job_id=""):
+        """Tra ve (csv_bytes, "HIT"|"MISS") cho params da cho — dung chung boi
+        handle_calldata va handle_risk_analysis nen ca hai deu huong loi cache
+        10 phut / dedup multi-account co san, khong goi lai MPT hai lan cho
+        cung mot pham vi du lieu."""
+        data = self.get_cached_export(params)
+        if data is not None:
+            return data, "HIT"
+        account_ids = [x for x in params.get("account_id", "").split(",") if x and x != "0"]
+        profile_id = params.get("profile_id", "")
+        client = self.get_export_client(profile_id)
+        names = self.account_names(profile_id)
+        if len(account_ids) <= 1:
+            data = client.export_csv(params)
+        else:
+            data = self.merge_account_exports(
+                client, params, account_ids,
+                progress=lambda done, current: self.set_export_progress(
+                    job_id, done, len(account_ids), current
+                ),
+                names=names,
+            )
+        data = self.inject_account_names(data, names)
+        self.cache_export(params, data)
+        return data, "MISS"
 
     def account_names(self, profile_id):
         profile = self.server.profile_store.get(profile_id) or {}
@@ -980,11 +1332,14 @@ def create_server(host="127.0.0.1", port=8787, root=None,
     server.root = root
     server.dashboard = dashboard
     server.profile_store = ProfileStore(root)
+    server.llm_config_store = LlmConfigStore(root)
     server.clients = {}
     server.export_cache = OrderedDict()
     server.export_cache_lock = Lock()
     server.export_progress = {}
     server.export_progress_lock = Lock()
+    server.risk_analysis_cache = OrderedDict()
+    server.risk_analysis_cache_lock = Lock()
     return server
 
 

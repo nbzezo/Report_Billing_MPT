@@ -162,6 +162,81 @@ class PortableSecretTests(unittest.TestCase):
             self.assertEqual(moved.get(saved["id"])["password"], "")
 
 
+class LlmConfigStoreTests(unittest.TestCase):
+    """Cau hinh AI da provider (Anthropic/Gemini/DeepSeek/Gateway) - dung lai
+    SecretProtector nhu ProfileStore, nhung config toan app, khong theo profile
+    MPT nao ca."""
+
+    def test_save_and_resolve_round_trip_per_provider(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.LlmConfigStore(directory)
+            status = store.save({
+                "activeProvider": "anthropic",
+                "providers": {
+                    "anthropic": {"apiKey": "sk-ant-test", "model": "claude-sonnet-5"},
+                    "deepseek": {"apiKey": "sk-ds-test", "model": "deepseek-chat",
+                                 "baseUrl": "https://api.deepseek.com"},
+                },
+                "features": {
+                    "summary": {"enabled": True, "provider": None},
+                    "explain": {"enabled": True, "provider": "deepseek"},
+                },
+            })
+            self.assertEqual(status["activeProvider"], "anthropic")
+            self.assertTrue(status["providers"]["anthropic"]["hasApiKey"])
+            self.assertNotIn("apiKey", status["providers"]["anthropic"])
+            self.assertNotIn("apiKeyEncrypted", status["providers"]["anthropic"])
+
+            summary_cfg = store.resolve("summary")
+            self.assertEqual(summary_cfg["provider"], "anthropic")
+            self.assertEqual(summary_cfg["apiKey"], "sk-ant-test")
+
+            explain_cfg = store.resolve("explain")
+            self.assertEqual(explain_cfg["provider"], "deepseek")
+            self.assertEqual(explain_cfg["apiKey"], "sk-ds-test")
+            self.assertEqual(explain_cfg["baseUrl"], "https://api.deepseek.com")
+
+    def test_blank_api_key_on_edit_keeps_existing_secret(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.LlmConfigStore(directory)
+            store.save({"providers": {"anthropic": {"apiKey": "keep-me", "model": "claude-sonnet-5"}}})
+            store.save({"providers": {"anthropic": {"apiKey": "", "model": "claude-opus-5"}}})
+            item = store.resolve_provider("anthropic")
+            self.assertEqual(item["apiKey"], "keep-me")
+            self.assertEqual(item["model"], "claude-opus-5")
+
+    def test_disabled_feature_resolves_to_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.LlmConfigStore(directory)
+            store.save({
+                "activeProvider": "anthropic",
+                "providers": {"anthropic": {"apiKey": "k", "model": "claude-sonnet-5"}},
+                "features": {"summary": {"enabled": False}},
+            })
+            self.assertIsNone(store.resolve("summary"))
+
+    def test_unconfigured_feature_is_not_ready(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.LlmConfigStore(directory)
+            self.assertIsNone(store.resolve("summary"))
+
+    def test_api_key_never_persisted_in_plaintext(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.LlmConfigStore(directory)
+            store.save({"providers": {"gemini": {"apiKey": "top-secret-key", "model": "gemini-2.5-flash"}}})
+            raw_text = store.path.read_text(encoding="utf-8")
+            self.assertNotIn("top-secret-key", raw_text)
+            self.assertIn(SERVER.SecretProtector.PREFIX, raw_text)
+
+    def test_default_base_urls_present_for_deepseek_and_gateway_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            status = SERVER.LlmConfigStore(directory).public_status()
+            self.assertEqual(status["providers"]["deepseek"]["baseUrl"], "https://api.deepseek.com")
+            self.assertEqual(status["providers"]["gateway"]["baseUrl"], "http://localhost:20128/v1")
+            self.assertNotIn("baseUrl", status["providers"]["anthropic"])
+            self.assertNotIn("baseUrl", status["providers"]["gemini"])
+
+
 class AppRootTests(unittest.TestCase):
     def test_app_root_is_the_repo_root_when_running_from_source(self):
         self.assertEqual(SERVER.app_root(), ROOT)
@@ -189,6 +264,7 @@ class CreateServerTests(unittest.TestCase):
             try:
                 self.assertGreater(server.server_address[1], 0)
                 self.assertIsInstance(server.profile_store, SERVER.ProfileStore)
+                self.assertIsInstance(server.llm_config_store, SERVER.LlmConfigStore)
                 self.assertEqual(len(server.export_cache), 0)
                 self.assertTrue(hasattr(server, "export_cache_lock"))
                 self.assertEqual(server.dashboard, "V2_0_Call_Dashboard_MPT.html")

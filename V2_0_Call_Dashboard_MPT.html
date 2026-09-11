@@ -656,6 +656,32 @@ body.adw .adw-switch::after{content:"";position:absolute;top:2px;left:2px;width:
 body.adw .adw-switch.on{background:var(--accent)}
 body.adw .adw-switch.on::after{left:19px}
 
+/* ---------- LLM (AI): cau hinh + panel Tro ly AI ---------- */
+body.adw .llm-config-body{display:flex;flex-direction:column;gap:12px}
+body.adw .llm-feature-list{display:flex;flex-direction:column;gap:8px}
+body.adw .llm-feature-row{display:flex;align-items:center;gap:10px}
+body.adw .llm-feature-label{flex:1;font-size:13px}
+body.adw .llm-feature-provider{font-size:12.5px;max-width:180px}
+body.adw .llm-test-status{font-size:12px}
+body.adw .ask-panel{position:fixed;top:var(--chrome-h,96px);right:0;bottom:0;width:360px;max-width:92vw;
+  background:var(--window-bg);border-left:1px solid var(--border);box-shadow:var(--shadow-pop);
+  z-index:210;display:flex;flex-direction:column}
+body.adw .ask-panel[hidden]{display:none}
+body.adw .ask-panel-header{display:flex;align-items:center;justify-content:space-between;
+  padding:9px 10px;background:var(--headerbar-bg);border-bottom:1px solid var(--border)}
+body.adw .ask-panel-title{font-weight:700;font-size:14.5px}
+body.adw .ask-panel-body{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+body.adw .ask-messages{display:flex;flex-direction:column;gap:10px}
+body.adw .ask-msg{padding:8px 10px;border-radius:var(--radius);font-size:13px;white-space:pre-wrap;max-width:96%}
+body.adw .ask-msg.user{background:var(--hover);align-self:flex-end}
+body.adw .ask-msg.ai{background:var(--card-bg);border:1px solid var(--border);align-self:flex-start}
+body.adw .ask-msg-meta{font-size:11px;color:var(--dim);margin-top:5px}
+body.adw .ask-status{min-height:16px}
+body.adw .ask-panel-footer{display:flex;gap:6px;padding:10px 12px;border-top:1px solid var(--border);background:var(--headerbar-bg)}
+body.adw .ask-panel-footer input{flex:1}
+body.adw .llm-explain-btn{flex-shrink:0;min-height:26px;padding:3px 10px;font-size:11.5px;border-radius:999px}
+body.llm-explain-disabled .llm-explain-btn{display:none}
+
 /* ---------- Loading dialog / toast / scope notice ---------- */
 body.adw .loading-overlay{background:rgba(0,0,0,.45);backdrop-filter:none}
 body.adw .loading-dialog{border-radius:14px;background:var(--window-bg);box-shadow:var(--shadow-dialog);border:1px solid var(--border);padding:26px 24px}
@@ -749,12 +775,14 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
     </div>
     <div class="hb-end">
       <button id="openMptSource" type="button" class="primary-btn hb-primary"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2v8m0 0l3-3m-3 3L5 7M3 13h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tải báo cáo</span></button>
+      <button id="askDashboardToggle" type="button" class="flat-btn icon-only" title="Trợ lý AI" aria-haspopup="true" aria-expanded="false" aria-controls="askDashboardPanel"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 1.5l1.4 3.6L13 6.5l-3.6 1.4L8 11.5l-1.4-3.6L3 6.5l3.6-1.4L8 1.5z" fill="currentColor" stroke="none"/><path d="M13 10l.7 1.8L15.5 12.5l-1.8.7L13 15l-.7-1.8L10.5 12.5l1.8-.7L13 10z" fill="currentColor" stroke="none"/></svg></button>
       <div class="adw-menu-wrap">
         <button id="appMenuBtn" type="button" class="flat-btn icon-only" aria-haspopup="true" aria-expanded="false" aria-controls="appMenu" title="Menu chính"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <div id="appMenu" class="adw-popover" role="menu" hidden>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="files">Tải file thủ công…</button>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="options">Tùy chọn phân tích &amp; màu sắc…</button>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="mapping">Gán tên cho Account…</button>
+          <button type="button" class="adw-menu-item" role="menuitem" data-menu="llmconfig">Cấu hình LLM…</button>
           <div class="adw-menu-sep"></div>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="png">Xuất PNG từng biểu đồ</button>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="pdf">Xuất PDF toàn báo cáo</button>
@@ -904,6 +932,109 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
       <button type="button" data-close-dialog>Đóng</button>
     </div>
   </dialog>
+  <dialog id="llmConfigDialog" class="adw-dialog adw-dialog-wide">
+    <div class="adw-dialog-header">
+      <div class="adw-dialog-title">Cấu hình LLM</div>
+      <button type="button" class="flat-btn icon-only adw-dialog-close" data-close-dialog aria-label="Đóng"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="adw-dialog-body">
+      <div class="llm-config-body">
+        <section class="mpt-source-block">
+          <div class="mpt-source-block-title">Nhà cung cấp mặc định</div>
+          <div class="adw-row-sub" style="margin:-2px 0 8px">Dùng cho mọi tính năng AI, trừ khi 1 tính năng bên dưới chọn riêng nhà cung cấp khác.</div>
+          <select id="llmActiveProvider" style="width:100%">
+            <option value="">-- Chưa chọn --</option>
+            <option value="anthropic">Claude (Anthropic)</option>
+            <option value="gemini">Gemini (Google)</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="gateway">Cổng LLM (9Router/OpenRouter/…)</option>
+          </select>
+        </section>
+
+        <section class="mpt-source-block">
+          <div class="mpt-source-block-title">Bật/tắt tính năng AI</div>
+          <div id="llmFeatureList" class="llm-feature-list"></div>
+        </section>
+
+        <details class="mpt-connection-manager" open>
+          <summary>Claude (Anthropic)</summary>
+          <div class="mpt-manager-grid">
+            <label>API key<input id="llmKey_anthropic" type="password" autocomplete="off" placeholder="Nhập API key"></label>
+            <label>Model<input id="llmModel_anthropic" placeholder="vd claude-sonnet-5"></label>
+          </div>
+          <div class="mpt-manager-actions" style="margin-top:9px">
+            <button type="button" class="llm-test-btn" data-provider="anthropic">Kiểm tra kết nối</button>
+            <span class="muted llm-test-status" data-provider-status="anthropic"></span>
+          </div>
+        </details>
+
+        <details class="mpt-connection-manager">
+          <summary>Gemini (Google)</summary>
+          <div class="mpt-manager-grid">
+            <label>API key<input id="llmKey_gemini" type="password" autocomplete="off" placeholder="Nhập API key"></label>
+            <label>Model<input id="llmModel_gemini" placeholder="vd gemini-2.5-flash"></label>
+          </div>
+          <div class="mpt-manager-actions" style="margin-top:9px">
+            <button type="button" class="llm-test-btn" data-provider="gemini">Kiểm tra kết nối</button>
+            <span class="muted llm-test-status" data-provider-status="gemini"></span>
+          </div>
+        </details>
+
+        <details class="mpt-connection-manager">
+          <summary>DeepSeek</summary>
+          <div class="mpt-manager-grid">
+            <label>API key<input id="llmKey_deepseek" type="password" autocomplete="off" placeholder="Nhập API key"></label>
+            <label>Model<input id="llmModel_deepseek" placeholder="vd deepseek-chat"></label>
+            <label>Base URL<input id="llmBaseUrl_deepseek" placeholder="https://api.deepseek.com"></label>
+          </div>
+          <div class="mpt-manager-actions" style="margin-top:9px">
+            <button type="button" class="llm-test-btn" data-provider="deepseek">Kiểm tra kết nối</button>
+            <span class="muted llm-test-status" data-provider-status="deepseek"></span>
+          </div>
+        </details>
+
+        <details class="mpt-connection-manager">
+          <summary>Cổng LLM (9Router / OpenRouter / khác)</summary>
+          <div class="mpt-manager-grid">
+            <label>API key<input id="llmKey_gateway" type="password" autocomplete="off" placeholder="Nhập API key"></label>
+            <label>Model<input id="llmModel_gateway" placeholder="vd kr/claude-sonnet-4.5"></label>
+            <label>Base URL<input id="llmBaseUrl_gateway" placeholder="http://localhost:20128/v1"></label>
+          </div>
+          <div class="mpt-compact-actions" style="margin-top:6px">
+            <button type="button" id="llmGatewayPreset9Router">9Router (localhost)</button>
+            <button type="button" id="llmGatewayPresetOpenRouter">OpenRouter</button>
+          </div>
+          <div class="mpt-manager-actions" style="margin-top:9px">
+            <button type="button" class="llm-test-btn" data-provider="gateway">Kiểm tra kết nối</button>
+            <span class="muted llm-test-status" data-provider-status="gateway"></span>
+          </div>
+          <div class="mpt-manager-note">Dữ liệu vẫn rời máy tới cổng đã cấu hình (kể cả 9Router tự host) — chỉ trỏ tới cổng đáng tin cậy.</div>
+        </details>
+
+        <div class="mpt-manager-note">API key được mã hóa cục bộ bằng cùng cơ chế đang dùng cho mật khẩu MPT (keyfile AES-256-GCM trong <code>config/</code>). Chưa cấu hình nhà cung cấp nào = mọi tính năng AI tắt, dashboard hoạt động như hôm nay, không có request mạng nào phát sinh.</div>
+      </div>
+    </div>
+    <div class="adw-dialog-footer">
+      <div id="llmConfigStatusSlot" class="adw-dialog-status"></div>
+      <button type="button" id="llmSaveConfig" class="primary-btn">Lưu cấu hình</button>
+      <button type="button" data-close-dialog>Đóng</button>
+    </div>
+  </dialog>
+  <aside id="askDashboardPanel" class="ask-panel" hidden aria-label="Trợ lý AI">
+    <div class="ask-panel-header">
+      <div class="ask-panel-title">Trợ lý AI</div>
+      <button type="button" id="askPanelClose" class="flat-btn icon-only" aria-label="Đóng trợ lý AI"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="ask-panel-body">
+      <button type="button" id="askSummaryBtn" class="muted-btn">✨ Tóm tắt tab này</button>
+      <div id="askMessages" class="ask-messages" aria-live="polite"></div>
+      <div id="askStatus" class="ask-status muted" role="status"></div>
+    </div>
+    <div class="ask-panel-footer" id="askComposer">
+      <input id="askQuestionInput" type="text" placeholder="Hỏi về dữ liệu đang xem…" aria-label="Câu hỏi cho trợ lý AI">
+      <button type="button" id="askSendBtn" class="primary-btn">Gửi</button>
+    </div>
+  </aside>
   <dialog id="filesDialog" class="adw-dialog">
     <div class="adw-dialog-header">
       <div class="adw-dialog-title">Tải file thủ công</div>
@@ -1198,6 +1329,7 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
             <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate (D-0)</th>
             <th style="text-align:right;border:1px solid #eee;padding:6px">Avg 7D trước</th>
             <th style="text-align:right;border:1px solid #eee;padding:6px">Chênh lệch</th>
+            <th style="text-align:center;border:1px solid #eee;padding:6px">AI</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -1631,6 +1763,27 @@ body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
         </div>
       </div>
       <div id="cidCoverageBody" style="margin-top:10px"></div>
+    </div>
+
+    <div id="panel_cid_risk_engine" class="card full" data-tab="cid" draggable="true">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div>
+          <h3 style="margin:0 0 6px 0">Báo cáo rủi ro CID/Gateway (tự động)</h3>
+          <div class="muted">Chạy engine tính effective number_random, backtest call_fail, typing gateway (A/B/C)… trên CDR + routing + lịch sử Block/Reactive đã có sẵn trong dashboard. Cần đã <b>Đồng bộ Gateway</b> (panel bên dưới) và có lịch sử Block/Reactive trong khoảng ngày đang xem.</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label class="muted" style="display:flex;align-items:center;gap:6px">Nhà mạng
+            <select id="riskEngineTelco">
+              <option value="Viettel">Viettel</option>
+              <option value="Mobi">Mobi</option>
+              <option value="Vina">Vina</option>
+            </select>
+          </label>
+          <button id="riskEngineRun" type="button" class="primary-btn">Chạy phân tích rủi ro</button>
+        </div>
+      </div>
+      <div id="riskEngineStatus" class="muted" style="margin-top:8px"></div>
+      <div id="riskEngineBody" style="margin-top:10px"></div>
     </div>
 
     <div id="panel_gateway_map" class="card full" data-tab="cid" draggable="true">
@@ -2660,6 +2813,7 @@ function initAdwChrome(){
       const action=item.dataset.menu;
       if(action==='files') adwOpenDialog('filesDialog');
       else if(action==='options') adwOpenDialog('optionsDialog');
+      else if(action==='llmconfig') adwOpenDialog('llmConfigDialog');
       else document.getElementById(proxy[action])?.click();
       if(action!=='dark') setMenu(false);
     });
@@ -4141,6 +4295,8 @@ const REPORT_LAYOUT={
     'chart_cid_pressure','table_cid_bursts','panel_cid_waste','panel_cid_loss',
     // rủi ro & chỉ báo sớm
     'chart_cid_load_risk','panel_cid_signals','table_cid_signals_account','panel_cid_precursors',
+    // báo cáo rủi ro tự động (engine + AI, tuỳ chọn)
+    'panel_cid_risk_engine',
     // cấu hình / đồng bộ (làm một lần) — để cuối
     'panel_gateway_map'
   ]},
@@ -6635,7 +6791,7 @@ function renderLineAnomalyTable(rows, minAttemptsDay=50, dropThresholdPp=10){
   rowsOut.sort((a,b)=> a.diffPp - b.diffPp); // most negative first
 
   if(!rowsOut.length){
-    tb.innerHTML = `<tr><td colspan="5" style="border:1px solid #eee;padding:8px" class="muted">Không phát hiện bất thường (ngưỡng: ≥ ${minAttemptsDay} cuộc/ngày & tụt ≥ ${dropThresholdPp} điểm %).</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="6" style="border:1px solid #eee;padding:8px" class="muted">Không phát hiện bất thường (ngưỡng: ≥ ${minAttemptsDay} cuộc/ngày & tụt ≥ ${dropThresholdPp} điểm %).</td></tr>`;
     return;
   }
 
@@ -6643,12 +6799,20 @@ function renderLineAnomalyTable(rows, minAttemptsDay=50, dropThresholdPp=10){
     const tr=document.createElement('tr');
     const fmt = v => (100*v).toFixed(2)+'%';
     const diff = (o.diffPp>=0?'+':'') + o.diffPp.toFixed(2) + 'pp';
+    const explainPayload = {
+      loai: 'Bất thường đầu số (connect rate tụt so với baseline 7 ngày)',
+      prefix: o.p, attemptHomNay: o.lastTot,
+      connectRateHomNay: +(100*o.lastRate).toFixed(2),
+      connectRateTrungBinh7Ngay: +(100*o.baseRate).toFixed(2),
+      chenhLechDiemPhanTram: +o.diffPp.toFixed(2)
+    };
     tr.innerHTML = `
       <td style="border:1px solid #eee;padding:6px">${reportTableEscape(o.p)}</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${o.lastTot}</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${fmt(o.lastRate)}</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${fmt(o.baseRate)}</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${diff}</td>
+      <td style="border:1px solid #eee;padding:6px;text-align:center"><button type="button" class="llm-explain-btn" data-explain="${reportTableEscape(JSON.stringify(explainPayload))}">Giải thích</button></td>
     `;
     tb.appendChild(tr);
   });
@@ -7141,10 +7305,11 @@ function renderAdvancedAlerts(rows){
   el.innerHTML = items.map(it=> `
     <div class="alert-item">
       <span class="badge ${it.level}">${it.level==='red'?'Cần xử lý':it.level==='yellow'?'Theo dõi':'Ổn'}</span>
-      <div>
+      <div style="flex:1">
         <div style="font-weight:600;margin-bottom:2px">${it.title}</div>
         <div class="muted">${it.desc}</div>
       </div>
+      <button type="button" class="llm-explain-btn" data-explain="${reportTableEscape(JSON.stringify({loai:'Cảnh báo dashboard', mucDo: it.level, tieuDe: it.title, moTa: it.desc}))}">Giải thích</button>
     </div>
   `).join('');
 }
@@ -8610,6 +8775,390 @@ function plotBillingByPrefix(res, cfg, metric, colors){
   }, {responsive:true, displaylogo:false});
 }
 
+// ==========================================================================
+// LLM (AI) — cau hinh da provider (Anthropic/Gemini/DeepSeek/Gateway) + panel
+// "Tro ly AI" (tom tat tab / hoi tu do). Opt-in triet de: chua cau hinh hoac
+// tinh nang dang tat -> server tra loi 400 ro rang, khong tu doan trang thai
+// "san sang" o client (mot nguon su that duy nhat: LlmConfigStore.resolve()).
+// ==========================================================================
+const LLM_PROVIDERS = [
+  {key:'anthropic', label:'Claude (Anthropic)'},
+  {key:'gemini', label:'Gemini (Google)'},
+  {key:'deepseek', label:'DeepSeek'},
+  {key:'gateway', label:'Cổng LLM (9Router/OpenRouter/…)'},
+];
+const LLM_FEATURES = [
+  {key:'summary', label:'Tóm tắt AI theo tab'},
+  {key:'explain', label:'Giải thích cảnh báo/bất thường'},
+  {key:'chat', label:'Hỏi Dashboard (chat tự do)'},
+  {key:'riskReport', label:'Báo cáo rủi ro CID/Gateway tự động'},
+];
+let llmStatus = null;
+let llmAskHistory = [];
+
+function llmSetConfigStatus(kind, text){
+  const el = document.getElementById('llmConfigStatusSlot');
+  if(!el) return;
+  el.className = 'adw-dialog-status'+(kind?' '+kind:'');
+  el.textContent = text;
+}
+
+async function llmLoadStatus(){
+  try{
+    const response = await fetch('/api/llm-config', {cache:'no-store'});
+    llmStatus = await response.json();
+  }catch(_){
+    llmStatus = {activeProvider:'', providers:{}, features:{}};
+  }
+  llmRenderConfigForm();
+  llmRenderFeatureButtons();
+  return llmStatus;
+}
+
+function llmRenderConfigForm(){
+  if(!llmStatus) return;
+  const select = document.getElementById('llmActiveProvider');
+  if(select) select.value = llmStatus.activeProvider || '';
+  LLM_PROVIDERS.forEach(({key})=>{
+    const item = (llmStatus.providers||{})[key] || {};
+    const modelInput = document.getElementById('llmModel_'+key);
+    if(modelInput && !modelInput.value) modelInput.value = item.model || '';
+    const keyInput = document.getElementById('llmKey_'+key);
+    if(keyInput) keyInput.placeholder = item.hasApiKey ? 'Đã lưu — để trống nếu không đổi' : 'Nhập API key';
+    const baseInput = document.getElementById('llmBaseUrl_'+key);
+    if(baseInput && !baseInput.value && 'baseUrl' in item) baseInput.value = item.baseUrl || '';
+  });
+  llmRenderFeatureList();
+}
+
+function llmRenderFeatureList(){
+  const host = document.getElementById('llmFeatureList');
+  if(!host) return;
+  const features = (llmStatus && llmStatus.features) || {};
+  host.innerHTML = LLM_FEATURES.map(({key,label})=>{
+    const item = features[key] || {enabled:true, provider:null};
+    const options = ['<option value="">Dùng mặc định</option>']
+      .concat(LLM_PROVIDERS.map(p=>`<option value="${p.key}"${item.provider===p.key?' selected':''}>${p.label}</option>`));
+    return `
+      <div class="llm-feature-row" data-feature="${key}">
+        <button type="button" class="adw-switch llm-feature-switch${item.enabled?' on':''}" data-feature-switch="${key}" role="switch" aria-checked="${item.enabled?'true':'false'}" aria-label="${label}"></button>
+        <span class="llm-feature-label">${label}</span>
+        <select class="llm-feature-provider" data-feature-provider="${key}">${options.join('')}</select>
+      </div>`;
+  }).join('');
+  host.querySelectorAll('[data-feature-switch]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      button.classList.toggle('on');
+      button.setAttribute('aria-checked', button.classList.contains('on')?'true':'false');
+    });
+  });
+}
+
+function llmCollectConfigPayload(){
+  const providers = {};
+  LLM_PROVIDERS.forEach(({key})=>{
+    const keyInput = document.getElementById('llmKey_'+key);
+    const modelInput = document.getElementById('llmModel_'+key);
+    const baseInput = document.getElementById('llmBaseUrl_'+key);
+    const entry = {apiKey:(keyInput&&keyInput.value)||'', model:((modelInput&&modelInput.value)||'').trim()};
+    if(baseInput) entry.baseUrl = baseInput.value.trim();
+    providers[key] = entry;
+  });
+  const features = {};
+  document.querySelectorAll('#llmFeatureList .llm-feature-row').forEach(row=>{
+    const key = row.dataset.feature;
+    const enabled = row.querySelector('[data-feature-switch]')?.classList.contains('on') ?? true;
+    const provider = row.querySelector('[data-feature-provider]')?.value || null;
+    features[key] = {enabled, provider: provider || null};
+  });
+  return {
+    activeProvider: document.getElementById('llmActiveProvider')?.value || '',
+    providers, features,
+  };
+}
+
+async function llmSaveConfig(){
+  llmSetConfigStatus('', 'Đang lưu…');
+  try{
+    const response = await fetch('/api/llm-config', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(llmCollectConfigPayload()),
+    });
+    if(!response.ok) throw new Error(await mptApiError(response));
+    llmStatus = await response.json();
+    LLM_PROVIDERS.forEach(({key})=>{
+      const keyInput = document.getElementById('llmKey_'+key);
+      if(keyInput) keyInput.value = '';
+    });
+    llmRenderConfigForm();
+    llmRenderFeatureButtons();
+    llmSetConfigStatus('ready', 'Đã lưu cấu hình LLM.');
+  }catch(error){
+    llmSetConfigStatus('error', 'Không lưu được: '+error.message);
+  }
+}
+
+async function llmTestProvider(providerKey){
+  const statusEl = document.querySelector(`[data-provider-status="${providerKey}"]`);
+  if(statusEl){ statusEl.textContent = 'Đang kiểm tra…'; statusEl.style.color = ''; }
+  try{
+    const baseInput = document.getElementById('llmBaseUrl_'+providerKey);
+    const response = await fetch('/api/llm-config/test', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        provider: providerKey,
+        apiKey: document.getElementById('llmKey_'+providerKey)?.value || '',
+        model: document.getElementById('llmModel_'+providerKey)?.value || '',
+        baseUrl: baseInput ? (baseInput.value || '') : null,
+      }),
+    });
+    if(!response.ok) throw new Error(await mptApiError(response));
+    const result = await response.json();
+    if(statusEl){ statusEl.textContent = 'OK: '+result.sample; statusEl.style.color = 'var(--success)'; }
+  }catch(error){
+    if(statusEl){ statusEl.textContent = 'Lỗi: '+error.message; statusEl.style.color = 'var(--error)'; }
+  }
+}
+
+function llmRenderFeatureButtons(){
+  const features = (llmStatus && llmStatus.features) || {};
+  const summaryBtn = document.getElementById('askSummaryBtn');
+  if(summaryBtn) summaryBtn.hidden = features.summary ? features.summary.enabled===false : false;
+  const composer = document.getElementById('askComposer');
+  if(composer) composer.hidden = features.chat ? features.chat.enabled===false : false;
+  document.body.classList.toggle('llm-explain-disabled', features.explain ? features.explain.enabled===false : false);
+}
+
+// Nut "Giai thich" tren panel_alerts / table_line_anomalies: gan qua event
+// delegation tren container cha vi innerHTML= xoa listener cu moi lan render
+// lai (renderAdvancedAlerts/renderLineAnomalyTable chay lai khi doi bo loc).
+async function llmExplainClicked(button){
+  let payload;
+  try{ payload = JSON.parse(button.dataset.explain || '{}'); }
+  catch(_){ payload = {}; }
+  llmAskPanelOpen();
+  llmAppendMessage('user', `Giải thích: ${payload.tieuDe || payload.loai || 'dòng dữ liệu đã chọn'}`);
+  llmSetAskStatus('Đang giải thích…');
+  try{
+    const result = await llmAsk('explain', payload, '');
+    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`);
+    llmSetAskStatus('');
+  }catch(error){
+    llmSetAskStatus('Lỗi: '+error.message);
+  }
+}
+
+function llmAskPanelOpen(){
+  const panel = document.getElementById('askDashboardPanel');
+  if(!panel) return;
+  panel.hidden = false;
+  document.getElementById('askDashboardToggle')?.setAttribute('aria-expanded','true');
+}
+function llmAskPanelClose(){
+  const panel = document.getElementById('askDashboardPanel');
+  if(!panel) return;
+  panel.hidden = true;
+  document.getElementById('askDashboardToggle')?.setAttribute('aria-expanded','false');
+}
+function llmAskPanelToggle(){
+  const panel = document.getElementById('askDashboardPanel');
+  if(!panel) return;
+  if(panel.hidden) llmAskPanelOpen(); else llmAskPanelClose();
+}
+
+function llmAppendMessage(role, text, meta){
+  const host = document.getElementById('askMessages');
+  if(!host) return;
+  const div = document.createElement('div');
+  div.className = 'ask-msg '+(role==='user'?'user':'ai');
+  div.textContent = text;
+  if(meta){
+    const metaEl = document.createElement('div');
+    metaEl.className = 'ask-msg-meta';
+    metaEl.textContent = meta;
+    div.appendChild(metaEl);
+  }
+  host.appendChild(div);
+  host.scrollTop = host.scrollHeight;
+}
+
+function llmSetAskStatus(text){
+  const el = document.getElementById('askStatus');
+  if(el) el.textContent = text || '';
+}
+
+async function llmAsk(mode, context, question){
+  const body = {mode, context, question: question||'', history: llmAskHistory.slice(-6)};
+  const response = await fetch('/api/llm-ask', {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body),
+  });
+  if(!response.ok) throw new Error(await mptApiError(response));
+  return response.json();
+}
+
+// dashState.cube (dashboard-core.js buildCube()) da du gon voi phan lon tab;
+// buildLlmContext() cat tiep top-N cho cac mang co the hang nghin dong (xem
+// dashboard-core.js) truoc khi roi may.
+function llmContextForCurrentTab(){
+  const cube = dashState.cube;
+  if(!cube) return null;
+  if(typeof buildLlmContext === 'function') return buildLlmContext(cube, currentTab);
+  return cube;
+}
+
+async function llmRunSummary(){
+  const context = llmContextForCurrentTab();
+  if(!context){ llmAskPanelOpen(); llmSetAskStatus('Chưa có dữ liệu báo cáo để tóm tắt.'); return; }
+  llmAskPanelOpen();
+  llmSetAskStatus('Đang tóm tắt…');
+  try{
+    const result = await llmAsk('summary', context, '');
+    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`);
+    llmSetAskStatus('');
+  }catch(error){
+    llmSetAskStatus('Lỗi: '+error.message);
+  }
+}
+
+async function llmRunChat(){
+  const input = document.getElementById('askQuestionInput');
+  const question = (input?.value || '').trim();
+  if(!question) return;
+  const context = llmContextForCurrentTab();
+  llmAppendMessage('user', question);
+  llmAskHistory.push({role:'user', content:question});
+  if(input) input.value = '';
+  llmSetAskStatus('Đang hỏi…');
+  try{
+    const result = await llmAsk('chat', context, question);
+    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`);
+    llmAskHistory.push({role:'assistant', content:result.text});
+    llmSetAskStatus('');
+  }catch(error){
+    llmSetAskStatus('Lỗi: '+error.message);
+  }
+}
+
+// ---- Bao cao rui ro CID/Gateway tu dong (Phase 4) ----------------------
+// Goi POST /api/risk-analysis: server chay scripts/risk_engine.py (port cua
+// skill telecom-cid-risk-optimizer, chi tinh so — khong tu doan) tren CDR +
+// routing (GatewayMapStore) + lich su Block/Reactive (RoutingEventCache) da
+// co san trong app, roi (neu da bat tinh nang riskReport) goi LLM viet
+// narrative TU JSON da tinh san. UI chi hien thi, khong tu tinh gi them.
+function llmRiskEngineSummaryRows(analysis){
+  const rows = [];
+  rows.push(['CDR ở hướng đang soi', `${analysis.telco_calls ?? '—'} cuộc (${(analysis.meta && analysis.meta.telco_focus) || ''})`]);
+  rows.push(['CID đang PAUSE / ON (routing hiện có)', `${analysis.locked_n ?? '—'} / ${analysis.alive_n ?? '—'}`]);
+  if(analysis.effective_number_random){
+    const e = analysis.effective_number_random;
+    rows.push(['Effective number_random (p50 / p95 / max)', `${e.p50} / ${e.p95} / ${e.max}`]);
+  }
+  if(analysis.calls_per_eff_cid_at_peak != null) rows.push(['Calls/CID hiệu dụng tại đỉnh hệ thống', analysis.calls_per_eff_cid_at_peak]);
+  if(analysis.concurrent) rows.push(['Concurrent call (p95 / max)', `${analysis.concurrent.p95} / ${analysis.concurrent.max}`]);
+  if(analysis.reuse_sec) rows.push(['Reuse interval giây (p5 / median)', `${analysis.reuse_sec.p5 ?? '—'} / ${analysis.reuse_sec.p50 ?? '—'}`]);
+  if(analysis.reactive) rows.push(['ReActive → ReBlock', `${analysis.reactive.reblocked}/${analysis.reactive.total} (durable ước tính: ${analysis.reactive.durable_est}, confidence ${analysis.reactive.confidence})`]);
+  if(analysis.backtest && analysis.backtest.HARD_ERROR){
+    let best = null;
+    Object.entries(analysis.backtest.HARD_ERROR).forEach(([k,v])=>{ if(!best || v.f2>best.v.f2) best = {k, v}; });
+    if(best) rows.push(['call_fail (HARD_ERROR) tốt nhất theo F2', `${best.k}: precision ${best.v.precision}, recall ${best.v.recall}, ${best.v.unique_locks}/${analysis.backtest.total_positive_locks} lock bắt được`]);
+  }
+  return rows;
+}
+
+function llmRenderRiskEngineResult(data){
+  const body = document.getElementById('riskEngineBody');
+  if(!body) return;
+  const analysis = data.analysis || {};
+  const td = 'style="border:1px solid #eee;padding:6px"';
+  let html = '<table style="width:100%;border-collapse:collapse;font-size:12.5px">' +
+    llmRiskEngineSummaryRows(analysis).map(([k,v])=>
+      `<tr><td ${td};font-weight:600">${reportTableEscape(k)}</td><td ${td}">${reportTableEscape(String(v))}</td></tr>`
+    ).join('') + '</table>';
+  if(analysis.gateway && Object.keys(analysis.gateway).length){
+    html += '<h4 style="margin:14px 0 6px">Phân loại Gateway</h4>' +
+      `<table style="width:100%;border-collapse:collapse;font-size:12.5px"><thead><tr>` +
+      `<th ${td};text-align:left">Gateway</th><th ${td}">Loại</th><th ${td}">Lock rate</th><th ${td}">CID</th></tr></thead><tbody>` +
+      Object.entries(analysis.gateway).map(([g,info])=>
+        `<tr><td ${td}">${reportTableEscape(g)}</td><td ${td}">${reportTableEscape(info.risk_type)}</td><td ${td};text-align:right">${(100*info.lock_rate).toFixed(1)}%</td><td ${td};text-align:right">${info.cids}</td></tr>`
+      ).join('') + '</tbody></table>';
+  }
+  if(data.narrative){
+    html += `<div style="margin-top:14px;padding:10px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card-bg)">` +
+      `<div style="font-weight:700;margin-bottom:6px">Nhận xét AI</div>` +
+      `<div style="white-space:pre-wrap">${reportTableEscape(data.narrative)}</div>` +
+      `<div class="muted" style="margin-top:8px">Trả lời bởi: ${reportTableEscape(data.narrativeProvider||'')}/${reportTableEscape(data.narrativeModel||'')}</div></div>`;
+  }else if(data.narrativeError){
+    html += `<div class="muted" style="margin-top:10px">Không tạo được nhận xét AI: ${reportTableEscape(data.narrativeError)}</div>`;
+  }else{
+    html += `<div class="muted" style="margin-top:10px">Chưa bật tính năng AI “Báo cáo rủi ro CID/Gateway tự động” — chỉ hiển thị số liệu thô ở trên. Mở menu ☰ → Cấu hình LLM để bật.</div>`;
+  }
+  body.innerHTML = html;
+}
+
+async function llmRunRiskEngine(){
+  const statusEl = document.getElementById('riskEngineStatus');
+  const button = document.getElementById('riskEngineRun');
+  if(!mptActiveProfileId){ if(statusEl) statusEl.textContent = 'Chưa chọn kết nối MPT (mở “Tải báo cáo”).'; return; }
+  const telco = document.getElementById('riskEngineTelco')?.value || 'Viettel';
+  const accountIds = mptSelectedAccountIds();
+  const fromDay = mptEl('mptFromDay')?.value || '';
+  const toDay = mptEl('mptToDay')?.value || '';
+  if(!fromDay || !toDay){ if(statusEl) statusEl.textContent = 'Chưa chọn khoảng ngày ở “Tải báo cáo”.'; return; }
+  if(statusEl) statusEl.textContent = 'Đang chạy phân tích (CDR + routing + lịch sử khoá — có thể mất một lúc)…';
+  if(button) button.disabled = true;
+  try{
+    const response = await fetch('/api/risk-analysis', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        profile_id: mptActiveProfileId,
+        account_id: accountIds.length ? accountIds.join(',') : '0',
+        from_day: fromDay, to_day: toDay, telco,
+      }),
+    });
+    if(!response.ok) throw new Error(await mptApiError(response));
+    llmRenderRiskEngineResult(await response.json());
+    if(statusEl) statusEl.textContent = '';
+  }catch(error){
+    if(statusEl) statusEl.textContent = 'Lỗi: '+error.message;
+  }finally{
+    if(button) button.disabled = false;
+  }
+}
+
+function initLlmChrome(){
+  document.getElementById('llmSaveConfig')?.addEventListener('click', llmSaveConfig);
+  document.querySelectorAll('.llm-test-btn').forEach(button=>{
+    button.addEventListener('click', ()=> llmTestProvider(button.dataset.provider));
+  });
+  document.getElementById('llmGatewayPreset9Router')?.addEventListener('click', ()=>{
+    const input = document.getElementById('llmBaseUrl_gateway');
+    if(input) input.value = 'http://localhost:20128/v1';
+  });
+  document.getElementById('llmGatewayPresetOpenRouter')?.addEventListener('click', ()=>{
+    const input = document.getElementById('llmBaseUrl_gateway');
+    if(input) input.value = 'https://openrouter.ai/api/v1';
+  });
+
+  document.getElementById('askDashboardToggle')?.addEventListener('click', llmAskPanelToggle);
+  document.getElementById('askPanelClose')?.addEventListener('click', llmAskPanelClose);
+  document.getElementById('askSummaryBtn')?.addEventListener('click', llmRunSummary);
+  document.getElementById('askSendBtn')?.addEventListener('click', llmRunChat);
+  document.getElementById('askQuestionInput')?.addEventListener('keydown', event=>{
+    if(event.key==='Enter'){ event.preventDefault(); llmRunChat(); }
+  });
+
+  ['alertsList','lineAnomTable'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('click', event=>{
+      const button = event.target.closest('.llm-explain-btn');
+      if(button) llmExplainClicked(button);
+    });
+  });
+
+  document.getElementById('riskEngineRun')?.addEventListener('click', llmRunRiskEngine);
+
+  llmLoadStatus();
+}
+
 // Final bootstrap: all report functions above are now available.
 initAdwChrome();
 initFilterDirtyState();
@@ -8618,6 +9167,7 @@ renderMapTable();
 initTabs();
 updateDashboardWithFilters();
 initMptSourcePanel();
+initLlmChrome();
 loadDataFromUrlParam().then(loaded=>{ if(!loaded) offerLastSnapshot(); });
 </script>
 

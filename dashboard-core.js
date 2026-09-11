@@ -707,6 +707,49 @@ function buildCube(enrichedRows, params) {
   };
 }
 
+// Cube dung cho render UI co the lon (topDest/retryPattern.events co the hang
+// nghin dong - moi CID/moi retry event 1 dong). buildLlmContext() cat xuong
+// JSON du nho de gui LLM: chi giu cac truong lien quan toi dung 1 tab, cat
+// top-N cho mang lon theo tong so giam dan. KHONG gui CDR tho - chi goi ham
+// nay tren cube da tong hop (dung nguyen tac skill telecom-cid-risk-optimizer
+// muc 1.1: code tinh, LLM chi doc).
+const LLM_CONTEXT_TAB_FIELDS = {
+  overview: ['meta', 'overview', 'byPrefix', 'minutesPerDay'],
+  quality: ['meta', 'overview', 'byPrefix', 'destTelcoShare', 'telcoConnBreakdown', 'dailyPrefixStats', 'topDest'],
+  time: ['meta', 'overview', 'timeHeatmap', 'goldenHours', 'answerRateByAccountPerDay', 'concurrency', 'retryPattern'],
+  advanced: ['meta', 'overview', 'accountKPIs', 'agentPerf', 'gatewayByAccount', 'gatewayFail', 'gatewayBlockReconcile', 'columnHealth', 'timeAnomaly'],
+  cid: ['meta', 'overview'],
+  billing: ['meta', 'overview', 'billing']
+};
+const LLM_CONTEXT_TOP_N = 20;
+
+function llmTrimCubeField(key, value) {
+  if (key === 'topDest' && Array.isArray(value)) {
+    return value.slice()
+      .sort((a, b) => (b.total || 0) - (a.total || 0))
+      .slice(0, LLM_CONTEXT_TOP_N);
+  }
+  if (key === 'retryPattern' && value && Array.isArray(value.events)) {
+    return Object.assign({}, value, {
+      events: value.events.slice(0, LLM_CONTEXT_TOP_N),
+      eventsTotalCount: value.events.length
+    });
+  }
+  return value;
+}
+
+function buildLlmContext(cube, tabKey, extra) {
+  if (!cube) return null;
+  const fields = LLM_CONTEXT_TAB_FIELDS[tabKey] || Object.keys(cube);
+  const out = {};
+  for (const key of fields) {
+    if (!(key in cube) || cube[key] == null) continue;
+    out[key] = llmTrimCubeField(key, cube[key]);
+  }
+  if (extra && typeof extra === 'object') Object.assign(out, extra);
+  return out;
+}
+
 
 // ---------- Cum tong hop cac tab (Milestone 1c-ii-A) ----------
 function computeRetryPattern(rows,windowMinutes=5,scope='account'){
@@ -2670,7 +2713,7 @@ const __exports = {
   computeLoadVsBlockRisk, computeBlockPrecursors,
   computeBlockSignalPatterns, buildPrecursorWindows,
   countActiveDays, computeSignalsByAccount,
-  buildCube
+  buildCube, buildLlmContext
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }
 if (typeof module !== 'undefined' && module.exports) module.exports = __exports;
