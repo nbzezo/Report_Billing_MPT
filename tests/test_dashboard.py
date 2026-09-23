@@ -1387,6 +1387,13 @@ class AdvancedReportLayoutTests(unittest.TestCase):
         positions = [advanced.index(token) for token in ordered]
         self.assertEqual(positions, sorted(positions))
 
+    def test_bao_cao_rn_chi_tiet_tham_gia_layout_va_nhom_chan_doan(self):
+        advanced = self.HTML.split("advanced:{ primary:7,", 1)[1].split("cid:{ primary:", 1)[0]
+        self.assertIn("'report_rn_cf_by_account','report_rn_detail'", advanced)
+        diagnostics = self.HTML.split("id:'advancedGroupDiagnostics'", 1)[1].split("},", 1)[0]
+        self.assertIn("'report_rn_detail'", diagnostics)
+        self.assertIn("'report_rn_detail','table_card'", self.HTML)
+
 
 class CidReadabilityOnReportLayoutTests(unittest.TestCase):
     """Tom tat dau trang + nhan nhom mau xay LAI tren nen REPORT_LAYOUT/Gateway

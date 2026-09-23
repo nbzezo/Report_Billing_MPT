@@ -4598,7 +4598,7 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-09-23-gateway-call-distribution-v1';
+const REPORT_ORDER_VERSION='2026-09-24-rn-detail-v1';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
 
 /* ==========================================================================
@@ -4653,7 +4653,7 @@ const REPORT_LAYOUT={
       // hiệu suất account
       'chart_agent_perf','table_agent_perf','chart_account_radar','table_gateway_by_account',
       // chẩn đoán chuyên sâu
-      'table_gateway_block_reconcile','chart_rn_histogram','report_rn_cf_by_account',
+      'table_gateway_block_reconcile','chart_rn_histogram','report_rn_cf_by_account','report_rn_detail',
       // dữ liệu chi tiết
       'table_card'
     ]
@@ -4737,7 +4737,7 @@ function applyDashboardV2Layout(){
   document.querySelectorAll('#reportGrid > .card[data-tab]').forEach(card=>{
     card.classList.remove('layout-wide','layout-narrow','layout-full');
   });
-  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','table_gateway_hangup_cause','table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline','table_data_quality','report_rn_cf_by_account','table_card','chart_cid_recovery_survival','table_cid_reblock','chart_cid_inventory_trend','table_cid_action_queue','table_cid_comparison',
+  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','table_gateway_hangup_cause','table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline','table_data_quality','report_rn_cf_by_account','report_rn_detail','table_card','chart_cid_recovery_survival','table_cid_reblock','chart_cid_inventory_trend','table_cid_action_queue','table_cid_comparison',
    'panel_billing_config','panel_billing_kpi','chart_billing_by_period','chart_billing_by_telco','table_billing_by_period','table_billing_by_account'].forEach(id=>{
     const card=resolveReportCard(id); if(card) card.classList.add('layout-full');
   });
@@ -4829,7 +4829,7 @@ const ADVANCED_TIER_GROUPS=[
   {id:'advancedGroupOverview',label:'Tổng quan vận hành',color:'#3584e4',anchor:'panel_alerts',cards:['panel_alerts','table_data_quality']},
   {id:'advancedGroupGateway',label:'Sức khỏe Gateway',color:'#e15759',anchor:'table_gateway_fail',cards:['table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause']},
   {id:'advancedGroupAccount',label:'Hiệu suất Account',color:'#59a14f',anchor:'chart_agent_perf',cards:['chart_agent_perf','table_agent_perf','chart_account_radar','table_gateway_by_account']},
-  {id:'advancedGroupDiagnostics',label:'Chẩn đoán chuyên sâu',color:'#af7aa1',anchor:'table_gateway_block_reconcile',cards:['table_gateway_block_reconcile','chart_rn_histogram','report_rn_cf_by_account']},
+  {id:'advancedGroupDiagnostics',label:'Chẩn đoán chuyên sâu',color:'#af7aa1',anchor:'table_gateway_block_reconcile',cards:['table_gateway_block_reconcile','chart_rn_histogram','report_rn_cf_by_account','report_rn_detail']},
   {id:'advancedGroupDetail',label:'Dữ liệu chi tiết',color:'#616161',anchor:'table_card',cards:['table_card']}
 ];
 function createAdvancedGroupHeaders(){
