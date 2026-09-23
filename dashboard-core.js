@@ -497,6 +497,40 @@ function filterData(rows, startDate, endDate, account, startTime, endTime) {
   });
 }
 
+/**
+ * Lọc dữ liệu cho bảng drilldown. Bộ lọc ngày/giờ/account dùng cùng
+ * filterData với dashboard; status và gateway dùng key gốc đã enrich, không
+ * dùng tên hiển thị nên account trùng tên vẫn tách được.
+ */
+function filterCallDetails(rows, params) {
+  const p = params || {};
+  const statuses = Array.isArray(p.statuses)
+    ? p.statuses.map(String).filter(Boolean)
+    : (p.status ? [String(p.status)] : []);
+  const account = p.accountIds || p.account || 'all';
+  const gateway = p.gatewayKey === undefined || p.gatewayKey === null
+    ? null : String(p.gatewayKey);
+  return filterData(
+    Array.isArray(rows) ? rows : [],
+    p.startDate, p.endDate, account, p.startTime, p.endTime
+  ).filter(r => {
+    const status = String(r.connType || classifyCall(r));
+    if (statuses.length && !statuses.includes(status)) return false;
+    if (gateway !== null) {
+      const key = String(r.gateway || '(chưa map)');
+      if (key !== gateway) return false;
+    }
+    return true;
+  });
+}
+
+function queryCallDetails(rows, params, offset, limit) {
+  const filtered = filterCallDetails(rows, params);
+  const off = Math.max(0, Number(offset) || 0);
+  const lim = Math.max(1, Number(limit) || 50);
+  return { rows: filtered.slice(off, off + lim), total: filtered.length, offset: off, limit: lim };
+}
+
 // ---------- Utils: Deduplicate by UUID ----------
 function dedupByUUID(rows) {
   if (!Array.isArray(rows) || rows.length === 0) return { rows: [], removed: 0, kept: 0 };
@@ -532,6 +566,16 @@ function computeConnectRate(rowsOrCounts){
   const total = (counts.Fail||0) + (counts['No Answer']||0) + (counts.Cancelled||0)
               + (counts.Connected||0) + (counts.Unknown||0);
   return total ? +((counts.Connected||0)/total*100).toFixed(2) : 0;
+}
+
+// Connected / (Tổng - Fail). Chỉ số này khác ASR hợp lệ bên trên:
+// mẫu số vẫn giữ No Answer, Cancelled và Unknown, chỉ loại đúng Fail.
+function computeConnectRateExcludingFail(rowsOrCounts){
+  const counts = Array.isArray(rowsOrCounts) ? computeCallCounts(rowsOrCounts) : (rowsOrCounts||{});
+  const total = (counts.Fail||0) + (counts['No Answer']||0) + (counts.Cancelled||0)
+              + (counts.Connected||0) + (counts.Unknown||0);
+  const denominator = total - (counts.Fail||0);
+  return denominator ? +((counts.Connected||0)/denominator*100).toFixed(2) : 0;
 }
 
 function computeBillsecMetrics(rows, shortThreshold=10){
@@ -626,8 +670,67 @@ function aggregateOverview(rows){
       pct.NoAnswer  = +(counts['No Answer']/total*100).toFixed(2);
       pct.Cancelled = +(counts.Cancelled/total*100).toFixed(2);
       pct.Connected = +(counts.Connected/total*100).toFixed(2);
-    } const billsecMetrics = computeBillsecMetrics(rows); const answerRate = computeASRExcludingFail(counts); const connectRate = computeConnectRate(counts); const destinationQuality = computeDestinationQualityMetrics(rows); return {counts,pct,totalMinutes: billsecMetrics.totalMinutes,totalCalls:total,answerRate,connectRate,billsecMetrics,destinationQuality}; 
+    } const billsecMetrics = computeBillsecMetrics(rows); const answerRate = computeASRExcludingFail(counts); const connectRate = computeConnectRate(counts); const connectRateExcludingFail = computeConnectRateExcludingFail(counts); const destinationQuality = computeDestinationQualityMetrics(rows); return {counts,pct,totalMinutes: billsecMetrics.totalMinutes,totalCalls:total,answerRate,connectRate,connectRateExcludingFail,billsecMetrics,destinationQuality};
   });
+}
+
+// Các cảnh báo vận hành phải được tính trong worker trên TOÀN BỘ tập đã lọc.
+// UI chỉ render cấu trúc gọn này, tránh vô tình tính lại trên MAIN_ROW_CAP dòng đầu.
+function computeOperationalAlerts(rows){
+  const list = rows || [];
+  const total = list.length;
+  const connected = list.reduce((s,r)=> s + (isConnectedStrict(r) ? 1 : 0), 0);
+  const overallRate = total ? connected/total : 0;
+  const dns = list.map(r=>String(r.destination_number||'').trim()).filter(Boolean);
+  const invalid = dns.reduce((s,dn)=>s + (!isLikelyPhoneNumber(dn) ? 1 : 0), 0);
+  const invalidRatio = dns.length ? invalid/dns.length : 0;
+  const stats = computeDailyPrefixStats(list);
+  const dates = Array.from(new Set(stats.map(s=>s.date))).sort();
+  const lastDate = dates[dates.length-1];
+  const prevDates = dates.slice(Math.max(0,dates.length-8),-1);
+  const byPrefix = {};
+  stats.forEach(s=>{ (byPrefix[s.prefix]||(byPrefix[s.prefix]={}))[s.date]=s; });
+  const drops=[];
+  Object.keys(byPrefix).forEach(prefix=>{
+    const last=byPrefix[prefix][lastDate];
+    if(!last || last.tot<50) return;
+    const baseRates=prevDates.map(d=>byPrefix[prefix][d]).filter(Boolean).map(s=>s.con/s.tot);
+    if(!baseRates.length) return;
+    const base=baseRates.reduce((a,b)=>a+b,0)/baseRates.length;
+    const diffPp=(last.con/last.tot-base)*100;
+    if(diffPp<=-10) drops.push({p:prefix,diffPp,lastTot:last.tot});
+  });
+  drops.sort((a,b)=>a.diffPp-b.diffPp);
+
+  const hourly={};
+  list.forEach(r=>{
+    const h=r.hour||String(r.start_stamp||'').slice(11,13)||'Unknown';
+    if(!hourly[h]) hourly[h]={hour:h,total:0,failNoAnswer:0};
+    hourly[h].total++;
+    if(r.connType==='Fail'||r.connType==='No Answer'||r.connType==='Cancelled') hourly[h].failNoAnswer++;
+  });
+  const issueCount=list.reduce((s,r)=>s+((r.connType==='Fail'||r.connType==='No Answer'||r.connType==='Cancelled')?1:0),0);
+  const overallIssueRate=total?issueCount/total:0;
+  const hourAnomalies=Object.values(hourly).filter(h=>h.total>=50)
+    .map(h=>({...h,rate:h.failNoAnswer/h.total,diffPp:(h.failNoAnswer/h.total-overallIssueRate)*100}))
+    .filter(h=>h.diffPp>=10).sort((a,b)=>b.diffPp-a.diffPp);
+  const items=[];
+  const health=computeRequiredColumnHealth(list);
+  (health.critical||[]).forEach(msg=>items.push({level:'red',title:'Dữ liệu đầu vào hỏng',desc:msg}));
+  if(health.missing.length) items.push({level:'red',title:'Thiếu cột bắt buộc',desc:health.missing.join(', ')});
+  else if(health.sparse.length) items.push({level:'yellow',title:'Cột thiếu dữ liệu',desc:health.sparse.join(', ')});
+  items.push({level:overallRate<0.25?'red':overallRate<0.35?'yellow':'green',title:'Tỷ lệ kết nối tổng',
+    desc:`Connect rate: ${(100*overallRate).toFixed(2)}% (${connected}/${total})`});
+  items.push(invalidRatio>0.05
+    ? {level:invalidRatio>0.12?'red':'yellow',title:'Data có dấu hiệu kém',desc:`Tỷ lệ destination_number không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`}
+    : {level:'green',title:'Chất lượng định dạng số đích',desc:`Tỷ lệ số không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`});
+  items.push(drops.length
+    ? {level:'red',title:'Đầu số tụt mạnh so với baseline',desc:`Top: ${drops.slice(0,3).map(d=>`${d.p} (${d.diffPp.toFixed(1)}pp, n=${d.lastTot})`).join(', ')}`}
+    : {level:'green',title:'Biến động đầu số',desc:'Không phát hiện đầu số tụt mạnh theo rule (≥50 cuộc/ngày & tụt ≥10pp).'});
+  items.push(hourAnomalies.length
+    ? {level:'yellow',title:'Fail/No Answer tăng bất thường theo giờ',desc:`Top khung giờ: ${hourAnomalies.slice(0,3).map(h=>`${h.hour}h (${(100*h.rate).toFixed(1)}%, n=${h.total})`).join(', ')}. Rule: volume ≥50 và cao hơn baseline ≥10pp.`}
+    : {level:'green',title:'Fail/No Answer theo giờ',desc:'Không phát hiện khung giờ đủ volume có tỷ lệ Fail/No Answer tăng bất thường.'});
+  return {items,scope:{mode:'full',rows:total,dateMin:dates[0]||null,dateMax:lastDate||null}};
 }
 
 function aggByPrefix(rows){
@@ -679,6 +782,7 @@ function buildCube(enrichedRows, params) {
     minutesPerDay: minutesPerDay(rows),
     columnHealth: computeRequiredColumnHealth(rows),
     timeAnomaly: computeTimeAnomalyMetrics(rows),
+    operationalAlerts: computeOperationalAlerts(rows),
     accountKPIs: computeAccountKPIs(rows),
     topDest: computeTopDest(rows),
     // --- Chất lượng ---
@@ -693,6 +797,7 @@ function buildCube(enrichedRows, params) {
     agentPerf: computeAgentPerf(rows),
     gatewayByAccount: computeGatewayByAccount(rows),
     gatewayFail: computeGatewayFail(rows),
+    gatewayHangupCause: computeGatewayHangupCause(rows),
     gatewayFailTimeline: computeGatewayFailTimeline(rows, 30),
     gatewayBlockReconcile: computeGatewayBlockReconcile(rows),
     callbackStats: computeCallbackStats(rows),
@@ -717,7 +822,7 @@ const LLM_CONTEXT_TAB_FIELDS = {
   overview: ['meta', 'overview', 'byPrefix', 'minutesPerDay'],
   quality: ['meta', 'overview', 'byPrefix', 'destTelcoShare', 'telcoConnBreakdown', 'dailyPrefixStats', 'topDest'],
   time: ['meta', 'overview', 'timeHeatmap', 'goldenHours', 'answerRateByAccountPerDay', 'concurrency', 'retryPattern'],
-  advanced: ['meta', 'overview', 'accountKPIs', 'agentPerf', 'gatewayByAccount', 'gatewayFail', 'gatewayBlockReconcile', 'columnHealth', 'timeAnomaly'],
+  advanced: ['meta', 'overview', 'accountKPIs', 'agentPerf', 'gatewayByAccount', 'gatewayFail', 'gatewayHangupCause', 'gatewayBlockReconcile', 'columnHealth', 'timeAnomaly'],
   cid: ['meta', 'overview'],
   billing: ['meta', 'overview', 'billing']
 };
@@ -735,17 +840,31 @@ function llmTrimCubeField(key, value) {
       eventsTotalCount: value.events.length
     });
   }
+  if (Array.isArray(value) && value.length > 50) {
+    return value.slice(0, 50);
+  }
   return value;
 }
 
 function buildLlmContext(cube, tabKey, extra) {
   if (!cube) return null;
-  const fields = LLM_CONTEXT_TAB_FIELDS[tabKey] || Object.keys(cube);
+  // '__all__' exposes every analytical domain computed from the complete
+  // filtered row set. It deliberately does not expose rows outside that set.
+  const fields = tabKey === '__all__'
+    ? Object.keys(cube)
+    : (LLM_CONTEXT_TAB_FIELDS[tabKey] || Object.keys(cube));
   const out = {};
+  const coverage = {};
   for (const key of fields) {
     if (!(key in cube) || cube[key] == null) continue;
     out[key] = llmTrimCubeField(key, cube[key]);
+    if (Array.isArray(cube[key]) && cube[key].length > 50) {
+      coverage[key] = { total: cube[key].length, included: out[key].length };
+    }
   }
+  out._contextMode = tabKey === '__all__' ? 'all-filtered-database-domains' : `tab:${tabKey}`;
+  out._availableDomains = fields.filter(key => key in cube && cube[key] != null);
+  if (Object.keys(coverage).length) out._arrayCoverage = coverage;
   if (extra && typeof extra === 'object') Object.assign(out, extra);
   return out;
 }
@@ -868,8 +987,10 @@ function computeAccountKPIs(rows){
   });
   const arr = Object.values(map).map(m=>{
     const asr = (m.connected + m.noans) === 0 ? 0 : (m.connected/(m.connected+m.noans)*100);
+    const nonFail = m.total - m.fail;
+    const connectRateExcludingFail = nonFail===0 ? 0 : (m.connected/nonFail*100);
     const failPct = m.total===0 ? 0 : (m.fail/m.total*100);
-    return {...m, asr, failPct, minutes:+m.minutes.toFixed(2)};
+    return {...m, asr, connectRateExcludingFail:+connectRateExcludingFail.toFixed(2), failPct, minutes:+m.minutes.toFixed(2)};
   });
   return arr;
 }
@@ -1021,9 +1142,10 @@ function computeAgentPerf(rows){
   return Object.values(out).map(a=>{
     const rate = a.tot? a.con/a.tot : 0;
     const asr = (a.con+a.noans) ? a.con/(a.con+a.noans) : 0;
+    const connectExclFailRate = (a.tot-a.fail) ? a.con/(a.tot-a.fail) : 0;
     const avgCon = a.conCnt? a.conBillsec/a.conCnt : 0;
     const shortRate = a.conCnt ? a.shortCalls/a.conCnt : 0;
-    return {...a, rate, asr, minutes: a.billsec/60, avgCon, shortRate};
+    return {...a, rate, asr, connectExclFailRate, minutes: a.billsec/60, avgCon, shortRate};
   });
 
   });
@@ -1098,6 +1220,7 @@ function computeGatewayByAccount(rows){
       minutes: +(m.billsec/60).toFixed(2),
       connectRate: m.total ? +(m.connected/m.total*100).toFixed(2) : 0,
       asr: (m.connected+m.noans) ? +(m.connected/(m.connected+m.noans)*100).toFixed(2) : 0,
+      connectExclFailRate: (m.total-m.fail) ? +(m.connected/(m.total-m.fail)*100).toFixed(2) : 0,
       failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0
     })).sort((a,b)=> String(a.account_id).localeCompare(String(b.account_id)) || (b.total - a.total));
     return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
@@ -1138,8 +1261,54 @@ function computeGatewayFail(rows){
       minutes: +(m.billsec/60).toFixed(2),
       connectRate: m.total ? +(m.connected/m.total*100).toFixed(2) : 0,
       asr: (m.connected+m.noans) ? +(m.connected/(m.connected+m.noans)*100).toFixed(2) : 0,
+      connectExclFailRate: (m.total-m.fail) ? +(m.connected/(m.total-m.fail)*100).toFixed(2) : 0,
       failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0
     })).sort((a,b)=> b.failPct - a.failPct || b.total - a.total);
+    return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
+  });
+}
+
+/**
+ * Thống kê hangup_cause theo từng gateway đã map. Tách nguyên nhân trong phạm
+ * vi từng gateway để soi nhanh gateway nào đang fail vì routing/network hay vì
+ * nhóm thuê bao không phản hồi.
+ */
+function computeGatewayHangupCause(rows){
+  return __getAgg(rows, 'computeGatewayHangupCause', ()=>{
+    const byGateway = {};
+    const byCause = {};
+    let total = 0, matched = 0;
+    (rows||[]).forEach(r=>{
+      total++;
+      const gw = String(r.gateway || '');
+      if(!gw) return;
+      matched++;
+      byGateway[gw] = (byGateway[gw] || 0) + 1;
+      const cause = String(r.hangup_cause || 'UNKNOWN').trim().toUpperCase() || 'UNKNOWN';
+      const key = gw + '\u0000' + cause;
+      let m = byCause[key];
+      if(!m) m = byCause[key] = { gateway: gw, hangup_cause: cause,
+        total:0, connected:0, noans:0, cancelled:0, fail:0, unknown:0 };
+      m.total++;
+      const ct = r.connType || classifyCall(r);
+      if(ct==='Connected') m.connected++;
+      else if(ct==='No Answer') m.noans++;
+      else if(ct==='Cancelled') m.cancelled++;
+      else if(ct==='Fail') m.fail++;
+      else m.unknown++;
+    });
+    const rows_ = Object.values(byCause).map(m=>({
+      ...m,
+      gatewayTotal: byGateway[m.gateway] || m.total,
+      sharePct: byGateway[m.gateway] ? +(m.total/byGateway[m.gateway]*100).toFixed(2) : 0,
+      // Mức đóng góp của nguyên nhân này vào tổng Fail trên lưu lượng Gateway.
+      // Khác failPct (Fail / Attempt của riêng cause, thường chỉ 0% hoặc 100%).
+      failSharePct: byGateway[m.gateway] ? +(m.fail/byGateway[m.gateway]*100).toFixed(2) : 0,
+      failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0,
+      connectRate: m.total ? +(m.connected/m.total*100).toFixed(2) : 0
+    })).sort((a,b)=> String(a.gateway).localeCompare(String(b.gateway))
+      || b.total - a.total
+      || String(a.hangup_cause).localeCompare(String(b.hangup_cause)));
     return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
   });
 }
@@ -1260,6 +1429,19 @@ function filterWindowSec(params) {
   const s = Date.parse(`${params.startDate}T${params.startTime || '00:00'}:00`);
   const e = Date.parse(`${params.endDate}T${params.endTime || '23:59'}:59`) + 1000;
   return (isFinite(s) && isFinite(e) && e > s) ? (e - s) / 1000 : null;
+}
+
+// Giải khoảng chọn nhanh từ metadata TOÀN BỘ dữ liệu, không suy từ mẫu dòng
+// đang giữ ở main thread. preset: all | latest | 7 | 30 (hoặc số ngày).
+function resolveDateRangePreset(preset, dateMin, dateMax){
+  const min=String(dateMin||''), max=String(dateMax||'');
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(min) || !/^\d{4}-\d{2}-\d{2}$/.test(max)) return null;
+  if(preset==='all') return {startDate:min,endDate:max};
+  const days=preset==='latest'?1:Math.max(1,parseInt(preset,10)||1);
+  const d=new Date(max+'T00:00:00');
+  d.setDate(d.getDate()-(days-1));
+  const calculated=localISODate(d);
+  return {startDate:calculated<min?min:calculated,endDate:max};
 }
 
 function billedSecondsOf(billsec, firstBlock, nextBlock, chargeZero){
@@ -1859,6 +2041,51 @@ function telcoBlockCode(raw){
   if(n === 'VinaPhone') return 'VN';
   if(n === 'Unknown') return '';
   return 'OT';
+}
+
+/**
+ * Thu hẹp nguồn sự kiện CID theo bộ lọc account_id của dashboard.
+ * Account và Routing là hai namespace; nối bằng tên trùng chính xác và bổ sung
+ * bảng mapping account_id -> routing_id/routing_name do người dùng cấu hình.
+ */
+function filterCidScope(input){
+  const o = input || {};
+  const selectedIds = (o.selectedAccountIds || []).map(String);
+  const accountsAll = o.accounts || [];
+  const routingsAll = o.routings || [];
+  const eventsAll = o.events || [];
+  const mappingRows = o.mappingRows || [];
+  if(!selectedIds.length){
+    return { filtered:false, accounts:accountsAll, routings:routingsAll,
+             events:eventsAll, routingNames:routingsAll.map(r=>String(r.name||'')).filter(Boolean),
+             unmappedAccounts:[] };
+  }
+
+  const selected = new Set(selectedIds);
+  const accounts = selectedIds.map(id=>
+    accountsAll.find(a=>String(a.id)===id) || { id, name:id });
+  const routingIds = new Set();
+  const routingNames = new Set(accounts.map(a=>String(a.name||'')).filter(Boolean));
+  const mappedAccountIds = new Set();
+  mappingRows.forEach(r=>{
+    const accountId = String(r && r.account_id || '');
+    if(!selected.has(accountId)) return;
+    if(r.routing_id) routingIds.add(String(r.routing_id));
+    if(r.routing_name) routingNames.add(String(r.routing_name));
+    if(r.routing_id || r.routing_name) mappedAccountIds.add(accountId);
+  });
+  const routings = routingsAll.filter(r=>
+    routingIds.has(String(r.id||'')) || routingNames.has(String(r.name||'')));
+  routings.forEach(r=>{ if(r.name) routingNames.add(String(r.name)); });
+  accounts.forEach(a=>{
+    if(routingsAll.some(r=>String(r.name||'')===String(a.name||'')))
+      mappedAccountIds.add(String(a.id));
+  });
+  const events = eventsAll.filter(ev=>routingNames.has(String(ev && ev.routing || '')));
+  return {
+    filtered:true, accounts, routings, events, routingNames:Array.from(routingNames),
+    unmappedAccounts:accounts.filter(a=>!mappedAccountIds.has(String(a.id)))
+  };
 }
 
 /**
@@ -2685,6 +2912,160 @@ function computeBlockMttr(timeline, opts){
   };
 }
 
+function computeCidRecoverySurvival(timeline, thresholdsHours){
+  const ivs = (timeline && timeline.intervals) || [];
+  const thresholds = thresholdsHours || [1,3,6,12,24,48,72,168];
+  const groups = new Map([['Tất cả', ivs]]);
+  ivs.forEach(iv=>{
+    const key = iv.telco || 'Unknown';
+    if(!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(iv);
+  });
+  const series = [];
+  groups.forEach((items,name)=>{
+    const records = items.map(iv=>({time:iv.durationMin,event:!!iv.recovered})).sort((a,b)=>a.time-b.time);
+    let atRisk=records.length, survival=1, pos=0;
+    const values=[];
+    thresholds.forEach(hour=>{
+      const limit=hour*60;
+      while(pos<records.length && records[pos].time<=limit){
+        const time=records[pos].time;
+        let recovered=0,censored=0;
+        while(pos<records.length && records[pos].time===time){
+          if(records[pos].event) recovered++; else censored++;
+          pos++;
+        }
+        if(atRisk>0 && recovered) survival *= (1-recovered/atRisk);
+        atRisk -= recovered+censored;
+      }
+      values.push(+(survival*100).toFixed(2));
+    });
+    series.push({name,total:items.length,thresholdsHours:thresholds.slice(),unrecoveredPct:values});
+  });
+  return {thresholdsHours:thresholds.slice(),series:series.sort((a,b)=>a.name==='Tất cả'?-1:b.name==='Tất cả'?1:b.total-a.total)};
+}
+
+function computeCidReblockStats(timeline, windowsHours){
+  const ivs=(timeline && timeline.intervals)||[];
+  const end=(timeline && timeline.windowEnd)||Date.now();
+  const windows=windowsHours||[1,6,24,168];
+  const byKey=new Map();
+  ivs.forEach(iv=>{
+    const key=cidStateKey(iv.cid,iv.routing,iv.telco);
+    if(!byKey.has(key)) byKey.set(key,[]);
+    byKey.get(key).push(iv);
+  });
+  const samples=[];
+  byKey.forEach(items=>{
+    items.sort((a,b)=>a.blockedFrom-b.blockedFrom);
+    items.forEach((iv,index)=>{
+      if(!iv.recovered) return;
+      const next=items[index+1];
+      samples.push({telco:iv.telco||'Unknown',recoveredAt:iv.blockedTo,
+        nextDelayMin:next ? (next.blockedFrom-iv.blockedTo)/60000 : null});
+    });
+  });
+  const summarize=(name,items)=>({
+    name,recovered:items.length,
+    windows:windows.map(hour=>{
+      const eligible=items.filter(x=>end-x.recoveredAt>=hour*3600000);
+      const reblocked=eligible.filter(x=>x.nextDelayMin!=null && x.nextDelayMin<=hour*60).length;
+      return {hour,eligible:eligible.length,reblocked,ratePct:eligible.length?+(100*reblocked/eligible.length).toFixed(2):null};
+    })
+  });
+  const groups=new Map([['Tất cả',samples]]);
+  samples.forEach(s=>{ if(!groups.has(s.telco)) groups.set(s.telco,[]); groups.get(s.telco).push(s); });
+  return {windowsHours:windows.slice(),rows:Array.from(groups,([name,items])=>summarize(name,items))};
+}
+
+function computeCidInventoryTrend(timeline, opts){
+  const o=opts||{}, ivs=(timeline&&timeline.intervals)||[];
+  if(!ivs.length) return [];
+  const dayMs=86400000;
+  const start=o.windowStart!=null?o.windowStart:Math.floor(ivs[0].blockedFrom/dayMs)*dayMs;
+  const end=o.windowEnd!=null?o.windowEnd:(timeline.windowEnd||Date.now());
+  const out=[];
+  for(let day=start;day<=end;day+=dayMs){
+    const dayEnd=Math.min(end,day+dayMs-1);
+    const blocks=ivs.filter(iv=>iv.blockedFrom>=day&&iv.blockedFrom<=dayEnd).length;
+    const recovered=ivs.filter(iv=>iv.blockedTo!=null&&iv.blockedTo>=day&&iv.blockedTo<=dayEnd).length;
+    const crossed48h=ivs.filter(iv=>{
+      const crossed=iv.blockedFrom+CID_DEAD_AFTER_MIN*60000;
+      return iv.durationMin>=CID_DEAD_AFTER_MIN&&crossed>=day&&crossed<=dayEnd;
+    }).length;
+    const openKeys=new Set(ivs.filter(iv=>iv.blockedFrom<=dayEnd&&(iv.blockedTo==null||iv.blockedTo>dayEnd))
+      .map(iv=>iv.cid+'|'+iv.telco));
+    out.push({day:localISODate(new Date(day)),blocks,recovered,crossed48h,currentlyBlocked:openKeys.size,net:blocks-recovered});
+  }
+  return out;
+}
+
+function __cidCallTs(row){ return parseEventTs(row && (row.start_stamp||row.timestamp||row.date)); }
+function __cidMetaByNumber(rows){
+  const map=new Map();
+  (rows||[]).forEach(r=>{
+    const cid=normalizeCidNational(r&&r.caller_id_number);
+    if(cid&&!map.has(cid)) map.set(cid,{account:String(r.account_name||r.account_id||'Unknown'),gateway:String(r.gateway||'(chưa map)')});
+  });
+  return map;
+}
+
+function computeCidActionQueue(timeline, rows){
+  const ivs=(timeline&&timeline.intervals)||[], open=ivs.filter(iv=>!iv.recovered);
+  const meta=__cidMetaByNumber(rows);
+  const callsByCid=new Map();
+  (rows||[]).forEach(r=>{
+    const cid=normalizeCidNational(r&&r.caller_id_number), ts=__cidCallTs(r);
+    if(!cid||ts==null) return;
+    if(!callsByCid.has(cid)) callsByCid.set(cid,[]);
+    callsByCid.get(cid).push({ts,connected:(r.connType||classifyCall(r))==='Connected'});
+  });
+  const baseline=(rows||[]).length?(rows||[]).filter(r=>(r.connType||classifyCall(r))==='Connected').length/(rows||[]).length:0;
+  return open.map(iv=>{
+    const m=meta.get(normalizeCidNational(iv.cid))||{account:'Unknown',gateway:'(chưa map)'};
+    const calls=(callsByCid.get(normalizeCidNational(iv.cid))||[]).filter(x=>x.ts>=iv.blockedFrom);
+    const repeats=ivs.filter(x=>x.cid===iv.cid&&x.telco===iv.telco).length;
+    const ageHours=iv.durationMin/60;
+    const expectedLost=Math.round(calls.length*baseline);
+    const score=(iv.presumedDead?100:iv.atRisk?60:20)+Math.min(40,calls.length)+Math.min(20,(repeats-1)*5);
+    return {cid:iv.cid,telco:iv.telco||'Unknown',routing:iv.routing||'',account:m.account,gateway:m.gateway,
+      blockedFrom:iv.blockedFrom,blockedFromISO:localISODateTime(iv.blockedFrom),ageHours,
+      callsSinceBlock:calls.length,expectedLost,reblockCount:Math.max(0,repeats-1),
+      priority:iv.presumedDead||score>=120?'Khẩn cấp':score>=70?'Theo dõi':'Thấp',score};
+  }).sort((a,b)=>b.score-a.score||b.ageHours-a.ageHours);
+}
+
+function computeCidDimensionComparison(timeline, rows, dimension){
+  const ivs=(timeline&&timeline.intervals)||[], meta=__cidMetaByNumber(rows);
+  const duty=computeCidDutyCycle(timeline);
+  const groups=new Map();
+  const groupForCid=cid=>{
+    const m=meta.get(normalizeCidNational(cid))||{account:'Unknown',gateway:'(chưa map)'};
+    return dimension==='account'?m.account:m.gateway;
+  };
+  const ensure=name=>{ if(!groups.has(name)) groups.set(name,{name,cids:new Set(),blocks:0,stillBlocked:0,recoveredMin:[],recovered:0,reblocked:0,uptime:[]}); return groups.get(name); };
+  const byKey=new Map();
+  ivs.forEach(iv=>{
+    const g=ensure(groupForCid(iv.cid)); g.cids.add(iv.cid); g.blocks++;
+    if(!iv.recovered) g.stillBlocked++; else g.recoveredMin.push(iv.durationMin);
+    const key=cidStateKey(iv.cid,iv.routing,iv.telco);
+    if(!byKey.has(key)) byKey.set(key,[]); byKey.get(key).push(iv);
+  });
+  byKey.forEach(items=>{
+    items.sort((a,b)=>a.blockedFrom-b.blockedFrom);
+    items.forEach((iv,i)=>{ if(iv.recovered){ const g=ensure(groupForCid(iv.cid)); g.recovered++; if(items[i+1]) g.reblocked++; } });
+  });
+  duty.forEach(d=>ensure(groupForCid(d.cid)).uptime.push(d.uptimePct));
+  return Array.from(groups.values()).map(g=>{
+    const sorted=g.recoveredMin.sort((a,b)=>a-b);
+    return {name:g.name,cids:g.cids.size,blocks:g.blocks,stillBlocked:g.stillBlocked,
+      stillBlockedPct:g.blocks?+(100*g.stillBlocked/g.blocks).toFixed(2):0,
+      medianRecoveryMin:sorted.length?sorted[Math.floor(sorted.length/2)]:null,
+      reblockPct:g.recovered?+(100*g.reblocked/g.recovered).toFixed(2):0,
+      avgUptimePct:g.uptime.length?+(g.uptime.reduce((a,b)=>a+b,0)/g.uptime.length).toFixed(2):null};
+  }).sort((a,b)=>b.stillBlockedPct-a.stillBlockedPct||b.blocks-a.blocks);
+}
+
 // ==========================================================================
 // Xuất ra: gán vào global (self trong worker, window/globalThis trong trang)
 // + module.exports cho Node test.
@@ -2700,14 +3081,16 @@ const __exports = {
   normalizeHeaderKey, CSV_HEADER_ALIASES, NUMERIC_FIELDS, toNumberLoose, pad2,
   normalizeTimestamp, addSecondsToStamp, hash32,
   createNormalizeContext, normalizeCallRecord, normalizeCallRecords,
-  enrichData, filterData, dedupByUUID,
+  enrichData, filterData, filterCallDetails, queryCallDetails, dedupByUUID,
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax, downsampleSeriesMin,
-  computeCallCounts, computeASRExcludingFail, computeConnectRate, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, aggregateOverview, aggByPrefix, minutesPerDay,
-  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, excelCellMatch, rowPassesColFilters, computeGatewayByAccount, computeGatewayFail, computeGatewayFailTimeline, computeGatewayBlockReconcile,
-  billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
+  computeCallCounts, computeASRExcludingFail, computeConnectRate, computeConnectRateExcludingFail, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, computeOperationalAlerts, aggregateOverview, aggByPrefix, minutesPerDay,
+  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, excelCellMatch, rowPassesColFilters, computeGatewayByAccount, computeGatewayFail, computeGatewayHangupCause, computeGatewayFailTimeline, computeGatewayBlockReconcile,
+  billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, resolveDateRangePreset, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
-  normalizeCidNational, deriveRoutingAccountMap, telcoBlockCode,
+  computeCidRecoverySurvival, computeCidReblockStats, computeCidInventoryTrend,
+  computeCidActionQueue, computeCidDimensionComparison,
+  normalizeCidNational, deriveRoutingAccountMap, telcoBlockCode, filterCidScope,
   buildCidCoverage, computeRoutingLeaks,
   computeBlockPressure, computeBlockBursts, computeDeadNumberLoss,
   computeLoadVsBlockRisk, computeBlockPrecursors,

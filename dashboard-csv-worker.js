@@ -61,29 +61,35 @@ function parseCSV(text) {
 
 // ---- Trạng thái giữ trong worker -----------------------------------------
 var state = { deduped: [], enriched: [], nameMap: {}, gwIndex: null };
+state.datasetToken = 0;
 
 function metaOf(deduped, enriched, removed) {
   const dates = enriched.map(r => r.date).filter(d => d && d !== 'Unknown').sort();
   const accountIds = Array.from(new Set(enriched.map(r => String(r.account_id || 'Unknown')))).sort();
+  const telcos = Array.from(new Set(enriched.map(r => String(r.telco || 'Unknown')))).sort();
   return {
     count: deduped.length,
     removed: removed || 0,
     dateMin: dates.length ? dates[0] : null,
     dateMax: dates.length ? dates[dates.length - 1] : null,
     accounts: accountIds.length,
-    accountIds: accountIds
+    accountIds: accountIds,
+    telcos: telcos
   };
 }
 
 // cap: số dòng đã enrich gửi về luồng chính (0/undefined = tất cả). Toàn bộ vẫn
 // nằm trong worker để buildCube/page tính CHÍNH XÁC trên mọi dòng.
-function ingestFromRows(rawRows, sourceLabel, nameMap, cap, gwIndex) {
+function ingestFromRows(rawRows, sourceLabel, nameMap, cap, gwIndex, datasetToken) {
+  const token = Number(datasetToken || 0);
+  if (token && token < state.datasetToken) return { stale: true };
   if (sourceLabel) for (const r of rawRows) r.__source_file = sourceLabel;
   const ded = dedupByUUID(rawRows);
   state.deduped = ded.rows;
   state.nameMap = nameMap || {};
   if (gwIndex !== undefined) state.gwIndex = gwIndex || null;
   state.enriched = enrichData(state.deduped, state.nameMap, state.gwIndex);
+  if (token) state.datasetToken = token;
   const meta = metaOf(state.deduped, state.enriched, ded.removed);
   const rows = (cap && state.enriched.length > cap) ? state.enriched.slice(0, cap) : state.enriched;
   return { meta: meta, rows: rows, capped: rows.length < state.enriched.length };
@@ -104,11 +110,11 @@ function handle(msg) {
       let rows = msg.isJSON ? JSON.parse(String(msg.text || 'null')) : parseCSV(String(msg.text || ''));
       if (!Array.isArray(rows)) rows = [];
       rows = normalizeCallRecords(rows);
-      self.postMessage({ id, ...ingestFromRows(rows, msg.sourceLabel, msg.nameMap, msg.cap, msg.gwIndex) });
+      self.postMessage({ id, ...ingestFromRows(rows, msg.sourceLabel, msg.nameMap, msg.cap, msg.gwIndex, msg.datasetToken) });
       return;
     }
     if (type === 'ingestRows') {
-      self.postMessage({ id, ...ingestFromRows(msg.rows || [], msg.sourceLabel, msg.nameMap, msg.cap, msg.gwIndex) });
+      self.postMessage({ id, ...ingestFromRows(msg.rows || [], msg.sourceLabel, msg.nameMap, msg.cap, msg.gwIndex, msg.datasetToken) });
       return;
     }
     if (type === 'reenrich') {
@@ -136,6 +142,11 @@ function handle(msg) {
       const off = Math.max(0, msg.offset | 0);
       const lim = Math.max(1, msg.limit | 0);
       self.postMessage({ id, rows: filtered.slice(off, off + lim), total: filtered.length });
+      return;
+    }
+    if (type === 'detailPage') {
+      const result = queryCallDetails(state.enriched, msg.params || {}, msg.offset, msg.limit);
+      self.postMessage({ id, ...result });
       return;
     }
     self.postMessage({ id, error: 'type không hỗ trợ: ' + type });

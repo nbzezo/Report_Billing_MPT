@@ -152,6 +152,9 @@ class DeepseekProviderTests(unittest.TestCase):
         req = opener.requests[0]
         self.assertEqual(req.full_url, "https://api.deepseek.com/chat/completions")
         self.assertEqual(req.get_header("Authorization"), "Bearer ds-test")
+        # UA giống trình duyệt thật - tránh bị Cloudflare/WAF chặn theo "browser
+        # signature" (lỗi 1010) trước khi request chạm tới cổng phía sau.
+        self.assertIn("Mozilla", req.get_header("User-agent"))
         body = json.loads(req.data.decode("utf-8"))
         self.assertEqual(body["model"], "deepseek-chat")
         self.assertEqual(body["messages"][0], {"role": "system", "content": "hệ thống"})
@@ -221,6 +224,36 @@ class LlmClientDispatchTests(unittest.TestCase):
             llm_client.PROVIDERS["anthropic"] = original
         self.assertEqual(result["text"], "trả lời giả")
         self.assertEqual(result["provider"], "anthropic")
+        self.assertEqual(result["presentation"]["summary"], "trả lời giả")
+
+    def test_visual_json_contract_is_parsed_without_trusting_html(self):
+        payload = {
+            "title": "Tổng quan",
+            "summary": "Trong phạm vi lọc",
+            "blocks": [{"type": "chart", "labels": ["A"], "values": [12]}],
+        }
+        parsed = llm_client._structured_presentation(json.dumps(payload, ensure_ascii=False))
+        self.assertEqual(parsed["title"], "Tổng quan")
+        self.assertEqual(parsed["blocks"][0]["type"], "chart")
+
+    def test_markdown_fallback_is_structured_for_chat_ui(self):
+        text = (
+            "### Phân tích AI\n"
+            "**Chưa đủ dữ liệu để kết luận causal root cause** do bảng mã lỗi.\n\n"
+            "### 1. Gateway cần chú ý\n"
+            "* Digi_bk có 63 cuộc Fail.\n"
+            "* vcc cần kiểm tra logic phân loại.\n\n"
+            "| Gateway | Fail |\n"
+            "| --- | ---: |\n"
+            "| Digi_bk | 63 |\n"
+        )
+        parsed = llm_client._structured_presentation(text)
+        self.assertEqual(parsed["title"], "Phân tích AI")
+        self.assertNotIn("**", parsed["summary"])
+        self.assertEqual(parsed["blocks"][0]["type"], "section")
+        self.assertEqual(parsed["blocks"][0]["title"], "1. Gateway cần chú ý")
+        self.assertEqual(parsed["blocks"][0]["bullets"][0], "Digi_bk có 63 cuộc Fail.")
+        self.assertEqual(parsed["blocks"][1]["type"], "table")
 
     def test_unknown_provider_raises_not_configured(self):
         with self.assertRaises(llm_client.LlmNotConfiguredError):
@@ -232,6 +265,11 @@ class LlmClientDispatchTests(unittest.TestCase):
         for mode in ("summary", "explain", "chat", "risk_report"):
             prompt = llm_client.SYSTEM_PROMPTS[mode]
             self.assertIn("Chỉ dùng số liệu", prompt)
+        for mode in ("summary", "explain", "chat"):
+            self.assertIn('"type":"table"', llm_client.SYSTEM_PROMPTS[mode])
+            self.assertIn('"type":"section"', llm_client.SYSTEM_PROMPTS[mode])
+            self.assertIn("FILTER_SCOPE", llm_client.SYSTEM_PROMPTS[mode])
+            self.assertIn("KHÔNG phải mẫu báo cáo cố định", llm_client.SYSTEM_PROMPTS[mode])
 
 
 if __name__ == "__main__":

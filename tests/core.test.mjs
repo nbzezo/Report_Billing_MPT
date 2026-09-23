@@ -109,12 +109,33 @@ test('buildCube — overview trên dữ liệu mẫu 2 định dạng', () => {
   assert.deepEqual(cube.overview.counts,
     { Fail: 0, 'No Answer': 1, Cancelled: 0, Connected: 2, Unknown: 0 });
   assert.equal(cube.overview.answerRate, +(2 / 3 * 100).toFixed(2)); // ASR = Connected/(Connected+NoAnswer)
+  assert.equal(cube.overview.connectRateExcludingFail, +(2 / 3 * 100).toFixed(2));
   assert.equal(cube.overview.billsecMetrics.totalBillsec, 120);      // 90 + 0 + 30
   assert.equal(cube.minutesPerDay.dates[0], '2026-09-03');
   assert.equal(cube.minutesPerDay.minutes[0], +(120 / 60).toFixed(2));
   assert.ok(cube.byPrefix && typeof cube.byPrefix === 'object');
   assert.ok(cube.columnHealth && Array.isArray(cube.columnHealth.required));
   assert.ok(cube.timeAnomaly && typeof cube.timeAnomaly.endBeforeStart === 'number');
+  assert.equal(cube.operationalAlerts.scope.mode, 'full');
+  assert.equal(cube.operationalAlerts.scope.rows, 3);
+});
+
+test('ASR hợp lệ và Kết nối loại Fail dùng hai mẫu số khác nhau', () => {
+  const counts={Fail:2,'No Answer':3,Cancelled:4,Connected:5,Unknown:1};
+  assert.equal(core.computeASRExcludingFail(counts), 62.5);          // 5/(5+3)
+  assert.equal(core.computeConnectRateExcludingFail(counts), 38.46); // 5/(15-2)
+  assert.equal(core.computeConnectRate(counts), 33.33);             // 5/15
+});
+
+test('resolveDateRangePreset dùng metadata toàn bộ thay vì mẫu 50k dòng đầu', () => {
+  assert.deepEqual(core.resolveDateRangePreset('all','2026-09-14','2026-09-20'),
+    {startDate:'2026-09-14',endDate:'2026-09-20'});
+  assert.deepEqual(core.resolveDateRangePreset('latest','2026-09-14','2026-09-20'),
+    {startDate:'2026-09-20',endDate:'2026-09-20'});
+  assert.deepEqual(core.resolveDateRangePreset(7,'2026-09-14','2026-09-20'),
+    {startDate:'2026-09-14',endDate:'2026-09-20'});
+  assert.deepEqual(core.resolveDateRangePreset(30,'2026-09-14','2026-09-20'),
+    {startDate:'2026-09-14',endDate:'2026-09-20'});
 });
 
 test('buildCube — phủ đủ các nhóm biểu đồ 5 tab', () => {
@@ -137,7 +158,7 @@ test('buildCube — phủ đủ các nhóm biểu đồ 5 tab', () => {
 
   for (const k of ['overview', 'byPrefix', 'minutesPerDay', 'accountKPIs', 'topDest',
     'destTelcoShare', 'telcoConnBreakdown', 'dailyPrefixStats', 'timeHeatmap', 'goldenHours',
-    'answerRateByAccountPerDay', 'agentPerf', 'gatewayByAccount', 'gatewayFailTimeline',
+    'answerRateByAccountPerDay', 'agentPerf', 'gatewayByAccount', 'gatewayHangupCause', 'gatewayFailTimeline', 'operationalAlerts',
     'gatewayBlockReconcile', 'callbackStats', 'retryPattern', 'concurrency', 'billing']) {
     assert.ok(k in cube, `thiếu cube.${k}`);
   }
@@ -421,6 +442,41 @@ test('telcoBlockCode — quy ca 3 he ky hieu ve ma cua log block', () => {
   assert.equal(core.telcoBlockCode('Vietnammobile'), 'OT');  // gop vao OT
   assert.equal(core.telcoBlockCode('FIXED'), 'OT');
   assert.equal(core.telcoBlockCode(''), '');            // khong doan bua
+});
+
+test('filterCidScope — bộ lọc account chỉ giữ routing và sự kiện tương ứng', () => {
+  const scoped = core.filterCidScope({
+    selectedAccountIds: ['a1', 'a2', 'a3'],
+    accounts: [
+      { id: 'a1', name: 'ROUTE_BY_NAME' },
+      { id: 'a2', name: 'Account mapped' },
+      { id: 'a3', name: 'Chưa map' },
+    ],
+    routings: [
+      { id: 'r1', name: 'ROUTE_BY_NAME' },
+      { id: 'r2', name: 'ROUTE_BY_ID' },
+      { id: 'r9', name: 'ROUTE_OTHER' },
+    ],
+    mappingRows: [{ account_id: 'a2', routing_id: 'r2', routing_name: 'ROUTE_BY_ID' }],
+    events: [
+      E('0901', 'VT', '2026-09-01 10:00:00', 'block', 'ROUTE_BY_NAME'),
+      E('0902', 'VT', '2026-09-01 10:00:00', 'block', 'ROUTE_BY_ID'),
+      E('0909', 'VT', '2026-09-01 10:00:00', 'block', 'ROUTE_OTHER'),
+    ],
+  });
+  assert.equal(scoped.filtered, true);
+  assert.deepEqual(scoped.routings.map(r => r.id), ['r1', 'r2']);
+  assert.deepEqual(scoped.events.map(e => e.routing), ['ROUTE_BY_NAME', 'ROUTE_BY_ID']);
+  assert.deepEqual(scoped.unmappedAccounts.map(a => a.id), ['a3']);
+});
+
+test('filterCidScope — không chọn account nghĩa là xem toàn bộ routing', () => {
+  const events = [E('0901', 'VT', '2026-09-01 10:00:00', 'block', 'R1')];
+  const scoped = core.filterCidScope({ selectedAccountIds: [], accounts: [],
+    routings: [{ id: '1', name: 'R1' }], events });
+  assert.equal(scoped.filtered, false);
+  assert.equal(scoped.events, events);
+  assert.equal(scoped.routings.length, 1);
 });
 
 test('buildCidCoverage — tach "0 block that su" khoi "khong quan sat duoc"', () => {
@@ -961,6 +1017,52 @@ test('downsampleSeriesMax van giu dinh — hai ham khong lan nhau', () => {
   assert.equal(Math.max(...core.downsampleSeriesMax(x, y, 10).y), 95);
 });
 
+test('CID lifecycle nâng cao — survival, tái khóa và biến động kho', () => {
+  const end = Date.parse('2026-09-10T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901','VT','2026-09-01 00:00:00','block'),
+    E('0901','VT','2026-09-01 02:00:00','reactive'),
+    E('0901','VT','2026-09-01 05:00:00','block'),
+    E('0901','VT','2026-09-01 06:00:00','reactive'),
+    E('0902','MB','2026-09-02 00:00:00','block'),
+  ], {windowEnd:end});
+  const survival = core.computeCidRecoverySurvival(tl,[1,3,48]);
+  assert.equal(survival.series[0].name,'Tất cả');
+  assert.equal(survival.series[0].total,3);
+  assert.ok(survival.series[0].unrecoveredPct[0] >= survival.series[0].unrecoveredPct[1]);
+
+  const reblock = core.computeCidReblockStats(tl,[1,6,24]);
+  const all = reblock.rows.find(r=>r.name==='Tất cả');
+  assert.equal(all.recovered,2);
+  assert.equal(all.windows.find(w=>w.hour===6).reblocked,1);
+
+  const trend = core.computeCidInventoryTrend(tl,{windowStart:Date.parse('2026-09-01T00:00:00'),windowEnd:end});
+  assert.ok(trend.length>=9);
+  assert.equal(trend[0].blocks,2);
+  assert.ok(trend.some(d=>d.crossed48h===1));
+});
+
+test('CID lifecycle nâng cao — hàng đợi hành động và so sánh dimension', () => {
+  const end = Date.parse('2026-09-10T00:00:00');
+  const tl = core.buildCidTimeline([
+    E('0901','VT','2026-09-01 00:00:00','block'),
+    E('0902','MB','2026-09-08 00:00:00','block'),
+  ], {windowEnd:end});
+  const rows = core.enrichData(core.normalizeCallRecords([
+    {account_id:'A1',caller_id_number:'0901',destination_number:'d1',start_stamp:'2026-09-03 00:00:00',billsec:0,duration:0,hangup_cause:'NO_ROUTE_DESTINATION',uuid:'q1'},
+    {account_id:'A1',caller_id_number:'0901',destination_number:'d2',start_stamp:'2026-09-04 00:00:00',billsec:20,duration:30,hangup_cause:'NORMAL_CLEARING',uuid:'q2'},
+    {account_id:'A2',caller_id_number:'0902',destination_number:'d3',start_stamp:'2026-09-09 00:00:00',billsec:0,duration:0,hangup_cause:'NO_ROUTE_DESTINATION',uuid:'q3'},
+  ]),{}, {'0901':{gateway:'GW1'},'0902':{gateway:'GW2'}});
+  const queue = core.computeCidActionQueue(tl,rows);
+  assert.equal(queue.length,2);
+  assert.equal(queue[0].cid,'0901');
+  assert.equal(queue[0].priority,'Khẩn cấp');
+  assert.equal(queue[0].gateway,'GW1');
+  const gateways = core.computeCidDimensionComparison(tl,rows,'gateway');
+  assert.deepEqual(gateways.map(x=>x.name).sort(),['GW1','GW2']);
+  assert.equal(gateways.find(x=>x.name==='GW1').stillBlockedPct,100);
+});
+
 test('enrichData — gắn gateway/routing_name từ gatewayCidIndex (join qua caller_id_number)', () => {
   const raw = core.normalizeCallRecords([
     { account_id: '548', caller_id_number: '0994345507', destination_number: '0900000001',
@@ -1009,6 +1111,7 @@ test('computeGatewayByAccount — gộp account×gateway + độ phủ', () => {
   assert.equal(gip.fail, 1);
   assert.equal(gip.failPct, 50);
   assert.equal(gip.connectRate, 50);
+  assert.equal(gip.connectExclFailRate, 100);
   const unmapped = res.rows.find(r => r.gateway === '(chưa map)');
   assert.equal(unmapped.total, 1);
   assert.equal(unmapped.mapped, false);
@@ -1041,8 +1144,38 @@ test('computeGatewayFail — gộp toàn bộ account theo gateway, xếp Fail% 
   assert.equal(gip.fail, 3);
   assert.equal(gip.failPct, 75);
   assert.equal(gip.connectRate, 25);
+  assert.equal(gip.connectExclFailRate, 100);
   assert.equal(res.rows[1].failPct, 0);
+  assert.equal(res.rows[1].connectExclFailRate, 50);
   assert.equal(res.rows[1].accountCount, 1);
+});
+
+test('computeGatewayHangupCause — thống kê hangup_cause theo từng gateway', () => {
+  const raw = core.normalizeCallRecords([
+    { account_id:'548', caller_id_number:'0994345507', destination_number:'d1', start_stamp:'2026-09-03 08:00:00', end_stamp:'2026-09-03 08:00:00', duration:0, billsec:0, hangup_cause:'NO_ROUTE_DESTINATION', uuid:'h1' },
+    { account_id:'548', caller_id_number:'0994345507', destination_number:'d2', start_stamp:'2026-09-03 08:01:00', end_stamp:'2026-09-03 08:01:00', duration:0, billsec:0, hangup_cause:'NO_ROUTE_DESTINATION', uuid:'h2' },
+    { account_id:'548', caller_id_number:'0994345507', destination_number:'d3', start_stamp:'2026-09-03 08:02:00', end_stamp:'2026-09-03 08:03:00', duration:60, billsec:50, hangup_cause:'NORMAL_CLEARING', uuid:'h3' },
+    { account_id:'548', caller_id_number:'02888820733', destination_number:'d4', start_stamp:'2026-09-03 08:04:00', end_stamp:'2026-09-03 08:04:20', duration:20, billsec:0, hangup_cause:'ORIGINATOR_CANCEL', uuid:'h4' },
+    { account_id:'999', caller_id_number:'0900999999', destination_number:'d5', start_stamp:'2026-09-03 08:05:00', end_stamp:'2026-09-03 08:05:00', duration:0, billsec:0, hangup_cause:'NO_ROUTE_DESTINATION', uuid:'h5' }
+  ]);
+  const gwIndex = {
+    '0994345507': { gateway:'GIP2_new', routing_name:'R1', telco_status:{} },
+    '02888820733': { gateway:'Digi_bk', routing_name:'R2', telco_status:{} }
+  };
+  const res = core.computeGatewayHangupCause(core.enrichData(raw, {}, gwIndex));
+  assert.equal(res.coverage.total, 5);
+  assert.equal(res.coverage.matched, 4);
+  const route = res.rows.find(r => r.gateway === 'GIP2_new' && r.hangup_cause === 'NO_ROUTE_DESTINATION');
+  assert.equal(route.total, 2);
+  assert.equal(route.gatewayTotal, 3);
+  assert.equal(route.sharePct, 66.67);
+  assert.equal(route.fail, 2);
+  assert.equal(route.failSharePct, 66.67);
+  assert.equal(route.failPct, 100);
+  const normal = res.rows.find(r => r.gateway === 'GIP2_new' && r.hangup_cause === 'NORMAL_CLEARING');
+  assert.equal(normal.connected, 1);
+  const cancel = res.rows.find(r => r.gateway === 'Digi_bk' && r.hangup_cause === 'ORIGINATOR_CANCEL');
+  assert.equal(cancel.cancelled, 1);
 });
 
 test('excelCellMatch — lọc cột kiểu Excel (chữ / toán tử số / khoảng)', () => {
@@ -1159,4 +1292,49 @@ test('buildLlmContext — chỉ giữ trường liên quan tab, cắt top-N mả
 test('buildLlmContext — extra gộp thêm vào context (vd dữ liệu CID rời cube)', () => {
   const out = core.buildLlmContext({ meta: {} }, 'cid', { cidSummary: { locked: 3 } });
   assert.deepEqual(out.cidSummary, { locked: 3 });
+});
+
+test('buildLlmContext — chế độ AI toàn DB đọc mọi miền nhưng vẫn là cube đã lọc', () => {
+  const cube = {
+    meta: { rows: 7 }, overview: { totalCalls: 7 },
+    gatewayFail: [{ gateway: 'GW1', total: 7 }],
+    billing: { total: 1000 }
+  };
+  const out = core.buildLlmContext(cube, '__all__', { activeTab: 'overview' });
+  assert.equal(out._contextMode, 'all-filtered-database-domains');
+  assert.equal(out.meta.rows, 7);
+  assert.equal(out.gatewayFail[0].gateway, 'GW1');
+  assert.equal(out.billing.total, 1000);
+  assert.equal(out.activeTab, 'overview');
+});
+
+test('filterCallDetails — kết hợp status + account_id + gateway key + ngày/giờ', () => {
+  const raw = [
+    { account_id: 'A1', caller_id_number: '0901', destination_number: 'd1', start_stamp: '2026-09-03 08:00:00', duration: 0, billsec: 0, hangup_cause: 'NO_ROUTE_DESTINATION', uuid: 'd1' },
+    { account_id: 'A1', caller_id_number: '0901', destination_number: 'd2', start_stamp: '2026-09-03 08:30:00', duration: 30, billsec: 20, hangup_cause: 'NORMAL_CLEARING', uuid: 'd2' },
+    { account_id: 'A2', caller_id_number: '0902', destination_number: 'd3', start_stamp: '2026-09-03 09:00:00', duration: 30, billsec: 20, hangup_cause: 'NORMAL_CLEARING', uuid: 'd3' },
+    { account_id: 'A2', caller_id_number: '0903', destination_number: 'd4', start_stamp: '2026-09-04 09:00:00', duration: 0, billsec: 0, hangup_cause: 'NO_ROUTE_DESTINATION', uuid: 'd4' }
+  ];
+  const rows = core.enrichData(core.normalizeCallRecords(raw), { A1: '<same>', A2: '<same>' }, {
+    '0901': { gateway: 'GW-1' }, '0902': { gateway: 'GW-2' }
+  });
+  const params = { startDate: '2026-09-03', endDate: '2026-09-03', startTime: '08:15', endTime: '09:15', accountIds: ['A2'], statuses: ['Connected'], gatewayKey: 'GW-2' };
+  const result = core.queryCallDetails(rows, params, 0, 25);
+  assert.equal(result.total, 1);
+  assert.equal(result.rows[0].uuid, 'd3');
+  assert.equal(result.rows[0].account_name, '<same>');
+});
+
+test('queryCallDetails — gateway chưa map, zero result và phân trang', () => {
+  const rows = core.enrichData(core.normalizeCallRecords([
+    { account_id: 'A', caller_id_number: '0901', start_stamp: '2026-09-03 08:00:00', duration: 0, billsec: 0, hangup_cause: 'NO_ROUTE_DESTINATION', uuid: 'p1' },
+    { account_id: 'A', caller_id_number: '0902', start_stamp: '2026-09-03 08:01:00', duration: 0, billsec: 0, hangup_cause: 'NO_ROUTE_DESTINATION', uuid: 'p2' },
+    { account_id: 'A', caller_id_number: '0903', start_stamp: '2026-09-03 08:02:00', duration: 0, billsec: 0, hangup_cause: 'NO_ROUTE_DESTINATION', uuid: 'p3' }
+  ]), { A: 'A' }, { '0901': { gateway: 'GW-X' } });
+  const base = { startDate: '2026-09-03', endDate: '2026-09-03', accountIds: ['A'], statuses: ['Fail'] };
+  const page = core.queryCallDetails(rows, { ...base, gatewayKey: '(chưa map)' }, 1, 1);
+  assert.equal(page.total, 2);
+  assert.equal(page.rows.length, 1);
+  assert.equal(page.rows[0].uuid, 'p3');
+  assert.equal(core.queryCallDetails(rows, { ...base, gatewayKey: 'missing' }, 0, 25).total, 0);
 });

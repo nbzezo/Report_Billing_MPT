@@ -15,6 +15,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import OrderedDict
+from datetime import date, datetime, timedelta
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from http.cookiejar import CookieJar
 from pathlib import Path
@@ -25,6 +26,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import routing_events  # noqa: E402  (can sys.path o tren de chay ca khi import truc tiep)
 import gateway_map  # noqa: E402
 import llm_client  # noqa: E402
+import call_store  # noqa: E402
 
 
 class _DataBlob(ctypes.Structure):
@@ -74,33 +76,9 @@ class SecretProtector:
     @staticmethod
     def _lock_down(path):
         """Best-effort: chỉ tài khoản hiện tại đọc được keyfile."""
-        if os.name != "nt":
-            try:
-                os.chmod(path, 0o600)
-            except OSError:
-                pass
-            return
-        user = os.environ.get("USERNAME")
-        if not user:
-            return
         try:
-            import subprocess
-
-            # Không hiện cửa sổ console khi chạy dưới pythonw / bản --windowed.
-            no_window = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-            startupinfo = None
-            if os.name == "nt":
-                startupinfo = subprocess.STARTUPINFO()
-                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                startupinfo.wShowWindow = 0  # SW_HIDE
-            subprocess.run(
-                ["icacls", str(path), "/inheritance:r", "/grant:r", f"{user}:F"],
-                capture_output=True,
-                check=False,
-                creationflags=no_window,
-                startupinfo=startupinfo,
-            )
-        except Exception:
+            os.chmod(path, 0o600)
+        except OSError:
             pass
 
     # -- API -------------------------------------------------------------------
@@ -254,6 +232,7 @@ class ProfileStore:
                 "username": p.get("username"),
                 "accountCount": len(p.get("accounts") or []),
                 "credentialAvailable": not p.get("credentialError"),
+                "lastVerifiedAt": p.get("lastVerifiedAt"),
             }
             for p in self.load()
         ]
@@ -281,6 +260,7 @@ class ProfileStore:
             "username": username,
             "password": password,
             "accounts": (existing or {}).get("accounts", []),
+            "lastVerifiedAt": (existing or {}).get("lastVerifiedAt"),
         }
         profiles = [p for p in profiles if p.get("id") != profile_id]
         profiles.append(item)
@@ -299,6 +279,9 @@ class ProfileStore:
         for profile in profiles:
             if profile.get("id") == profile_id:
                 profile["accounts"] = accounts
+                profile["lastVerifiedAt"] = datetime.now().astimezone().isoformat(
+                    timespec="seconds"
+                )
                 changed = True
                 break
         if changed:
@@ -451,6 +434,10 @@ class LlmConfigStore:
         }
 
 
+class MptAuthenticationError(RuntimeError):
+    pass
+
+
 class MptClient:
     def __init__(self, domain, username, password):
         self.base_url = normalize_domain(domain)
@@ -461,6 +448,27 @@ class MptClient:
             urllib.request.HTTPCookieProcessor(self.cookie_jar)
         )
         self.logged_in = False
+
+    @staticmethod
+    def _is_login_page(response, data):
+        """MPT often reports an expired/invalid session as HTTP 200 HTML."""
+        content_type = (response.headers.get("Content-Type", "") or "").lower()
+        if "html" not in content_type:
+            return False
+        body = (data or b"").lower()
+        path = urllib.parse.urlparse(response.geturl()).path.rstrip("/").lower()
+        return (
+            b"username_softswitch" in body
+            or b"password_softswitch" in body
+            or path == "/user"
+        )
+
+    def _invalidate_session(self):
+        self.logged_in = False
+        try:
+            self.cookie_jar.clear()
+        except KeyError:
+            pass
 
     def post_multipart(self, url, fields):
         boundary = "----mptdashboardboundary"
@@ -478,9 +486,11 @@ class MptClient:
         req.add_header("User-Agent", "Mozilla/5.0 MPT Dashboard Local")
         return self.opener.open(req, timeout=120)
 
-    def login(self):
+    def login(self, force=False):
         if self.logged_in:
-            return
+            if not force:
+                return
+            self._invalidate_session()
         res = self.post_multipart(
             f"{self.base_url}/user/checkAuthen",
             {
@@ -488,58 +498,103 @@ class MptClient:
                 "password_softswitch": self.password,
             },
         )
-        res.read()
+        data = res.read()
+        if self._is_login_page(res, data):
+            self._invalidate_session()
+            raise MptAuthenticationError(
+                "Thông tin đăng nhập MPT không hợp lệ hoặc đã hết hạn. "
+                "Hãy nhập lại mật khẩu và lưu kết nối."
+            )
         self.logged_in = True
 
     def get_accounts(self):
-        self.login()
-        req = urllib.request.Request(f"{self.base_url}/calldata/filter")
-        req.add_header("User-Agent", "Mozilla/5.0 MPT Dashboard Local")
-        res = self.opener.open(req, timeout=30)
-        html = res.read().decode("utf-8", errors="replace")
+        html = ""
+        for attempt in range(2):
+            self.login()
+            req = urllib.request.Request(f"{self.base_url}/calldata/filter")
+            req.add_header("User-Agent", "Mozilla/5.0 MPT Dashboard Local")
+            res = self.opener.open(req, timeout=30)
+            data = res.read()
+            if self._is_login_page(res, data):
+                self._invalidate_session()
+                if attempt == 0:
+                    continue
+                raise MptAuthenticationError(
+                    "Phiên đăng nhập MPT đã hết hạn và không thể đăng nhập lại. "
+                    "Hãy nhập lại mật khẩu và lưu kết nối."
+                )
+            html = data.decode("utf-8", errors="replace")
+            break
         accounts = []
         # Extract only the <select name="account_id"> block
         m = re.search(
             r'<select[^>]*name="account_id"[^>]*>(.*?)</select>',
             html, re.DOTALL
         )
-        if m:
-            block = m.group(1)
-            for opt in re.finditer(
-                r'<option\s+value="(\d+)"[^>]*>([^<]+)</option>', block
-            ):
-                aid, name = opt.group(1), opt.group(2).strip()
-                if aid == "0":
-                    continue
-                accounts.append({"id": aid, "name": name})
+        if not m:
+            raise RuntimeError(
+                "MPT không trả về danh sách tài khoản hợp lệ. "
+                "Danh sách tài khoản đã lưu được giữ nguyên."
+            )
+        block = m.group(1)
+        for opt in re.finditer(
+            r'<option\s+value="(\d+)"[^>]*>([^<]+)</option>', block
+        ):
+            aid, name = opt.group(1), opt.group(2).strip()
+            if aid == "0":
+                continue
+            accounts.append({"id": aid, "name": name})
         return accounts
 
     def export_csv(self, params):
-        self.login()
-        self.post_multipart(
-            f"{self.base_url}/calldata/filter",
-            {
-                "account_id": params.get("account_id", "0"),
-                "caller_number": params.get("caller_number", ""),
-                "dest_number": params.get("dest_number", ""),
-                "outbound": params.get("outbound", ""),
-                "from_day": params.get("from_day", ""),
-                "to_day": params.get("to_day", ""),
-                "hangupcause": params.get("hangupcause", "0"),
-                "calltype": params.get("calltype", ""),
-                "telco": params.get("telco", "0"),
-            },
-        ).read()
-        req = urllib.request.Request(f"{self.base_url}/calldata/export")
-        req.add_header("User-Agent", "Mozilla/5.0 MPT Dashboard Local")
-        res = self.opener.open(req, timeout=120)
-        content_type = res.headers.get("Content-Type", "")
-        data = res.read()
-        if "text/csv" not in content_type.lower():
-            raise RuntimeError(
-                "MPT không trả về CSV. Hãy kiểm tra đăng nhập và bộ lọc."
+        fields = {
+            "account_id": params.get("account_id", "0"),
+            "caller_number": params.get("caller_number", ""),
+            "dest_number": params.get("dest_number", ""),
+            "outbound": params.get("outbound", ""),
+            "from_day": params.get("from_day", ""),
+            "to_day": params.get("to_day", ""),
+            "hangupcause": params.get("hangupcause", "0"),
+            "calltype": params.get("calltype", ""),
+            "telco": params.get("telco", "0"),
+        }
+        for attempt in range(2):
+            self.login()
+            filter_res = self.post_multipart(
+                f"{self.base_url}/calldata/filter", fields
             )
-        return data
+            filter_data = filter_res.read()
+            if self._is_login_page(filter_res, filter_data):
+                self._invalidate_session()
+                if attempt == 0:
+                    continue
+                raise MptAuthenticationError(
+                    "Phiên đăng nhập MPT đã hết hạn và không thể đăng nhập lại. "
+                    "Hãy nhập lại mật khẩu và lưu kết nối."
+                )
+
+            req = urllib.request.Request(f"{self.base_url}/calldata/export")
+            req.add_header("User-Agent", "Mozilla/5.0 MPT Dashboard Local")
+            res = self.opener.open(req, timeout=120)
+            content_type = res.headers.get("Content-Type", "")
+            data = res.read()
+            if "text/csv" in content_type.lower():
+                return data
+            if self._is_login_page(res, data):
+                self._invalidate_session()
+                if attempt == 0:
+                    continue
+                raise MptAuthenticationError(
+                    "Phiên đăng nhập MPT đã hết hạn và không thể đăng nhập lại. "
+                    "Hãy nhập lại mật khẩu và lưu kết nối."
+                )
+            raise RuntimeError(
+                "MPT không trả về CSV. Hãy kiểm tra bộ lọc và thử lại."
+            )
+
+        raise MptAuthenticationError(
+            "Không thể khôi phục phiên đăng nhập MPT. Hãy nhập lại mật khẩu."
+        )
 
 
 def is_allowed_static_path(path, dashboard):
@@ -577,6 +632,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/calldata.csv":
             self.handle_calldata(parsed)
+            return
+        if parsed.path == "/api/data-status":
+            self.handle_data_status(parsed)
             return
         if parsed.path == "/api/export-progress":
             self.handle_export_progress(parsed)
@@ -706,6 +764,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         # must never reuse the long-lived client used to load account lists.
         return MptClient(profile.get("domain"), profile.get("username"), profile.get("password"))
 
+    def get_profile_sync_lock(self, profile_id):
+        """Return the one export lock shared by all requests for a profile."""
+        with self.server.profile_sync_locks_lock:
+            lock = self.server.profile_sync_locks.get(profile_id)
+            if lock is None:
+                lock = Lock()
+                self.server.profile_sync_locks[profile_id] = lock
+            return lock
+
     def get_cached_export(self, params):
         key = json.dumps(params, sort_keys=True, separators=(",", ":"))
         with self.server.export_cache_lock:
@@ -774,7 +841,20 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def handle_save_profile(self):
         try:
-            profile = self.server.profile_store.upsert(self.read_json_body())
+            payload = self.read_json_body()
+            existing = self.server.profile_store.get(payload.get("id", "")) or {}
+            domain = normalize_domain(payload.get("domain"))
+            username = (payload.get("username") or "").strip()
+            password = payload.get("password") or existing.get("password", "")
+            if not domain or not username or not password:
+                raise ValueError("Cần có domain, tên đăng nhập và mật khẩu.")
+
+            # Chỉ ghi cấu hình sau khi MPT đã xác thực và trả về đúng trang
+            # danh sách tài khoản. Nhờ vậy mật khẩu sai không thể biến một kết
+            # nối đang dùng được thành hồ sơ lỗi hoặc xóa cache account cũ.
+            accounts = MptClient(domain, username, password).get_accounts()
+            profile = self.server.profile_store.upsert(payload)
+            self.server.profile_store.update_accounts(profile["id"], accounts)
             self.server.clients.pop(profile["id"], None)
             self.clear_export_cache()
             self.json_response(profile)
@@ -1027,8 +1107,20 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 if role in ("user", "assistant") and content:
                     messages.append({"role": role, "content": str(content)[:4000]})
             context = payload.get("context")
+            scope = payload.get("scope")
+            if mode in ("summary", "chat"):
+                if not isinstance(context, dict) or not isinstance(context.get("meta"), dict):
+                    raise ValueError("Thiếu ngữ cảnh dữ liệu đã lọc.")
+                if not isinstance(scope, dict) or not scope.get("appliedFilterKey"):
+                    raise ValueError("Thiếu phạm vi bộ lọc đã áp dụng.")
             question = str(payload.get("question", ""))[:2000]
-            user_text = "Dữ liệu (JSON):\n" + json.dumps(context, ensure_ascii=False)
+            user_text = (
+                "FILTER_SCOPE (JSON, ranh giới bắt buộc của câu trả lời):\n"
+                + json.dumps(scope or {}, ensure_ascii=False)
+                + "\n\nFILTERED_DATABASE_CONTEXT (toàn bộ miền phân tích của các bản ghi "
+                  "nằm trong FILTER_SCOPE; không phải chỉ tab đang mở):\n"
+                + json.dumps(context, ensure_ascii=False)
+            )
             if question:
                 user_text += "\n\nCâu hỏi: " + question
             messages.append({"role": "user", "content": user_text})
@@ -1147,8 +1239,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         params = {key: values[-1] for key, values in query.items()}
         # job_id chỉ để báo tiến độ, không được tham gia khóa cache.
         job_id = params.pop("job_id", "")
+        sync_mode = params.pop("sync", "auto")
         try:
-            data, cache_state = self._export_calldata_csv(params, job_id)
+            data, cache_state = self._export_calldata_csv(params, job_id, sync_mode)
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
             self.send_header("Content-Disposition", "inline; filename=calldata.csv")
@@ -1159,31 +1252,92 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         except Exception as exc:
             self.error_response(exc)
 
-    def _export_calldata_csv(self, params, job_id=""):
-        """Tra ve (csv_bytes, "HIT"|"MISS") cho params da cho — dung chung boi
-        handle_calldata va handle_risk_analysis nen ca hai deu huong loi cache
-        10 phut / dedup multi-account co san, khong goi lai MPT hai lan cho
-        cung mot pham vi du lieu."""
-        data = self.get_cached_export(params)
-        if data is not None:
-            return data, "HIT"
+    def handle_data_status(self, parsed):
+        query = urllib.parse.parse_qs(parsed.query)
+        profile_id = query.get("profile_id", [""])[-1]
+        try:
+            self.json_response(self.server.call_store.status(profile_id))
+        except Exception as exc:
+            self.error_response(exc)
+
+    def _export_calldata_csv(self, params, job_id="", sync_mode="auto"):
+        """Synchronize missing/stale MPT data, then serve the filtered DB slice.
+
+        The compatibility endpoint still returns CSV so the existing worker and
+        all chart calculations remain unchanged.  MPT bytes are never written
+        as a temporary file.
+        """
+        from_day = params.get("from_day", "")
+        to_day = params.get("to_day", "")
+        try:
+            start_day = date.fromisoformat(from_day)
+            end_day = date.fromisoformat(to_day)
+        except ValueError as exc:
+            raise ValueError("Khoảng ngày không hợp lệ.") from exc
+        if start_day > end_day:
+            raise ValueError("Từ ngày phải trước hoặc bằng Đến ngày.")
+        retention_start = date.today() - timedelta(days=self.server.call_store.retention_days - 1)
+        if start_day < retention_start:
+            raise ValueError(
+                f"Chỉ hỗ trợ dữ liệu trong {self.server.call_store.retention_days} ngày gần nhất "
+                f"(từ {retention_start.isoformat()})."
+            )
+
         account_ids = [x for x in params.get("account_id", "").split(",") if x and x != "0"]
         profile_id = params.get("profile_id", "")
-        client = self.get_export_client(profile_id)
         names = self.account_names(profile_id)
-        if len(account_ids) <= 1:
-            data = client.export_csv(params)
-        else:
-            data = self.merge_account_exports(
-                client, params, account_ids,
-                progress=lambda done, current: self.set_export_progress(
-                    job_id, done, len(account_ids), current
-                ),
-                names=names,
-            )
-        data = self.inject_account_names(data, names)
-        self.cache_export(params, data)
-        return data, "MISS"
+        scopes = account_ids or ["*"]
+        force = str(sync_mode).lower() in ("force", "1", "true")
+        sync_allowed = str(sync_mode).lower() not in ("none", "0", "false")
+        request_started = monotonic()
+        sync_key = (profile_id, tuple(sorted(scopes)), from_day, to_day)
+        cache_state = "DB"
+        if sync_allowed:
+            # MPT keeps report filters in server-side session state. Serialize
+            # every export for one profile even though each export uses a fresh
+            # CookieJar, otherwise overlapping requests can still contaminate
+            # each other's account/direction scope upstream.
+            with self.get_profile_sync_lock(profile_id):
+                with self.server.profile_sync_locks_lock:
+                    completed = self.server.profile_sync_completed.get(sync_key, 0)
+                # Coalesce duplicate force requests that were already waiting
+                # when an identical sync completed. A later, deliberate force
+                # request still starts a new synchronization.
+                already_completed_while_waiting = force and completed >= request_started
+                should_sync = not already_completed_while_waiting and \
+                    self.server.call_store.needs_sync(
+                        profile_id, scopes, from_day, to_day, force=force,
+                    )
+                if should_sync:
+                    client = self.get_export_client(profile_id)
+                    # Fetch the broad account/date slice once. All other filters
+                    # run in SQLite, so those changes never re-download MPT.
+                    source_params = dict(params)
+                    source_params.update({
+                        "caller_number": "", "dest_number": "", "outbound": "",
+                        "hangupcause": "0", "calltype": "", "telco": "0",
+                    })
+                    if len(account_ids) <= 1:
+                        data = client.export_csv(source_params)
+                    else:
+                        data = self.merge_account_exports(
+                            client, source_params, account_ids,
+                            progress=lambda done, current: self.set_export_progress(
+                                job_id, done, len(account_ids), current
+                            ),
+                            names=names,
+                        )
+                    data = self.inject_account_names(data, names)
+                    self.server.call_store.ingest_csv(
+                        profile_id, data, names, scopes, from_day, to_day,
+                    )
+                    with self.server.profile_sync_locks_lock:
+                        self.server.profile_sync_completed[sync_key] = monotonic()
+                    cache_state = "SYNC"
+        if monotonic() - self.server.last_store_cleanup > 6 * 60 * 60:
+            self.server.call_store.cleanup()
+            self.server.last_store_cleanup = monotonic()
+        return self.server.call_store.query_csv(params), cache_state
 
     def account_names(self, profile_id):
         profile = self.server.profile_store.get(profile_id) or {}
@@ -1333,11 +1487,16 @@ def create_server(host="127.0.0.1", port=8787, root=None,
     server.dashboard = dashboard
     server.profile_store = ProfileStore(root)
     server.llm_config_store = LlmConfigStore(root)
+    server.call_store = call_store.CallStore(root)
+    server.last_store_cleanup = monotonic()
     server.clients = {}
     server.export_cache = OrderedDict()
     server.export_cache_lock = Lock()
     server.export_progress = {}
     server.export_progress_lock = Lock()
+    server.profile_sync_locks = {}
+    server.profile_sync_completed = {}
+    server.profile_sync_locks_lock = Lock()
     server.risk_analysis_cache = OrderedDict()
     server.risk_analysis_cache_lock = Lock()
     return server

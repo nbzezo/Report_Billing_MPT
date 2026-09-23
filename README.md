@@ -106,11 +106,12 @@ mat khau MPT**. Dung dat thu muc portable len o dia/USB dung chung cong khai.
 
 Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 
-- **Header bar** cố định: tên app, dòng trạng thái nguồn dữ liệu, nút chính **Tải báo cáo** (cam Ubuntu `#E95420`) và menu ☰.
+- **Header bar** cố định: tên app, dòng trạng thái nguồn dữ liệu, nút **Quản lý kết nối** và menu ☰.
 - **Sidebar** thay cho thanh tab ngang: 5 nhóm báo cáo, hàng đang chọn tô cam.
 - **Thanh lọc** dính ngay dưới header cho **Bộ lọc chính** — thứ dùng liên tục.
 - **Dialog** kiểu Adwaita cho Nguồn dữ liệu MPT, Tải file thủ công, Tùy chọn phân tích & màu sắc, Gán tên Account.
   Đóng bằng nút X, nút Đóng, phím Esc hoặc bấm ra ngoài.
+- Dialog Nguồn dữ liệu MPT giữ footer hành động trong vùng nhìn thấy; phần nội dung dài tự cuộn riêng trên màn hình thấp.
 - **Menu ☰** gom Xuất PNG/PDF, Đặt lại bố cục, Chế độ tối (công tắc kiểu GNOME).
 - **Sáng/tối** theo hệ thống khi người dùng chưa tự chọn; biểu đồ Plotly dùng chung nền, phông và bảng màu Yaru.
 - Font **Ubuntu Sans** nằm trong `vendor/`; vì Ubuntu Sans không có glyph tiếng Việt nên subset tiếng Việt của
@@ -118,16 +119,21 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 
 ## Nâng cấp trải nghiệm và bảo mật
 
+- Bấm KPI **Tổng cuộc** hoặc từng chip **Fail / No Answer / Huỷ / Connected** để mở bảng chi tiết theo đúng bộ lọc đã bấm **Áp dụng**. Tại các bảng **Account summary** và **Gateway**, bấm tên/key để lọc tiếp theo `account_id` và gateway gốc; bảng chi tiết có phân trang và vẫn giữ tab/bộ lọc hiện tại.
 - Danh sách Account đã lưu được nạp tự động sau khi chọn kết nối; chọn **Làm mới tài khoản** khi cần đồng bộ lại từ MPT.
 - Bộ lọc gần nhất được ghi nhớ trong trình duyệt. Ngày mặc định dùng đúng múi giờ máy tính.
 - Màn hình tải báo cáo hiển thị thời gian chờ và cho phép hủy/thử lại. Khi tải lỗi có thêm nút **Đóng** (hoặc phím Esc) để quay lại dashboard; tham số `?csv=` cũng được gỡ khỏi URL nên lần F5 sau không tự chạy lại và kẹt tiếp.
 - Tải nhiều Account hiển thị tiến độ thật: *Đang tải tài khoản 7/40 — tên account*, lấy từ `/api/export-progress`.
-- **Bộ lọc chính** hiển thị phạm vi dữ liệu đang có. Nếu khoảng lọc nằm ngoài dữ liệu đã tải, dashboard cảnh báo kèm nút **Tải khoảng này từ MPT** thay vì im lặng trả về 0.
-- Không nạp được danh sách Account không còn chặn cả luồng: chỉ cần chọn kết nối là bấm được **Tải / Cập nhật báo cáo** (bỏ trống account = tất cả).
-- **Bộ lọc chính** đổi thành *Áp dụng thay đổi* khi có thay đổi chưa áp dụng; nhấn Enter trong ô ngày/giờ cũng áp dụng.
+- **Bộ lọc chính** gom kết nối MPT, tài khoản, ngày/giờ, hướng gọi, nhà mạng, nguyên nhân kết thúc và loại cuộc gọi. Nút **Xem/Cập nhật báo cáo** tự đọc dữ liệu đã có trong SQLite rồi chỉ đồng bộ phần còn thiếu hoặc đã cũ từ MPT; **Đồng bộ lại từ MPT** ép đồng bộ lại toàn bộ phạm vi đang chọn.
+- CSV tải mới từ MPT được chuẩn hoá trực tiếp trong bộ nhớ vào `data/calls.sqlite3`, không tạo file CSV tạm. Kho dữ liệu giữ cuốn chiếu **31 ngày**, tự dọn dữ liệu cũ khi khởi động và định kỳ mỗi 6 giờ. Các file CSV cũ do người dùng tải thủ công không bị xoá.
+- Đồng bộ được tuần tự hoá theo từng kết nối MPT: các yêu cầu trùng đang chờ dùng chung kết quả vừa hoàn tất, không thể ghi đè bộ lọc phiên của nhau. Giao diện khóa cả hai nút trong lúc xử lý và worker chỉ chấp nhận dataset của yêu cầu mới nhất, nên phản hồi cũ đến muộn không thể thay thế báo cáo đang xem.
+- **Bộ lọc chính** hiển thị phạm vi dữ liệu đang có. Nếu khoảng lọc nằm ngoài dữ liệu đã nạp, dashboard cảnh báo kèm nút **Cập nhật khoảng này** thay vì im lặng trả về 0.
+- Không nạp được danh sách Account không còn chặn cả luồng: chỉ cần chọn kết nối là bấm được **Xem/Cập nhật báo cáo** (bỏ trống account = tất cả).
+- **Bộ lọc chính** đánh dấu nút *Xem/Cập nhật báo cáo* khi có thay đổi chưa áp dụng; nhấn Enter trong ô ngày/giờ cũng cập nhật.
 - Nhãn tách bạch: **Tài khoản cần tải** (lấy từ MPT) và **Tài khoản đang xem** (lọc trên dữ liệu đã tải).
 - Dữ liệu lần gần nhất được nhớ trong IndexedDB (tối đa 200.000 dòng). Mở lại app sẽ hiện banner
   *Dữ liệu lần trước… [Dùng lại] [Bỏ qua]* thay vì phải export lại từ MPT.
+- Biểu đồ **Phân bổ Hangup Cause theo Gateway** dùng thanh ngang 100% stacked: mỗi Gateway là một dòng, mỗi nguyên nhân là một màu và không gộp các nguyên nhân nhỏ. Chiều cao tăng theo số Gateway để giữ nhãn dễ đọc; bảng bên dưới vẫn hiển thị số lượng tuyệt đối.
 - Lưu kết nối trùng domain + tên đăng nhập sẽ hỏi lại trước khi tạo thêm.
 - Bỏ nút *Lưu vào HTML* ở phần gán tên Account: mapping đã tự lưu trong trình duyệt, và file HTML tải về
   không nằm trong allowlist nên mở qua server không chạy. Vẫn còn Export/Import JSON.

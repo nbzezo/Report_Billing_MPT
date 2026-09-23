@@ -32,7 +32,15 @@ def chat(base_url, api_key, model, system, messages, label,
     body = json.dumps(payload).encode("utf-8")
     req = urllib.request.Request(url, data=body, method="POST")
     req.add_header("Content-Type", "application/json")
+    req.add_header("Accept", "application/json")
     req.add_header("Authorization", f"Bearer {api_key}")
+    # UA mac dinh cua urllib ("Python-urllib/3.x") bi Cloudflare (va nhieu WAF
+    # khac) chan thang voi ma loi 1010 "banned based on your browser's
+    # signature" truoc khi request cham toi app phia sau - doi UA giong trinh
+    # duyet that de qua duoc loai chan nay (khong lien quan API key/model).
+    req.add_header("User-Agent",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
     request_opener = opener or urllib.request
     try:
         res = request_opener.urlopen(req, timeout=timeout)

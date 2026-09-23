@@ -6,8 +6,10 @@ import sys
 import tempfile
 import types
 import unittest
+from unittest import mock
+from datetime import date, timedelta
 from pathlib import Path
-from threading import Lock
+from threading import Event, Lock, Thread
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +17,21 @@ SERVER_PATH = ROOT / "scripts" / "mpt_dashboard_server.py"
 SPEC = importlib.util.spec_from_file_location("mpt_dashboard_server", SERVER_PATH)
 SERVER = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(SERVER)
+
+
+class FakeResponse:
+    def __init__(self, body=b"", content_type="text/html; charset=UTF-8",
+                 url="https://example.com/dashboard", status=200):
+        self._body = body
+        self.headers = {"Content-Type": content_type}
+        self._url = url
+        self.status = status
+
+    def read(self):
+        return self._body
+
+    def geturl(self):
+        return self._url
 
 
 class ProfileStoreTests(unittest.TestCase):
@@ -81,6 +98,67 @@ class ProfileStoreTests(unittest.TestCase):
             store = SERVER.ProfileStore(directory)
             self.assertEqual(store.get("old")["password"], "legacy-secret")
             self.assertNotIn("legacy-secret", path.read_text(encoding="utf-8"))
+
+    def test_successful_account_refresh_records_last_verified_time(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.ProfileStore(directory)
+            saved = store.upsert({
+                "name": "Test",
+                "domain": "example.com",
+                "username": "user",
+                "password": "secret",
+            })
+            store.update_accounts(saved["id"], [{"id": "1", "name": "A"}])
+            public = next(p for p in store.public_profiles() if p["id"] == saved["id"])
+            self.assertEqual(public["accountCount"], 1)
+            self.assertTrue(public["lastVerifiedAt"])
+
+
+class MptClientAuthenticationTests(unittest.TestCase):
+    LOGIN_HTML = b'<form><input name="username_softswitch"><input name="password_softswitch"></form>'
+
+    def test_login_rejects_login_form_even_when_http_status_is_200(self):
+        client = SERVER.MptClient("https://example.com", "user", "bad")
+        client.post_multipart = mock.Mock(return_value=FakeResponse(
+            self.LOGIN_HTML, url="https://example.com/user/checkAuthen"
+        ))
+
+        with self.assertRaisesRegex(SERVER.MptAuthenticationError, "không hợp lệ"):
+            client.login()
+
+        self.assertFalse(client.logged_in)
+
+    def test_export_reauthenticates_once_after_expired_session(self):
+        client = SERVER.MptClient("https://example.com", "user", "secret")
+        client.logged_in = True
+        client.post_multipart = mock.Mock(side_effect=[
+            FakeResponse(self.LOGIN_HTML, url="https://example.com/user"),
+            FakeResponse(b"ok", url="https://example.com/dashboard"),
+            FakeResponse(b"filter ok", url="https://example.com/calldata/filter"),
+        ])
+        client.opener = mock.Mock()
+        client.opener.open.return_value = FakeResponse(
+            b"uuid,account_id\n1,334\n", content_type="text/csv; charset=utf-8",
+            url="https://example.com/calldata/export",
+        )
+
+        data = client.export_csv({"account_id": "334"})
+
+        self.assertTrue(data.startswith(b"uuid,"))
+        self.assertTrue(client.logged_in)
+        self.assertEqual(client.post_multipart.call_count, 3)
+
+    def test_accounts_rejects_unexpected_html_instead_of_returning_empty(self):
+        client = SERVER.MptClient("https://example.com", "user", "secret")
+        client.logged_in = True
+        client.opener = mock.Mock()
+        client.opener.open.return_value = FakeResponse(
+            b"<html><body>maintenance</body></html>",
+            url="https://example.com/calldata/filter",
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "giữ nguyên"):
+            client.get_accounts()
 
 
 class PortableSecretTests(unittest.TestCase):
@@ -265,8 +343,11 @@ class CreateServerTests(unittest.TestCase):
                 self.assertGreater(server.server_address[1], 0)
                 self.assertIsInstance(server.profile_store, SERVER.ProfileStore)
                 self.assertIsInstance(server.llm_config_store, SERVER.LlmConfigStore)
+                self.assertIsInstance(server.call_store, SERVER.call_store.CallStore)
                 self.assertEqual(len(server.export_cache), 0)
                 self.assertTrue(hasattr(server, "export_cache_lock"))
+                self.assertTrue(hasattr(server, "profile_sync_locks"))
+                self.assertTrue(hasattr(server, "profile_sync_completed"))
                 self.assertEqual(server.dashboard, "V2_0_Call_Dashboard_MPT.html")
             finally:
                 server.server_close()
@@ -285,6 +366,47 @@ class ServerSafetyTests(unittest.TestCase):
         self.assertEqual(SERVER.normalize_domain("example.com/path"), "https://example.com")
         self.assertEqual(SERVER.normalize_domain(" https://example.com/a "), "https://example.com")
         self.assertEqual(SERVER.normalize_domain(""), "")
+
+
+class CallStoreTests(unittest.TestCase):
+    def test_ingest_is_idempotent_and_query_uses_normalized_schema(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            payload = (
+                "Account,Caller,Destination,Start time,End time,Duration,Billsec,Hangup Cause,Call ID,Telco,Direction,Call Type\n"
+                f"334,0901,0912,{today} 10:00:00,{today} 10:01:00,60,50,NORMAL_CLEARING,u1,Viettel,Outbound,External\n"
+            ).encode("utf-8")
+            for _ in range(2):
+                store.ingest_csv("p", payload, {"334": "Demo"}, ["334"], today, today)
+            status = store.status("p")
+            exported = store.query_csv({
+                "profile_id": "p", "account_id": "334",
+                "from_day": today, "to_day": today,
+            }).decode("utf-8-sig")
+            self.assertEqual(status["rows"], 1)
+            self.assertIn("account_name", exported.splitlines()[0])
+            self.assertIn("Demo", exported)
+            filtered = store.query_csv({
+                "profile_id": "p", "account_id": "334", "from_day": today,
+                "to_day": today, "outbound": "1", "calltype": "3",
+            }).decode("utf-8-sig")
+            self.assertIn("Outbound", filtered)
+            self.assertIn("External", filtered)
+            self.assertFalse(store.needs_sync("p", ["334"], today, today))
+
+    def test_cleanup_removes_rows_outside_rolling_window(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory, retention_days=31)
+            old = (date.today() - timedelta(days=40)).isoformat()
+            payload = (
+                "account_id,start_stamp,uuid\n"
+                f"334,{old} 10:00:00,old-1\n"
+            ).encode("utf-8")
+            store.ingest_csv("p", payload, {}, ["334"], old, old)
+            self.assertEqual(store.status("p")["rows"], 1)
+            store.cleanup()
+            self.assertEqual(store.status("p")["rows"], 0)
 
 
 class DashboardCoreModuleTests(unittest.TestCase):
@@ -459,6 +581,7 @@ class IncrementalRenderTests(unittest.TestCase):
         # worker giữ toàn bộ, chỉ gửi về main thread tối đa cap dòng
         self.assertIn("state.enriched.slice(0, cap)", worker)
         self.assertIn("accountIds: accountIds", worker)   # danh sách account đủ, không bị cap
+        self.assertIn("telcos: telcos", worker)
         self.assertIn("const MAIN_ROW_CAP=", html)
         self.assertIn("cap:MAIN_ROW_CAP", html)
         # cube/page vẫn tính trên state.enriched đầy đủ
@@ -479,8 +602,96 @@ class IncrementalRenderTests(unittest.TestCase):
         self.assertIn("async function renderBillingTab(){", self.HTML)
         self.assertIn("await dashWorker.billing(cfg)", self.HTML)
 
+    def test_billing_quick_ranges_use_full_dataset_metadata(self):
+        self.assertIn("function setBillingRangePreset(preset)", self.HTML)
+        self.assertIn("resolveDateRangePreset(preset,min,max)", self.HTML)
+        self.assertIn("setBillingRangePreset('all')", self.HTML)
+        self.assertIn("setBillingRangePreset('latest')", self.HTML)
+        self.assertNotIn("function setBillingRangeDays(days)", self.HTML)
+
+    def test_operational_alerts_are_computed_in_full_data_cube(self):
+        core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+        self.assertIn("operationalAlerts: computeOperationalAlerts(rows)", core)
+        self.assertIn("cubeVal('operationalAlerts'", self.HTML)
+        self.assertIn("scope:{mode:'full'", core)
+
 
 class ExportProgressTests(unittest.TestCase):
+    def test_overlapping_force_requests_for_same_scope_are_coalesced(self):
+        export_started = Event()
+        second_reached_lock = Event()
+        release_export = Event()
+        sync_lock = Lock()
+        counter_lock = Lock()
+        lock_requests = 0
+
+        class FakeStore:
+            retention_days = 31
+
+            def needs_sync(self, *args, **kwargs):
+                return True
+
+            def ingest_csv(self, *args, **kwargs):
+                return None
+
+            def query_csv(self, params):
+                return b"uuid\n"
+
+            def cleanup(self):
+                return 0
+
+        class FakeClient:
+            calls = 0
+
+            def export_csv(self, params):
+                FakeClient.calls += 1
+                export_started.set()
+                self.assert_released = release_export.wait(2)
+                return b"uuid,account_id,start_stamp\nu1,334,2026-09-23 10:00:00\n"
+
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        handler.server = types.SimpleNamespace(
+            call_store=FakeStore(), profile_sync_locks_lock=Lock(),
+            profile_sync_completed={}, last_store_cleanup=SERVER.monotonic(),
+        )
+        handler.account_names = lambda profile_id: {}
+        handler.get_export_client = lambda profile_id: FakeClient()
+
+        def get_sync_lock(profile_id):
+            nonlocal lock_requests
+            with counter_lock:
+                lock_requests += 1
+                if lock_requests == 2:
+                    second_reached_lock.set()
+            return sync_lock
+
+        handler.get_profile_sync_lock = get_sync_lock
+        params = {
+            "profile_id": "p", "account_id": "334",
+            "from_day": "2026-09-23", "to_day": "2026-09-23",
+        }
+        results = []
+        errors = []
+
+        def run_export():
+            try:
+                results.append(handler._export_calldata_csv(dict(params), sync_mode="force")[1])
+            except Exception as exc:
+                errors.append(exc)
+
+        first = Thread(target=run_export)
+        second = Thread(target=run_export)
+        first.start()
+        self.assertTrue(export_started.wait(1))
+        second.start()
+        self.assertTrue(second_reached_lock.wait(1))
+        release_export.set()
+        first.join(2)
+        second.join(2)
+        self.assertFalse(errors)
+        self.assertEqual(FakeClient.calls, 1)
+        self.assertCountEqual(results, ["SYNC", "DB"])
+
     def test_multi_account_export_reports_progress_for_each_account(self):
         class FakeClient:
             base_url = "https://example.com"
@@ -528,11 +739,11 @@ class ExportProgressTests(unittest.TestCase):
         self.assertEqual(inject(src, {}), src)
         self.assertEqual(inject(out.encode("utf-8-sig"), names).decode("utf-8-sig"), out)
 
-    def test_job_id_is_removed_before_the_export_cache_key_is_built(self):
+    def test_job_id_is_removed_before_the_database_query_is_built(self):
         source = SERVER_PATH.read_text(encoding="utf-8")
         self.assertLess(
             source.index('params.pop("job_id"'),
-            source.index("self.get_cached_export(params)"),
+            source.index("self.server.call_store.query_csv(params)"),
         )
 
     def test_progress_is_stored_per_job_and_ignored_without_a_job_id(self):
@@ -568,6 +779,10 @@ class FrontendRegressionTests(unittest.TestCase):
         for token in ("reportLoading", "cancelReportLoad", 'role="tablist"', 'aria-live="polite"'):
             self.assertIn(token, self.dashboard_html)
 
+    def test_kpi_summary_places_status_chips_on_a_full_width_row(self):
+        self.assertIn(".kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(3", self.dashboard_html)
+        self.assertIn("#kpi_conn{grid-column:1/-1;min-height:52px}", self.dashboard_html)
+
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
         self.assertTrue(worker.exists())
@@ -586,6 +801,25 @@ class FrontendRegressionTests(unittest.TestCase):
             "history.replaceState",
         ):
             self.assertIn(token, self.dashboard_html)
+
+    def test_mpt_source_dialog_keeps_footer_visible_on_short_viewports(self):
+        # Header/footer remain fixed while only the body scrolls; otherwise the
+        # report button is clipped on 768- or 800-pixel-high screens.
+        self.assertIn("height:min(88vh,940px)", self.dashboard_html)
+        self.assertIn("max-height:calc(100vh - 24px)", self.dashboard_html)
+        self.assertIn("display:flex;flex-direction:column", self.dashboard_html)
+        self.assertIn("overflow:auto;flex:1;min-height:0;max-height:none", self.dashboard_html)
+        self.assertIn('id="mptSourcePanel"', self.dashboard_html)
+        self.assertIn('class="adw-dialog-footer"', self.dashboard_html)
+
+    def test_closed_dialogs_do_not_leak_into_the_bottom_of_report_tabs(self):
+        self.assertIn("body.adw dialog.adw-dialog:not([open]){display:none}", self.dashboard_html)
+        self.assertIn(".mapping-panel{margin-top:12px}", self.dashboard_html)
+        self.assertNotIn(".mapping-panel{display:none", self.dashboard_html)
+
+    def test_empty_call_drilldown_dialog_is_removed(self):
+        self.assertNotIn('id="callDrilldownDialog"', self.dashboard_html)
+        self.assertNotIn('aria-controls="callDrilldownDialog"', self.dashboard_html)
 
     def test_mpt_panel_closes_with_dialog_close_not_open_attribute(self):
         # Panel mở bằng showModal(); đóng bằng .open=false chỉ ẩn dialog mà KHÔNG
@@ -606,8 +840,8 @@ class FrontendRegressionTests(unittest.TestCase):
         for token in (
             'id="mainFilterScope"',
             "function updateFilterScopeNotice",
-            "function loadMainFilterRangeFromMpt",
-            "Tải khoảng này từ MPT",
+            "button.addEventListener('click',()=>runUnifiedReport(false))",
+            "Cập nhật khoảng này",
         ):
             self.assertIn(token, self.dashboard_html)
 
@@ -659,8 +893,43 @@ class FrontendRegressionTests(unittest.TestCase):
         for token in ("YARU_COLORWAY", "function adwPlotTheme", "__adwThemed"):
             self.assertIn(token, self.dashboard_html)
 
+    def test_plot_render_removes_stale_no_data_message(self):
+        # Plotly.react giữ lại HTML do showNoData() chèn từ lần render rỗng
+        # trước đó, nên phải xóa node này trước khi dựng biểu đồ có dữ liệu.
+        self.assertIn("target.querySelectorAll(':scope > .no-data')", self.dashboard_html)
+        self.assertIn("forEach(node=>node.remove())", self.dashboard_html)
+
     def test_main_filter_shows_unapplied_changes(self):
-        for token in ("function markFilterDirty", "Áp dụng thay đổi", "#applyFilter.dirty"):
+        for token in ("function markFilterDirty", "Xem/Cập nhật báo cáo", "#applyFilter.dirty"):
+            self.assertIn(token, self.dashboard_html)
+
+    def test_unified_filter_owns_sync_and_report_update(self):
+        for token in (
+            'id="mainMptProfile"', 'id="refreshMptData"',
+            'id="applyFilter" class="primary-btn">Xem/Cập nhật báo cáo',
+            'id="mainDirection"', 'Outbound (Gọi ra)', 'Inbound (Gọi vào)',
+            'id="mainHangup"', 'id="mainCallType"',
+            "function runUnifiedReport(force=false)", "sync',force?'force':'auto'",
+            "let reportRequestSeq=0", "datasetToken:requestId",
+            "setReportActionsBusy(true,forceSync)",
+            "/api/data-status?profile_id=",
+        ):
+            self.assertIn(token, self.dashboard_html)
+        self.assertIn('parsed.path == "/api/data-status"', self.server_source)
+        self.assertIn("self.server.call_store.query_csv(params)", self.server_source)
+        worker = (ROOT / "dashboard-csv-worker.js").read_text(encoding="utf-8")
+        self.assertIn("token < state.datasetToken", worker)
+
+    def test_report_url_restores_direction_and_account_scope(self):
+        # Mở lại URL đã lọc phải đồng bộ control với chính dataset đó. Nếu không,
+        # đổi Hướng gọi ở lần kế tiếp sẽ âm thầm gửi account_id=0 (tất cả).
+        for token in (
+            "function reportScopeFromDataUrl(dataUrl)",
+            "function applyReportScopeToControls(scope)",
+            "mainDirection: params.get('outbound')",
+            "activeReportAccountIds=scope.accountIds.slice()",
+            "refreshAccountFilter(requestScope&&Array.isArray(requestScope.accountIds)",
+        ):
             self.assertIn(token, self.dashboard_html)
 
     def test_account_labels_separate_fetching_from_viewing(self):
@@ -972,9 +1241,9 @@ class CidDot4Tests(unittest.TestCase):
         # gop lai se sinh cau "khong chi so nao dat nguong" ngay canh bang day
         # chi so vuot nguong — mau thuan ngay tren man hinh
         self.assertIn("insufficientSample", self.CORE)
-        self.assertIn("Mẫu quá nhỏ để kết luận", self.HTML)
-        self.assertIn("Đã đo, không tìm thấy tín hiệu dùng được", self.HTML)
-        self.assertIn("đừng đọc chúng như tín hiệu", self.HTML)
+        self.assertIn("Chưa thể kết luận về khả năng cảnh báo sớm", self.HTML)
+        self.assertIn("Chưa tìm thấy dấu hiệu đủ ổn định để cảnh báo", self.HTML)
+        self.assertIn("chưa nên bật cảnh báo tự động", self.HTML)
 
 
 class CidSignalPatternTests(unittest.TestCase):
@@ -1005,12 +1274,12 @@ class CidSignalPatternTests(unittest.TestCase):
         self.assertIn("hiPercentile", self.CORE)
         # nguong suy bien phai duoc bao ra
         self.assertIn("durationDegenerate", self.CORE)
-        self.assertIn("ngưỡng thời lượng bằng 0", self.HTML)
+        self.assertIn("nhiều thời điểm bình thường cũng không có cuộc nào kết nối", self.HTML)
 
     def test_luon_co_nen_doi_chung_de_so_sanh(self):
         self.assertIn("controlPct", self.CORE)
         self.assertIn("lift:", self.CORE)
-        self.assertIn("Gấp nền", self.HTML)
+        self.assertIn("Mức phổ biến", self.HTML)
 
     def test_canh_bao_khi_luong_chinh_chi_giu_mau_bi_cat(self):
         # dashState.filtered bi cap o MAIN_ROW_CAP; khong bao thi cac ti le trong
@@ -1034,8 +1303,8 @@ class CidPerAccountAndPerfTests(unittest.TestCase):
     def test_dem_ngay_co_luu_luong_chu_khong_dem_ngay_lich(self):
         # du lieu that co Chu nhat gan bang 0 va mot dai 5 ngay gian doan
         self.assertIn("function countActiveDays", self.CORE)
-        self.assertIn("ngày có lưu lượng thật", self.HTML)
-        self.assertIn("đừng đếm ngày lịch", self.HTML)
+        self.assertIn("ngày có phát sinh cuộc gọi", self.HTML)
+        self.assertIn("khoảng có lưu lượng đều", self.HTML)
 
     def test_khong_con_mang_hits_va_khong_quet_lai_CDR(self):
         self.assertIn("sampleLimit", self.CORE)
@@ -1052,6 +1321,71 @@ class CidPerAccountAndPerfTests(unittest.TestCase):
         # giu max se che mat chinh cac dot tut — thu duy nhat dang nhin
         self.assertIn("function downsampleSeriesMin", self.CORE)
         self.assertIn("downsampleSeriesMin(series[t].times", self.HTML)
+
+
+class GatewayHangupCauseChartTests(unittest.TestCase):
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_bieu_do_phan_bo_so_cuoc_goi_theo_gateway(self):
+        self.assertIn('id="chart_gateway_call_distribution"', self.HTML)
+        self.assertIn("function plotGatewayCallDistribution(rows, colors)", self.HTML)
+        self.assertIn("title:{text:'Phân bổ số lượng cuộc gọi theo Gateway'", self.HTML)
+        self.assertIn("cubeVal('gatewayFail'", self.HTML)
+        self.assertIn("safePlot('chart_gateway_call_distribution'", self.HTML)
+        self.assertIn("Tỷ trọng: %{customdata[0]:.2f}%", self.HTML)
+
+    def test_bieu_do_phan_bo_phan_tram_theo_gateway(self):
+        self.assertIn('id="chart_gateway_hangup_cause_pie"', self.HTML)
+        self.assertIn("function plotGatewayHangupCausePie(rows)", self.HTML)
+        self.assertIn("title:'Phân bổ Hangup Cause theo Gateway (%)'", self.HTML)
+        self.assertIn("type:'bar', orientation:'h'", self.HTML)
+        self.assertIn("barmode:'stack', barnorm:'percent'", self.HTML)
+        self.assertIn("Không gộp nguyên nhân nhỏ", self.HTML)
+        self.assertIn("customdata[1]:.2f", self.HTML)
+        self.assertIn(":not(#chart_gateway_hangup_cause_pie)", self.HTML)
+        self.assertIn(".chart-report-card>#chart_gateway_hangup_cause_pie{height:auto!important;min-height:430px;display:block}", self.HTML)
+        self.assertIn("#report_chart_gateway_hangup_cause_pie{height:auto;min-height:0!important;overflow:hidden}", self.HTML)
+        self.assertIn("function fitGatewayHangupCauseCard(plot)", self.HTML)
+        self.assertIn("card.style.height=`${chartHeight + detailsHeight + 16}px`", self.HTML)
+        self.assertIn("layout-full>[id^=\"chart_\"]:not(#chart_gateway_hangup_cause_pie)", self.HTML)
+
+    def test_bieu_do_dung_chung_cube_va_render_trong_tab_advanced(self):
+        self.assertIn("cubeVal('gatewayHangupCause'", self.HTML)
+        self.assertIn("safePlot('chart_gateway_hangup_cause_pie'", self.HTML)
+        self.assertIn("'table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie'", self.HTML)
+
+    def test_bang_hangup_cause_thu_gon_theo_tung_gateway(self):
+        self.assertIn('id="gatewayHangupCauseGroups"', self.HTML)
+        self.assertIn("details.className = 'gateway-cause-group'", self.HTML)
+        self.assertIn("details.open = openGateways.has(gateway)", self.HTML)
+        self.assertIn("Tỷ trọng Fail", self.HTML)
+        self.assertIn("item.failSharePct.toFixed(2)", self.HTML)
+        self.assertNotIn('id="gatewayHangupCauseTable"', self.HTML)
+
+
+class AdvancedReportLayoutTests(unittest.TestCase):
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_nam_nhom_bao_cao_duoc_tao_va_dinh_vi_dong(self):
+        for label in ("Tổng quan vận hành", "Sức khỏe Gateway", "Hiệu suất Account",
+                      "Chẩn đoán chuyên sâu", "Dữ liệu chi tiết"):
+            self.assertIn(f"label:'{label}'", self.HTML)
+        self.assertIn("function positionAdvancedGroupHeaders()", self.HTML)
+        self.assertIn("updateAdvancedGroupHeaders(tabName);", self.HTML)
+
+    def test_bay_bao_cao_xem_nhanh_duoc_chon_xuyen_nhom(self):
+        expected = "primaryIds:['panel_alerts','table_data_quality','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_agent_perf','table_agent_perf']"
+        self.assertIn(expected, self.HTML)
+        self.assertIn("v.primaryIds || v.order.slice(0, v.primary)", self.HTML)
+
+    def test_thu_tu_theo_luong_chan_doan(self):
+        advanced = self.HTML.split("advanced:{ primary:7,", 1)[1].split("cid:{ primary:", 1)[0]
+        advanced = advanced.split("order:[", 1)[1]
+        ordered = ["panel_alerts", "table_data_quality", "table_gateway_fail",
+                   "chart_gateway_call_distribution", "chart_gateway_hangup_cause_pie", "chart_gateway_fail_timeline",
+                   "chart_agent_perf", "table_gateway_block_reconcile", "table_card"]
+        positions = [advanced.index(token) for token in ordered]
+        self.assertEqual(positions, sorted(positions))
 
 
 class CidReadabilityOnReportLayoutTests(unittest.TestCase):
@@ -1076,17 +1410,18 @@ class CidReadabilityOnReportLayoutTests(unittest.TestCase):
         # voi cac the bi boc lai (chart_cid_pressure, chart_cid_load_risk).
         self.assertIn("resolveReportCard('panel_cid_coverage')", self.HTML)
         self.assertIn("resolveReportCard(g.anchor)", self.HTML)
-        self.assertIn("  positionReportToggles();\n  positionCidExtras();\n}\napplyDashboardV2Layout();", self.HTML)
-        self.assertIn("    positionReportToggles();\n    positionCidExtras();\n  }catch(e){}\n}", self.HTML)
+        self.assertIn("  positionReportToggles();\n  positionCidExtras();\n  positionAdvancedGroupHeaders();\n}\napplyDashboardV2Layout();", self.HTML)
+        self.assertIn("    positionReportToggles();\n    positionCidExtras();\n    positionAdvancedGroupHeaders();\n  }catch(e){}\n}", self.HTML)
 
-    def test_4_nhom_mau_khop_dung_REPORT_LAYOUT_cid_order(self):
-        for anchor in ("panel_cid_coverage", "chart_cid_pressure", "chart_cid_load_risk", "panel_gateway_map"):
+    def test_5_nhom_mau_khop_dung_REPORT_LAYOUT_cid_order(self):
+        for anchor in ("panel_cid_coverage", "chart_cid_pressure", "chart_cid_load_risk",
+                       "table_cid_action_queue", "panel_gateway_map"):
             self.assertIn(f"anchor:'{anchor}'", self.HTML)
 
     def test_bang_ky_thuat_van_an_sau_details(self):
         self.assertIn('<details class="cid-detail-toggle">', self.HTML)
-        self.assertIn("Xem bảng chi tiết (Cohen's d", self.HTML)
-        self.assertIn("Xem bảng chi tiết (phân bố, tổ hợp, ngưỡng phân vị)", self.HTML)
+        self.assertIn("Xem số liệu phân tích chuyên sâu", self.HTML)
+        self.assertIn("Xem cách hệ thống tính kết quả", self.HTML)
 
     def test_khong_dung_lai_co_che_PRIMARY_REPORTS_cu_rieng_cho_cid(self):
         # Co che REPORT_LAYOUT (tu nhanh Gateway) da la nguon duy nhat; khong
@@ -1099,3 +1434,76 @@ class CidReadabilityOnReportLayoutTests(unittest.TestCase):
         self.assertIn("function cidStatBox(value, label, hint, tone)", self.HTML)
         self.assertIn("const box = (label, value, hint, tone) => cidStatBox(value, label, hint, tone);", self.HTML)
         self.assertIn("const box = cidStatBox;", self.HTML)
+
+
+class CidLifecycleExpansionTests(unittest.TestCase):
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+    CORE = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+
+    def test_nam_bao_cao_phan_tich_moi_co_mat(self):
+        for card in ("chart_cid_recovery_survival", "table_cid_reblock",
+                     "chart_cid_inventory_trend", "table_cid_action_queue",
+                     "table_cid_comparison"):
+            self.assertIn(f'id="{card}"', self.HTML)
+        for fn in ("plotCidRecoverySurvival", "renderCidReblockTable",
+                   "plotCidInventoryTrend", "renderCidActionQueue",
+                   "renderCidComparison"):
+            self.assertIn(f"function {fn}", self.HTML)
+
+    def test_tinh_toan_nam_trong_core_va_duoc_xuat(self):
+        for fn in ("computeCidRecoverySurvival", "computeCidReblockStats",
+                   "computeCidInventoryTrend", "computeCidActionQueue",
+                   "computeCidDimensionComparison"):
+            self.assertIn(f"function {fn}", self.CORE)
+            self.assertIn(fn, self.CORE.split("const __exports =", 1)[1])
+
+    def test_bay_bao_cao_quyet_dinh_mo_mac_dinh(self):
+        expected = "primaryIds:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','chart_cid_pressure','panel_cid_waste','chart_cid_load_risk','table_cid_action_queue']"
+        self.assertIn(expected, self.HTML)
+        self.assertIn("updateCidGroupHeaders(tabName);", self.HTML)
+
+
+class CidRiskReportPresentationTests(unittest.TestCase):
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_risk_report_uses_dashboard_components(self):
+        for class_name in ("risk-kpi-grid", "risk-table-wrap", "risk-badge",
+                           "risk-rate-track", "risk-narrative"):
+            self.assertIn(class_name, self.HTML)
+        self.assertIn("Xếp hạng rủi ro Gateway", self.HTML)
+        self.assertIn("Sắp xếp theo tỷ lệ CID bị khoá giảm dần", self.HTML)
+
+    def test_ai_narrative_is_formatted_instead_of_raw_pre_wrap(self):
+        self.assertIn("function llmSafeNarrativeHtml(value)", self.HTML)
+        self.assertIn("llmSafeNarrativeHtml(data.narrative)", self.HTML)
+        self.assertNotIn('style="white-space:pre-wrap">${reportTableEscape(data.narrative)}', self.HTML)
+
+
+class LlmRichChatTests(unittest.TestCase):
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+    SERVER = (ROOT / "scripts" / "mpt_dashboard_server.py").read_text(encoding="utf-8")
+
+    def test_chat_reads_all_filtered_cube_domains_and_sends_locked_scope(self):
+        self.assertIn("buildLlmContext(cube, '__all__'", self.HTML)
+        self.assertIn("scope:llmCurrentFilterScope()", self.HTML)
+        self.assertIn("appliedFilterKey:dashState.filterKey", self.HTML)
+        self.assertIn('scope.get("appliedFilterKey")', self.SERVER)
+        self.assertIn("FILTERED_DATABASE_CONTEXT", self.SERVER)
+
+    def test_chat_renders_structured_visual_blocks_without_model_html(self):
+        for token in ("function llmRenderPresentation", "function llmRenderChart",
+                      "ai-section", "ai-kpis", "ai-table", "ai-chart", "ai-diagram", "ai-actions"):
+            self.assertIn(token, self.HTML)
+        self.assertIn("document.createElementNS('http://www.w3.org/2000/svg','svg')", self.HTML)
+        self.assertNotIn("div.innerHTML = text", self.HTML)
+
+    def test_chat_frontend_cleans_markdown_fallback(self):
+        for token in ("function llmLooksLikeMarkdown", "function llmMarkdownToPresentation",
+                      "llmCleanMarkdownText", "onlyTextBlock", "data = llmMarkdownToPresentation"):
+            self.assertIn(token, self.HTML)
+
+    def test_chat_composer_and_scope_are_visible(self):
+        self.assertIn('id="askScopeLabel"', self.HTML)
+        self.assertIn('id="askQuestionInput" rows="1"', self.HTML)
+        self.assertIn("Enter để gửi · Shift+Enter để xuống dòng", self.HTML)
+        self.assertIn("event.key==='Enter' && !event.shiftKey", self.HTML)
