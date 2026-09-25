@@ -5659,7 +5659,7 @@ async function renderBillingTab(){
   }
 
   await renderSteps([
-    ()=> plotBillingByPeriod(res, cfg, metric, colors),
+    ()=> plotBillingByPeriod(res, cfg, metric, colors, forecast),
     ()=> plotBillingByTelco(res, cfg, metric, colors),
     ()=> plotBillingByPrefix(res, cfg, metric, colors),
     ()=> renderBillingPeriodTable(res, cfg),
@@ -5695,7 +5695,7 @@ function renderBillingForecast(fc, cfg){
 
   const money = s=> hasRate ? roundMoney(s/60*cfg.rate, cfg.roundStep) : 0;
   const parts = [];
-  parts.push(`Thực tế ${dm(fc.monthStart)} → ${dm(fc.lastDate)} (CDR đến ${fc.lastStamp.slice(11,16)}): <b>${val(fc.actualSec, fc.actualCost)}</b>`);
+  parts.push(`Thực tế ${dm(fc.missingMonthStart ? fc.firstCovered : fc.monthStart)} → ${dm(fc.lastDate)} (CDR đến ${fc.lastStamp.slice(11,16)}): <b>${val(fc.actualSec, fc.actualCost)}</b>`);
   if(fc.remainder){
     const r = fc.remainder;
     parts.push(`phần còn lại ${dm(r.date)} (${r.fromHour}h–23h, TB ${r.n} ${r.fallback?'ngày gần nhất':BILL_WEEKDAYS[r.weekday]+' trước'}): ${val(r.mid, money(r.mid))}`);
@@ -5723,31 +5723,77 @@ function renderBillingForecast(fc, cfg){
   box.innerHTML = html;
 }
 
-function plotBillingByPeriod(res, cfg, metric, colors){
+// Quy giây tính cước dự đoán sang đơn vị của chỉ tiêu đang vẽ (billedCalls: không dự đoán).
+function billForecastMetricValue(sec, cfg, metricKey){
+  if(metricKey==='cost') return roundMoney(sec/60*cfg.rate, cfg.roundStep);
+  if(metricKey==='minutes') return +(sec/60).toFixed(2);
+  if(metricKey==='billedSec') return sec;
+  return null;
+}
+
+/**
+ * Cột mờ dự đoán cho những ngày còn lại của tháng (chỉ khi nhóm theo ngày và
+ * biểu đồ kết thúc đúng ngày CDR mới nhất). Phần còn lại của ngày D xếp chồng
+ * lên cột thực tế của D. Thanh sai số = khoảng thấp – cao (P20 – P80).
+ */
+function billingForecastBars(fc, cfg, metricKey, lastKey){
+  if(!fc || fc.status!=='ok' || fc.complete || cfg.groupBy!=='day') return null;
+  if(billForecastMetricValue(0, cfg, metricKey)===null || lastKey!==fc.lastDate) return null;
+  const items = [];
+  if(fc.remainder) items.push({date:fc.lastDate, ...fc.remainder, note:`phần còn lại từ ${fc.remainder.fromHour}h`});
+  for(const d of fc.days) items.push({...d, note:(d.fallback ? 'TB 7 ngày gần nhất' : `TB ${d.n} ${BILL_WEEKDAYS[d.weekday]} trước`)});
+  if(!items.length) return null;
+  const v = sec=> billForecastMetricValue(sec, cfg, metricKey);
+  return items.map(it=>({date:it.date, mid:v(it.mid), low:v(it.low), high:v(it.high), note:it.note}));
+}
+
+function plotBillingByPeriod(res, cfg, metric, colors, forecast){
   const elId = 'chart_billing_by_period';
   if(!res.periods.length) return showNoData(elId, 'Không có dữ liệu cước trong khoảng đã chọn');
 
   const periodWord = cfg.groupBy==='hour' ? 'giờ' : cfg.groupBy==='month' ? 'tháng' : 'ngày';
   const x = res.periods.map(p=>p.key);
   const y = res.periods.map(p=> metric.get(p));
-  const n = x.length;
+  const fcBars = billingForecastBars(forecast, cfg, cfg.metric, x[x.length-1]);
+  const n = x.length + (fcBars ? fcBars.filter(b=>b.date!==x[x.length-1]).length : 0);
   // Nhãn trực tiếp trên đầu cột (giống chart_minutes_day). Quá nhiều cột thì
   // Plotly tự ẩn nhãn không đủ chỗ (uniformtext) thay vì cắt chữ — giá trị
   // vẫn đọc được ở tooltip và bảng "Cước theo kỳ" bên dưới.
   const showLabels = n <= 31;
 
-  Plotly.react(elId, [{
+  const traces = [{
     type:'bar', x, y,
-    name: metric.label,
+    name: fcBars ? 'Thực tế' : metric.label,
     marker:{color: colors.MinutesBar},
     text: showLabels ? y.map(v=> metric.short(v)) : null,
     texttemplate: showLabels ? '%{text}' : undefined,
     textposition: showLabels ? 'outside' : 'none',
     cliponaxis: false,
     hovertemplate:`%{x}<br>${metric.label}: %{y:,.2f} ${metric.unit}<extra></extra>`
-  }], {
-    title:`${metric.label} theo ${periodWord} — đơn vị ${metric.unit} (block ${cfg.firstBlock}s + ${cfg.nextBlock}s)`,
+  }];
+  if(fcBars){
+    traces.push({
+      type:'bar', x: fcBars.map(b=>b.date), y: fcBars.map(b=>b.mid),
+      name:'Dự đoán',
+      marker:{color: colors.MinutesBar, opacity:0.35, line:{color: colors.MinutesBar, width:1}},
+      error_y:{type:'data', symmetric:false,
+        array: fcBars.map(b=>Math.max(0, b.high-b.mid)), arrayminus: fcBars.map(b=>Math.max(0, b.mid-b.low)),
+        color: colors.MinutesBar, thickness:1, width:3},
+      customdata: fcBars.map(b=>[metric.fmt(b.low), metric.fmt(b.high), b.note]),
+      text: showLabels ? fcBars.map(b=> metric.short(b.mid)) : null,
+      texttemplate: showLabels ? '%{text}' : undefined,
+      textposition: showLabels ? 'outside' : 'none',
+      cliponaxis: false,
+      hovertemplate:`%{x} — dự đoán<br>${metric.label}: %{y:,.2f} ${metric.unit}<br>Thấp – cao: %{customdata[0]} – %{customdata[1]}<br>%{customdata[2]}<extra></extra>`
+    });
+  }
+
+  Plotly.react(elId, traces, {
+    title:`${metric.label} theo ${periodWord} — đơn vị ${metric.unit} (block ${cfg.firstBlock}s + ${cfg.nextBlock}s)` + (fcBars ? ' · cột mờ = dự đoán' : ''),
     height: 380,
+    barmode:'stack',
+    showlegend: !!fcBars,
+    legend:{orientation:'h', x:1, xanchor:'right', y:1.02, yanchor:'bottom'},
     uniformtext:{mode:'hide', minsize:9},
     xaxis:{title:'Kỳ', type:'category', tickangle: n>12 ? -45 : 0, automargin:true},
     yaxis:{title: metric.unit, rangemode:'tozero', automargin:true},
