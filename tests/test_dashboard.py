@@ -781,6 +781,62 @@ class ExportProgressTests(unittest.TestCase):
         self.assertEqual(events[2][1], "Account 3")
         self.assertIn("u3,3", data.decode("utf-8-sig"))
 
+    def test_all_account_sync_exports_each_saved_account(self):
+        class FakeStore:
+            retention_days = 31
+
+            def __init__(self):
+                self.stale_scopes = None
+                self.ingest_scopes = None
+
+            def stale_days(self, profile_id, scopes, from_day, to_day, max_age=None):
+                self.stale_scopes = list(scopes)
+                return ["2026-09-01"]
+
+            def ingest_csv(self, profile_id, csv_bytes, account_names, account_scopes,
+                           from_day, to_day):
+                self.ingest_scopes = list(account_scopes)
+
+            def query_csv(self, params):
+                return b"uuid\n"
+
+            def cleanup(self):
+                return 0
+
+        store = FakeStore()
+        exported_accounts = []
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        handler.server = types.SimpleNamespace(
+            call_store=store, profile_sync_locks_lock=Lock(),
+            profile_sync_completed={}, last_store_cleanup=SERVER.monotonic(),
+            profile_store=types.SimpleNamespace(get=lambda profile_id: {
+                "accounts": [
+                    {"id": "1", "name": "Acc A"},
+                    {"id": "2", "name": "Acc B"},
+                ],
+            }),
+        )
+        handler.get_profile_sync_lock = lambda profile_id: Lock()
+        handler.get_export_client = lambda profile_id: types.SimpleNamespace(
+            base_url="https://example.com", username="user", password="secret",
+        )
+
+        def fake_merge(client, params, account_ids, progress=None, names=None):
+            exported_accounts.extend(account_ids)
+            return b"uuid,account_id,start_stamp\nu1,1,2026-09-01 10:00:00\n"
+
+        handler.merge_account_exports = fake_merge
+
+        _, cache_state = handler._export_calldata_csv({
+            "profile_id": "p", "account_id": "0",
+            "from_day": "2026-09-01", "to_day": "2026-09-01",
+        }, sync_mode="update")
+
+        self.assertEqual(cache_state, "SYNC")
+        self.assertEqual(store.stale_scopes, ["1", "2"])
+        self.assertEqual(exported_accounts, ["1", "2"])
+        self.assertEqual(store.ingest_scopes, ["1", "2"])
+
     def test_inject_account_names_adds_a_name_column_from_the_id_map(self):
         inject = SERVER.DashboardHandler.inject_account_names
         names = {"388": "VCLASS BOT", "421": "SALE OUTBOUND"}

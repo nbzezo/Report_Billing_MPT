@@ -1260,7 +1260,11 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         sync_mode = params.pop("sync", "auto")
         try:
             data, cache_state = self._export_calldata_csv(params, job_id, sync_mode)
-            scopes = [x for x in params.get("account_id", "").split(",") if x and x != "0"]
+            account_ids = [
+                x for x in params.get("account_id", "").split(",")
+                if x and x != "0"
+            ]
+            scopes = self.account_scopes(params.get("profile_id", ""), account_ids)
             summary = self.server.call_store.scope_summary(params, scopes)
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
@@ -1310,7 +1314,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         account_ids = [x for x in params.get("account_id", "").split(",") if x and x != "0"]
         profile_id = params.get("profile_id", "")
         names = self.account_names(profile_id)
-        scopes = account_ids or ["*"]
+        all_account_ids = list(names.keys())
+        scopes = account_ids or all_account_ids or ["*"]
         mode = str(sync_mode).lower()
         force = mode in ("force", "1", "true")
         # "update" = nút Cập nhật báo cáo: tải lại mọi ngày chưa trọn vẹn ngay,
@@ -1357,13 +1362,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                         "hangupcause": "0", "calltype": "", "telco": "0",
                         "from_day": sync_from, "to_day": sync_to,
                     })
-                    if len(account_ids) <= 1:
+                    export_account_ids = account_ids or all_account_ids
+                    if account_ids and len(account_ids) == 1:
+                        data = client.export_csv(source_params)
+                    elif not export_account_ids:
                         data = client.export_csv(source_params)
                     else:
                         data = self.merge_account_exports(
-                            client, source_params, account_ids,
+                            client, source_params, export_account_ids,
                             progress=lambda done, current: self.set_export_progress(
-                                job_id, done, len(account_ids), current
+                                job_id, done, len(export_account_ids), current
                             ),
                             names=names,
                         )
@@ -1385,6 +1393,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             str(item.get("id")): item.get("name", "")
             for item in (profile.get("accounts") or [])
         }
+
+    def account_scopes(self, profile_id, account_ids):
+        if account_ids:
+            return account_ids
+        all_account_ids = list(self.account_names(profile_id).keys())
+        return all_account_ids or ["*"]
 
     @staticmethod
     def merge_account_exports(client, params, account_ids, progress=None, names=None):
