@@ -3361,7 +3361,7 @@ async function loadGatewayCids(rerender){
   if(rerender && typeof rawData !== 'undefined' && rawData && rawData.length){
     try{
       if(dashWorker.available()){
-        const ing = await dashWorker.reenrich(accountNameMap);
+        const ing = await dashWorker.reenrich(accountNameMap,currentMainRowCap);
         if(ing && ing.rows){ enriched = ing.rows; rawData = enriched; }
       }else{
         enriched = enrichData(rawData, accountNameMap, gatewayCidIndex); rawData = enriched;
@@ -8852,6 +8852,15 @@ function parseCSVInWorker(text){
 // nằm trong worker nên KPI và biểu đồ tổng hợp (cube) luôn tính đúng trên mọi dòng;
 // chỉ vài biểu đồ vẽ theo từng cuộc là dựa trên phần đầu khi vượt trần.
 const MAIN_ROW_CAP=50000;
+let currentMainRowCap=MAIN_ROW_CAP;
+
+function mainRowCapForReportUrl(dataUrl){
+  try{
+    const params=new URL(dataUrl,location.origin).searchParams;
+    const accountIds=(params.get('account_id')||'').split(',').filter(id=>id&&id!=='0');
+    return accountIds.length ? 0 : MAIN_ROW_CAP;
+  }catch(_){ return MAIN_ROW_CAP; }
+}
 
 // Worker bền: giữ dữ liệu đã enrich, dựng cube ngoài luồng UI (dashboard-csv-worker.js).
 // RPC promise theo id. Trả null khi không có Worker -> nơi gọi tự fallback main-thread.
@@ -8907,7 +8916,7 @@ const dashWorker=(()=>{
     // Hết giờ thì rơi về xử lý trên luồng chính (còn chậm hơn nhiều) -> để rộng.
     ingest:(text,opts)=>call('ingest',{text,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex,...opts},120000),
     ingestRows:(rows,opts)=>call('ingestRows',{rows,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex,...opts},120000),
-    reenrich:nameMap=>call('reenrich',{nameMap,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex},30000),
+    reenrich:(nameMap,cap)=>call('reenrich',{nameMap,cap:cap===undefined?MAIN_ROW_CAP:cap,gwIndex:gatewayCidIndex},30000),
     cube:params=>call('cube',{params},60000),
     billing:cfg=>call('billing',{cfg},20000),
     page:(offset,limit,params)=>call('page',{offset,limit,params},10000),
@@ -9136,8 +9145,10 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     // Parse + normalize + dedup + enrich chạy trong worker. Worker giữ TOÀN BỘ
     // dòng (cube/page luôn chính xác); luồng chính chỉ nhận tối đa MAIN_ROW_CAP.
     let removedDup = 0, ing = null, total = 0;
+    const mainRowCap=mainRowCapForReportUrl(dataUrl);
+    currentMainRowCap=mainRowCap;
     if(dashWorker.available()){
-      try{ ing = await dashWorker.ingest(text, {isJSON, sourceLabel: dataUrl, nameMap: accountNameMap, datasetToken:requestId}); }
+      try{ ing = await dashWorker.ingest(text, {isJSON, sourceLabel: dataUrl, nameMap: accountNameMap, datasetToken:requestId, cap:mainRowCap}); }
       catch(e){ console.warn('worker ingest lỗi, fallback main-thread:', e && e.message); }
     }
     if(!isCurrent()||(ing&&ing.stale)) return false;
