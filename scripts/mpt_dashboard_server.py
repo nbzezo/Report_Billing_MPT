@@ -9,7 +9,9 @@ import mimetypes
 import os
 import posixpath
 import re
+import subprocess
 import sys
+import tempfile
 import uuid
 import urllib.error
 import urllib.parse
@@ -634,6 +636,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/calldata.csv":
             self.handle_calldata(parsed)
+            return
+        if parsed.path == "/api/report-cube":
+            self.handle_report_cube(parsed)
             return
         if parsed.path == "/api/data-status":
             self.handle_data_status(parsed)
@@ -1288,6 +1293,68 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         except Exception as exc:
             self.error_response(exc)
 
+    @staticmethod
+    def _json_query_value(query, key, default):
+        raw = query.get(key, [""])[-1]
+        if not raw:
+            return default
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            return default
+
+    def handle_report_cube(self, parsed):
+        query = urllib.parse.parse_qs(parsed.query)
+        params = {key: values[-1] for key, values in query.items()}
+        params.pop("job_id", None)
+        params.pop("sync", None)
+        try:
+            data = self.server.call_store.query_csv(params)
+            profile_id = params.get("profile_id", "")
+            cube_params = {
+                "startDate": params.get("from_day", ""),
+                "endDate": params.get("to_day", ""),
+                "startTime": params.get("start_time", "00:00"),
+                "endTime": params.get("end_time", "23:59"),
+                "account": self._json_query_value(query, "cube_account", "all"),
+                "ccuScope": params.get("ccu_scope", "answered"),
+                "retry": self._json_query_value(query, "retry", {}),
+            }
+            names = self.account_names(profile_id)
+            gateway_index = self._gateway_store(profile_id).read_index().get("index", {})
+            result = self.build_report_cube(data, cube_params, names, gateway_index)
+            self.json_response(result)
+        except Exception as exc:
+            self.error_response(exc)
+
+    def build_report_cube(self, csv_bytes, cube_params, names, gateway_index):
+        script = Path(self.server.root) / "scripts" / "report_cube.js"
+        if not script.exists():
+            raise RuntimeError("Thiếu scripts/report_cube.js để tính report cube.")
+        with tempfile.TemporaryDirectory(prefix="mpt-report-cube-") as directory:
+            temp_dir = Path(directory)
+            csv_path = temp_dir / "calls.csv"
+            params_path = temp_dir / "params.json"
+            names_path = temp_dir / "names.json"
+            gateway_path = temp_dir / "gateway.json"
+            csv_path.write_bytes(csv_bytes)
+            params_path.write_text(json.dumps(cube_params, ensure_ascii=False), encoding="utf-8")
+            names_path.write_text(json.dumps(names or {}, ensure_ascii=False), encoding="utf-8")
+            gateway_path.write_text(json.dumps(gateway_index or {}, ensure_ascii=False), encoding="utf-8")
+            completed = subprocess.run(
+                ["node", str(script), str(csv_path), str(params_path), str(names_path), str(gateway_path)],
+                cwd=self.server.root,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                capture_output=True,
+                timeout=180,
+                check=False,
+            )
+            if completed.returncode != 0:
+                message = (completed.stderr or completed.stdout or "").strip()
+                raise RuntimeError(message or "Không tính được report cube ở backend.")
+            return json.loads(completed.stdout or "{}")
     def _export_calldata_csv(self, params, job_id="", sync_mode="auto"):
         """Synchronize missing/stale MPT data, then serve the filtered DB slice.
 

@@ -4678,8 +4678,32 @@ function cubeVal(path, fallbackFn){
   return fallbackFn ? fallbackFn() : null;
 }
 
-// Cube cho bộ lọc hiện tại — worker nếu có, không thì dựng ngay trên main thread.
+// Cube cho bộ lọc hiện tại — backend trước, worker/browser là fallback.
 async function computeCubeFor(params){
+  try{
+    if(lastReportDataUrl && String(lastReportDataUrl).startsWith('/api/calldata.csv')){
+      const source=new URL(lastReportDataUrl,location.origin);
+      const cubeUrl=new URL('/api/report-cube',location.origin);
+      source.searchParams.forEach((value,key)=>cubeUrl.searchParams.set(key,value));
+      cubeUrl.searchParams.set('from_day',params.startDate||source.searchParams.get('from_day')||'');
+      cubeUrl.searchParams.set('to_day',params.endDate||source.searchParams.get('to_day')||'');
+      cubeUrl.searchParams.set('start_time',params.startTime||'00:00');
+      cubeUrl.searchParams.set('end_time',params.endTime||'23:59');
+      cubeUrl.searchParams.set('ccu_scope',params.ccuScope||'answered');
+      cubeUrl.searchParams.set('cube_account',JSON.stringify(params.account||'all'));
+      cubeUrl.searchParams.set('retry',JSON.stringify(params.retry||{}));
+      if(Array.isArray(params.account) && params.account.length){
+        cubeUrl.searchParams.set('account_id',params.account.join(','));
+      }
+      const res=await fetch(cubeUrl.pathname+cubeUrl.search,{cache:'no-store'});
+      if(res.ok){
+        const body=await res.json();
+        if(body && body.cube) return body.cube;
+      }else{
+        console.warn('report-cube backend lỗi:', res.status, await res.text());
+      }
+    }
+  }catch(e){ console.warn('report-cube backend lỗi, fallback worker:', e && e.message); }
   try{
     if(dashWorker.available()){
       const res = await dashWorker.cube(params);

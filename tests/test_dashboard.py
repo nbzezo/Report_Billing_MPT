@@ -852,6 +852,34 @@ class ExportProgressTests(unittest.TestCase):
         self.assertEqual(inject(src, {}), src)
         self.assertEqual(inject(out.encode("utf-8-sig"), names).decode("utf-8-sig"), out)
 
+    @unittest.skipIf(shutil.which("node") is None, "Node.js is required for backend cube")
+    def test_backend_report_cube_uses_dashboard_core(self):
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        handler.server = types.SimpleNamespace(root=str(ROOT))
+        csv_bytes = (
+            "uuid,account_id,caller_id_number,destination_number,direction,start_stamp,end_stamp,duration,billsec,hangup_cause\n"
+            "u1,421,0901,0911,Outbound,2026-09-01 08:00:00,2026-09-01 08:01:00,60,30,NORMAL_CLEARING\n"
+            "u2,421,0902,0912,Outbound,2026-09-01 09:00:00,2026-09-01 09:00:00,0,0,NO_ROUTE_DESTINATION\n"
+        ).encode("utf-8-sig")
+
+        result = handler.build_report_cube(
+            csv_bytes,
+            {
+                "startDate": "2026-09-01",
+                "endDate": "2026-09-01",
+                "startTime": "00:00",
+                "endTime": "23:59",
+                "account": "all",
+            },
+            {"421": "HNI_Pana_BOT_Biva"},
+            {},
+        )
+
+        self.assertEqual(result["meta"]["sourceRows"], 2)
+        self.assertEqual(result["cube"]["meta"]["rows"], 2)
+        self.assertEqual(result["cube"]["overview"]["totalCalls"], 2)
+        self.assertEqual(result["cube"]["overview"]["counts"]["Connected"], 1)
+
     def test_job_id_is_removed_before_the_database_query_is_built(self):
         source = SERVER_PATH.read_text(encoding="utf-8")
         self.assertLess(
