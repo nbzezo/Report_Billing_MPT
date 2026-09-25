@@ -12,15 +12,23 @@ import io
 import json
 import re
 import sqlite3
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from threading import RLock
+from threading import Lock, RLock
 
 
 RETENTION_DAYS = 31
 TODAY_FRESH_SECONDS = 10 * 60
+# MPT ghi CDR khi cuộc gọi kết thúc: một ngày chỉ coi là đủ khi đã đồng bộ sau
+# nửa đêm hôm sau một khoảng này.
+DAY_SETTLE_SECONDS = 15 * 60
+# Bộ nhớ tối đa cho cache kết quả "Xem" (một khoảng 23 ngày ~1 triệu dòng ≈ 210 MB).
+QUERY_CACHE_BYTES = 320 * 1024 * 1024
+# Các tham số quyết định nội dung query_csv (bỏ sync/job_id...).
+QUERY_KEYS = ("profile_id", "from_day", "to_day", "account_id", "caller_number",
+              "dest_number", "outbound", "hangupcause", "calltype", "telco")
 
 ALIASES = {
     "accountid": "account_id", "account": "account_id", "tenant": "account_id",
@@ -135,15 +143,27 @@ def normalize_row(raw, account_names, occurrence):
 
 
 class CallStore:
-    def __init__(self, root, retention_days=RETENTION_DAYS):
+    def __init__(self, root, retention_days=RETENTION_DAYS,
+                 cache_bytes=QUERY_CACHE_BYTES):
         self.root = Path(root)
         self.data_dir = self.root / "data"
         self.path = self.data_dir / "calls.sqlite3"
         self.retention_days = int(retention_days)
         self.lock = RLock()
+        # Kết quả query_csv gần nhất theo bộ lọc. Mỗi lần dữ liệu đổi (ingest,
+        # dọn cuốn chiếu) thì tăng generation nên cache cũ tự hết hiệu lực.
+        self.generation = 0
+        self.cache_bytes = int(cache_bytes)
+        self._cache = OrderedDict()
+        self._cache_lock = Lock()
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._initialize()
         self.cleanup()
+
+    def _invalidate(self):
+        with self._cache_lock:
+            self.generation += 1
+            self._cache.clear()
 
     @contextmanager
     def connect(self):
@@ -163,9 +183,17 @@ class CallStore:
             db.close()
 
     def _initialize(self):
+        # auto_vacuum chỉ có hiệu lực nếu đặt TRƯỚC khi file có trang nào; connect()
+        # bật WAL ngay (ghi header) nên phải đặt ở kết nối riêng này. DB cũ đã
+        # tạo với auto_vacuum=0 cần compact() một lần mới chuyển được.
+        raw = sqlite3.connect(self.path, timeout=30)
+        try:
+            raw.execute("PRAGMA auto_vacuum=INCREMENTAL")
+            raw.execute("PRAGMA journal_mode=WAL")
+        finally:
+            raw.close()
         with self.connect() as db:
             db.executescript("""
-                PRAGMA auto_vacuum=INCREMENTAL;
                 CREATE TABLE IF NOT EXISTS call_records (
                     profile_id TEXT NOT NULL,
                     record_key TEXT NOT NULL,
@@ -237,29 +265,77 @@ class CallStore:
             yield start.isoformat()
             start += timedelta(days=1)
 
+    def _day_sync_times(self, db, profile_id, scopes, day):
+        """synced_at of every scope for one day (None = never synchronized)."""
+        times = []
+        for scope in scopes:
+            row = db.execute(
+                "SELECT synced_at FROM sync_days WHERE profile_id=? AND account_scope IN (?, '*') AND day=? ORDER BY account_scope=? DESC LIMIT 1",
+                (profile_id, scope, day, scope),
+            ).fetchone()
+            try:
+                times.append(datetime.fromisoformat(row["synced_at"]) if row else None)
+            except ValueError:
+                times.append(None)
+        return times
+
+    def stale_days(self, profile_id, account_scopes, from_day, to_day,
+                   max_age=TODAY_FRESH_SECONDS):
+        """Days that must be downloaded again from MPT.
+
+        A day is stale when it was never synchronized, or when the last sync
+        happened before the day was over (+ settle time) and is older than
+        ``max_age``. The second rule also catches "yesterday" that was synced
+        while it was still today, which previously stayed incomplete forever.
+        ``max_age=0`` means: refresh every incomplete day now.
+        """
+        scopes = account_scopes or ["*"]
+        now = datetime.now().astimezone()
+        stale = []
+        with self.connect() as db:
+            for day in self._days(from_day, to_day):
+                complete_after = datetime.combine(
+                    date.fromisoformat(day) + timedelta(days=1), datetime.min.time()
+                ).astimezone() + timedelta(seconds=DAY_SETTLE_SECONDS)
+                for synced in self._day_sync_times(db, profile_id, scopes, day):
+                    if synced is None:
+                        stale.append(day)
+                        break
+                    if synced.tzinfo is None:
+                        synced = synced.astimezone()
+                    if synced < complete_after and (now - synced).total_seconds() > max_age:
+                        stale.append(day)
+                        break
+        return stale
+
     def needs_sync(self, profile_id, account_scopes, from_day, to_day, force=False):
         if force:
             return True
+        return bool(self.stale_days(profile_id, account_scopes, from_day, to_day))
+
+    def scope_summary(self, params, account_scopes):
+        """What the DB holds for one filter: newest call + sync coverage."""
+        profile_id = params.get("profile_id", "")
+        from_day, to_day = params.get("from_day", ""), params.get("to_day", "")
         scopes = account_scopes or ["*"]
-        now = datetime.now().astimezone()
-        today = date.today().isoformat()
+        where, values = self._where(params)
+        missing, synced_times = [], []
         with self.connect() as db:
+            row = db.execute(
+                "SELECT COUNT(*) AS rows, MAX(start_stamp) AS last_call FROM call_records WHERE " + where,
+                values,
+            ).fetchone()
             for day in self._days(from_day, to_day):
-                for scope in scopes:
-                    row = db.execute(
-                        "SELECT synced_at FROM sync_days WHERE profile_id=? AND account_scope IN (?, '*') AND day=? ORDER BY account_scope=? DESC LIMIT 1",
-                        (profile_id, scope, day, scope),
-                    ).fetchone()
-                    if not row:
-                        return True
-                    if day == today:
-                        try:
-                            synced = datetime.fromisoformat(row["synced_at"])
-                            if (now - synced).total_seconds() > TODAY_FRESH_SECONDS:
-                                return True
-                        except ValueError:
-                            return True
-        return False
+                times = self._day_sync_times(db, profile_id, scopes, day)
+                if any(t is None for t in times):
+                    missing.append(day)
+                synced_times.extend(t for t in times if t is not None)
+        # Oldest sync of the range = how fresh the WHOLE filter is guaranteed to be.
+        return {
+            "rows": row["rows"], "lastCall": row["last_call"] or "",
+            "syncedAt": min(synced_times).isoformat(timespec="seconds") if synced_times else "",
+            "missingDays": missing,
+        }
 
     def ingest_csv(self, profile_id, csv_bytes, account_names, account_scopes,
                    from_day, to_day):
@@ -318,9 +394,47 @@ class CallStore:
                  len(rows), stored, digest, "ok"),
             )
             db.commit()
+        self._invalidate()
         return {"sourceRows": len(rows), "storedRows": stored, "sourceHash": digest}
 
     def query_csv(self, params):
+        key = tuple(str(params.get(name, "") or "") for name in QUERY_KEYS)
+        with self._cache_lock:
+            generation = self.generation
+            cached = self._cache.get(key)
+            if cached is not None:
+                self._cache.move_to_end(key)
+                return cached
+        where, values = self._where(params)
+        sql = "SELECT %s FROM call_records WHERE %s ORDER BY start_stamp" % (
+            ",".join(COLUMNS), where
+        )
+        output = io.StringIO(newline="")
+        writer = csv.writer(output, lineterminator="\n")
+        writer.writerow(COLUMNS)
+        with self.connect() as db:
+            # Tuple thô + writerows nhanh gấp ~2 lần sqlite3.Row đọc từng cột
+            # theo tên; csv ghi None thành chuỗi rỗng như trước.
+            db.row_factory = None
+            cursor = db.execute(sql, values)
+            while True:
+                chunk = cursor.fetchmany(20000)
+                if not chunk:
+                    break
+                writer.writerows(chunk)
+        data = output.getvalue().encode("utf-8-sig")
+        with self._cache_lock:
+            # Dữ liệu đổi trong lúc đang đọc -> không lưu kết quả có thể đã cũ.
+            if generation == self.generation and len(data) <= self.cache_bytes:
+                self._cache[key] = data
+                total = sum(len(item) for item in self._cache.values())
+                while total > self.cache_bytes:
+                    _, dropped = self._cache.popitem(last=False)
+                    total -= len(dropped)
+        return data
+
+    @staticmethod
+    def _where(params):
         profile_id = params.get("profile_id", "")
         clauses = ["profile_id=?", "start_stamp>=?", "start_stamp<=?"]
         values = [profile_id, params.get("from_day", "") + " 00:00:00",
@@ -345,16 +459,7 @@ class CallStore:
             if value and value != "0":
                 clauses.append(f"{column}=?")
                 values.append(value)
-        sql = "SELECT %s FROM call_records WHERE %s ORDER BY start_stamp" % (
-            ",".join(COLUMNS), " AND ".join(clauses)
-        )
-        output = io.StringIO(newline="")
-        writer = csv.writer(output, lineterminator="\n")
-        writer.writerow(COLUMNS)
-        with self.connect() as db:
-            for row in db.execute(sql, values):
-                writer.writerow([row[column] if row[column] is not None else "" for column in COLUMNS])
-        return output.getvalue().encode("utf-8-sig")
+        return " AND ".join(clauses), values
 
     def cleanup(self):
         cutoff = (date.today() - timedelta(days=max(0, self.retention_days - 1))).isoformat()
@@ -366,8 +471,38 @@ class CallStore:
             db.execute("DELETE FROM ingestion_runs WHERE finished_at < ?", (
                 (datetime.now().astimezone() - timedelta(days=90)).isoformat(timespec="seconds"),
             ))
-            db.execute("PRAGMA incremental_vacuum(2000)")
+            # Trả trang trống về cho hệ điều hành (chỉ tác dụng khi auto_vacuum
+            # đã là INCREMENTAL — DB cũ cần compact() một lần).
+            db.execute("PRAGMA incremental_vacuum")
+        if calls:
+            self._invalidate()
         return calls
+
+    def _file_bytes(self):
+        total = 0
+        for suffix in ("", "-wal"):
+            path = Path(str(self.path) + suffix)
+            if path.exists():
+                total += path.stat().st_size
+        return total
+
+    def compact(self):
+        """VACUUM toàn bộ file: thu hồi chỗ trống và bật auto_vacuum=INCREMENTAL.
+
+        Chặn mọi ghi trong lúc chạy (giữ self.lock); cần chỗ trống tạm thời
+        bằng khoảng kích thước file. Dữ liệu không đổi nên cache vẫn hợp lệ.
+        """
+        before = self._file_bytes()
+        with self.lock:
+            db = sqlite3.connect(self.path, timeout=120)
+            try:
+                db.execute("PRAGMA busy_timeout=120000")
+                db.execute("PRAGMA auto_vacuum=INCREMENTAL")
+                db.execute("VACUUM")
+                db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            finally:
+                db.close()
+        return {"beforeBytes": before, "afterBytes": self._file_bytes()}
 
     def status(self, profile_id):
         with self.connect() as db:
@@ -376,8 +511,16 @@ class CallStore:
                 "MAX(substr(start_stamp,1,10)) AS max_day, MAX(ingested_at) AS updated_at "
                 "FROM call_records WHERE profile_id=?", (profile_id,),
             ).fetchone()
+            total_rows = db.execute("SELECT COUNT(*) FROM call_records").fetchone()[0]
+            page_size = db.execute("PRAGMA page_size").fetchone()[0]
+            free_pages = db.execute("PRAGMA freelist_count").fetchone()[0]
+            auto_vacuum = db.execute("PRAGMA auto_vacuum").fetchone()[0]
         return {
             "rows": row["rows"], "dateMin": row["min_day"], "dateMax": row["max_day"],
             "updatedAt": row["updated_at"], "retentionDays": self.retention_days,
-            "databaseBytes": self.path.stat().st_size if self.path.exists() else 0,
+            "totalRows": total_rows,
+            "databaseBytes": self._file_bytes(),
+            "freeBytes": free_pages * page_size,
+            # 0 = file được tạo trước bản sửa: xoá dữ liệu cũ không làm file nhỏ lại.
+            "autoVacuum": auto_vacuum,
         }

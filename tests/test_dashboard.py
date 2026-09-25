@@ -7,7 +7,7 @@ import tempfile
 import types
 import unittest
 from unittest import mock
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Event, Lock, Thread
 
@@ -394,6 +394,60 @@ class CallStoreTests(unittest.TestCase):
             self.assertIn("Outbound", filtered)
             self.assertIn("External", filtered)
             self.assertFalse(store.needs_sync("p", ["334"], today, today))
+            summary = store.scope_summary({
+                "profile_id": "p", "account_id": "334", "from_day": today, "to_day": today,
+            }, ["334"])
+            self.assertEqual(summary["rows"], 1)
+            self.assertEqual(summary["lastCall"], f"{today} 10:00:00")
+            self.assertEqual(summary["missingDays"], [])
+            self.assertTrue(summary["syncedAt"])
+
+    def test_query_cache_is_reused_until_data_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            row = "Account,Caller,Start time,Duration,Billsec,MOS,Call ID\n334,0901,{t} 10:00:00,60,50,{mos},{uuid}\n"
+            store.ingest_csv("p", row.format(t=today, mos="", uuid="u1").encode(), {}, ["334"], today, today)
+            params = {"profile_id": "p", "from_day": today, "to_day": today, "sync": "none"}
+            first = store.query_csv(params)
+            # Không có giá trị -> ô rỗng, số giữ nguyên dạng như bản cũ.
+            line = first.decode("utf-8-sig").splitlines()[1].split(",")
+            columns = SERVER.call_store.COLUMNS
+            self.assertEqual(line[columns.index("mos")], "")
+            self.assertEqual(line[columns.index("duration")], "60.0")  # cột REAL, như bản cũ
+            # Tham số không thuộc bộ lọc (sync/job_id) không tạo khoá cache mới.
+            self.assertIs(store.query_csv(dict(params, sync="auto", job_id="x")), first)
+            store.ingest_csv("p", row.format(t=today, mos="4.2", uuid="u2").encode(), {}, ["334"], today, today)
+            second = store.query_csv(params)
+            self.assertIsNot(second, first)
+            self.assertIn("4.2", second.decode("utf-8-sig"))
+
+    def test_new_database_can_shrink_and_old_one_can_be_compacted(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            status = store.status("p")
+            self.assertEqual(status["autoVacuum"], 2)  # 2 = INCREMENTAL
+            self.assertEqual(status["totalRows"], 0)
+            result = store.compact()
+            self.assertGreater(result["afterBytes"], 0)
+            self.assertEqual(store.status("p")["autoVacuum"], 2)
+
+    def test_day_synced_before_it_ended_is_refreshed_later(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today()
+            days = [(today - timedelta(days=n)).isoformat() for n in (3, 2, 1)]
+            with store.connect() as db:
+                # 3 ngày trước: đồng bộ sau khi ngày kết thúc -> đủ.
+                db.execute("INSERT INTO sync_days VALUES('p','*',?,?)", (days[0], datetime.combine(
+                    today - timedelta(days=1), datetime.min.time()).astimezone().isoformat()))
+                # Hôm qua: đồng bộ lúc 12:00 hôm qua (chưa hết ngày) -> thiếu.
+                db.execute("INSERT INTO sync_days VALUES('p','*',?,?)", (days[2], datetime.combine(
+                    today - timedelta(days=1), datetime.min.time()).replace(hour=12).astimezone().isoformat()))
+            # 2 ngày trước chưa từng đồng bộ.
+            self.assertEqual(store.stale_days("p", [], days[0], days[2]), days[1:])
+            summary = store.scope_summary({"profile_id": "p", "from_day": days[0], "to_day": days[2]}, [])
+            self.assertEqual(summary["missingDays"], [days[1]])
 
     def test_cleanup_removes_rows_outside_rolling_window(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -631,6 +685,9 @@ class ExportProgressTests(unittest.TestCase):
             def needs_sync(self, *args, **kwargs):
                 return True
 
+            def stale_days(self, *args, **kwargs):
+                return ["2026-09-23"]
+
             def ingest_csv(self, *args, **kwargs):
                 return None
 
@@ -780,7 +837,7 @@ class FrontendRegressionTests(unittest.TestCase):
             self.assertIn(token, self.dashboard_html)
 
     def test_kpi_summary_places_status_chips_on_a_full_width_row(self):
-        self.assertIn(".kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(3", self.dashboard_html)
+        self.assertIn(".kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(4", self.dashboard_html)
         self.assertIn("#kpi_conn{grid-column:1/-1;min-height:52px}", self.dashboard_html)
 
     def test_worker_is_available(self):
@@ -840,8 +897,8 @@ class FrontendRegressionTests(unittest.TestCase):
         for token in (
             'id="mainFilterScope"',
             "function updateFilterScopeNotice",
-            "button.addEventListener('click',()=>runUnifiedReport(false))",
-            "Cập nhật khoảng này",
+            "button.addEventListener('click',()=>runUnifiedReport('view'))",
+            "Xem khoảng này",
         ):
             self.assertIn(token, self.dashboard_html)
 
@@ -899,19 +956,26 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertIn("target.querySelectorAll(':scope > .no-data')", self.dashboard_html)
         self.assertIn("forEach(node=>node.remove())", self.dashboard_html)
 
+    def test_account_dropdown_lists_every_account_of_the_connection(self):
+        # Tải 1 account xong vẫn phải chọn được account khác: danh sách lấy từ
+        # toàn bộ account của kết nối, không chỉ account có trong dữ liệu đã tải.
+        self.assertIn("new Set([...mptAccounts.map(item=>String(item.id)), ...loadedIds])", self.dashboard_html)
+
     def test_main_filter_shows_unapplied_changes(self):
-        for token in ("function markFilterDirty", "Xem/Cập nhật báo cáo", "#applyFilter.dirty"):
+        for token in ("function markFilterDirty", "button.textContent='Xem'", "#applyFilter.dirty"):
             self.assertIn(token, self.dashboard_html)
 
     def test_unified_filter_owns_sync_and_report_update(self):
         for token in (
-            'id="mainMptProfile"', 'id="refreshMptData"',
-            'id="applyFilter" class="primary-btn">Xem/Cập nhật báo cáo',
+            'id="mainMptProfile"', 'id="updateReport"', '>Cập nhật báo cáo</button>',
+            'id="applyFilter" class="primary-btn"', 'id="dataFreshnessDialog"',
+            "runUnifiedReport('view')", "runUnifiedReport('update')",
+            "function showDataFreshness", "X-MPT-Last-Call", "parsed.searchParams.set('sync','none')",
             'id="mainDirection"', 'Outbound (Gọi ra)', 'Inbound (Gọi vào)',
             'id="mainHangup"', 'id="mainCallType"',
-            "function runUnifiedReport(force=false)", "sync',force?'force':'auto'",
+            "function runUnifiedReport(mode='view')", "{view:'none',update:'update',force:'force'}",
             "let reportRequestSeq=0", "datasetToken:requestId",
-            "setReportActionsBusy(true,forceSync)",
+            "setReportActionsBusy(true,syncMode)",
             "/api/data-status?profile_id=",
         ):
             self.assertIn(token, self.dashboard_html)
@@ -1496,6 +1560,17 @@ class LlmRichChatTests(unittest.TestCase):
         self.assertIn("appliedFilterKey:dashState.filterKey", self.HTML)
         self.assertIn('scope.get("appliedFilterKey")', self.SERVER)
         self.assertIn("FILTERED_DATABASE_CONTEXT", self.SERVER)
+
+    def test_chat_rejects_oversized_context_before_calling_model(self):
+        self.assertIn("if len(user_text) > LLM_ASK_MAX_CHARS:", self.SERVER)
+        self.assertIn("Dữ liệu gửi kèm quá lớn", self.SERVER)
+
+    def test_chat_sessions_and_slash_commands(self):
+        for token in ("LLM_SESSIONS_KEY", "function llmStartNewSession", "function llmRunCommand",
+                      "name:'/new'", "name:'/sessions'", "name:'/resume'", "name:'/compact'",
+                      "name:'/context'", 'id="askSessionDrawer"', 'id="askCommandMenu"'):
+            self.assertIn(token, self.HTML)
+        self.assertIn("history: llmActiveSession().history.slice(-LLM_HISTORY_SEND)", self.HTML)
 
     def test_chat_renders_structured_visual_blocks_without_model_html(self):
         for token in ("function llmRenderPresentation", "function llmRenderChart",

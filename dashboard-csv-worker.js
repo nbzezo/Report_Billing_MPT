@@ -10,7 +10,7 @@
      ingestRows  {rows,sourceLabel,nameMap}   -> {meta, rows}     (rows đã normalize sẵn)
      reenrich    {nameMap}                    -> {meta, rows}     (enrich lại từ bản deduped đã lưu)
      cube        {params}                     -> {cube}           (buildCube trên rows đã lưu)
-     billing     {cfg}                        -> {report,rowCount}(tab Cước phí — bộ lọc riêng)
+     billing     {cfg}                        -> {report,rowCount,forecast}(tab Cước phí — bộ lọc riêng)
      page        {offset,limit,params}        -> {rows, total}    (một trang dữ liệu đã lọc — bảng chi tiết)
 
    Message dạng CHUỖI thuần (không object) vẫn được: coi là parse-only (giữ
@@ -47,8 +47,24 @@ function parseCSV(text) {
   if (lines.length < 2) return [];
   const header = splitCSVRespectQuotes(lines[0]).map(value => value.replace(/^"|"$/g, '').trim());
   const rows = [];
+  // Object dựng sẵn khoá = header (giữ chế độ thuộc tính nhanh của V8; gán
+  // row[tên] lần lượt quá 12 cột làm object thành bảng băm, chậm về sau).
+  const makeRow = (typeof makeRowFactory === 'function') ? makeRowFactory(header) : null;
   for (let i = 1; i < lines.length; i++) {
-    const columns = splitCSVRespectQuotes(lines[i]);
+    const line = lines[i];
+    // Dòng không có dấu " (gần như mọi dòng từ DB): split thường cho kết quả y
+    // hệt, nhanh hơn nhiều so với ghép từng ký tự.
+    if (line.indexOf('"') === -1) {
+      const columns = line.split(',');
+      if (columns.length === 1 && !columns[0].trim()) continue;
+      while (columns.length < header.length) columns.push('');
+      if (makeRow) { rows.push(makeRow(columns)); continue; }
+      const row = {};
+      for (let j = 0; j < header.length; j++) row[header[j]] = columns[j];
+      rows.push(row);
+      continue;
+    }
+    const columns = splitCSVRespectQuotes(line);
     if (columns.length === 1 && !columns[0].trim()) continue;
     const row = {};
     for (let j = 0; j < header.length; j++) {
@@ -127,13 +143,16 @@ function handle(msg) {
       return;
     }
     if (type === 'cube') {
-      self.postMessage({ id, cube: buildCube(state.enriched, msg.params || {}) });
+      // slimCubeForTransfer: bỏ phần theo-từng-số/từng-mốc mà UI không vẽ
+      // (1 triệu dòng: 158 MB -> vài MB phải sao chép sang luồng chính).
+      self.postMessage({ id, cube: slimCubeForTransfer(buildCube(state.enriched, msg.params || {})) });
       return;
     }
     if (type === 'billing') {
       const cfg = msg.cfg || {};
       const rows = billingRows(state.enriched, cfg);
-      self.postMessage({ id, report: computeBilling(rows, cfg), rowCount: rows.length });
+      self.postMessage({ id, report: computeBilling(rows, cfg), rowCount: rows.length,
+        forecast: computeBillingForecast(state.enriched, cfg) });
       return;
     }
     if (type === 'page') {

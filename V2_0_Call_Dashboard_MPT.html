@@ -557,25 +557,40 @@ body.adw progress{accent-color:var(--accent)}
 body.adw .adw-filterbar{position:sticky;top:var(--header-h,54px);z-index:70;background:var(--view-bg);border-bottom:1px solid var(--border);padding:6px 14px}
 body.adw .adw-filterbar .control-group{border:0;background:transparent;box-shadow:none;padding:0;min-height:0}
 body.adw .adw-filterbar .control-title{display:none}
-body.adw .adw-filterbar .control-row{gap:7px}
-body.adw .adw-filterbar .control-row+.control-row{margin-top:5px;padding-top:5px;border-top:1px solid var(--divider)}
-body.adw .adw-filterbar .quick-range button:not(.primary-btn){border-radius:999px;padding:5px 12px;min-height:30px;font-size:13px}
-body.adw .adw-filterbar label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px}
-body.adw .adw-filterbar .filter-scope{display:inline-block;margin:3px 14px 0 0;font-size:11.5px;line-height:1.25}
+body.adw .adw-filterbar .control-row{gap:6px 10px}
+body.adw .adw-filterbar .control-row+.control-row{margin-top:6px}
+body.adw .adw-filterbar .quick-range button:not(.primary-btn){border-radius:999px;padding:4px 11px;min-height:30px;font-size:12.5px}
+body.adw .adw-filterbar label{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--dim)}
+/* Mọi ô nhập/chọn trên thanh lọc cùng một chiều cao để hai dòng thẳng hàng. */
+body.adw .adw-filterbar .control-row input:not([type=checkbox]),body.adw .adw-filterbar .control-row select{min-height:32px;height:32px;padding:4px 8px;font-size:13px;color:var(--text)}
+body.adw .adw-filterbar .control-row input[type=time]{width:112px}
+body.adw .adw-filterbar #mainHangup{max-width:170px}
+body.adw .adw-filterbar #mainMptProfile{max-width:170px}
+body.adw .adw-filterbar #mainCaller,body.adw .adw-filterbar #mainDestination{width:116px}
+body.adw .adw-filterbar .filter-group{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+body.adw .adw-filterbar .filter-arrow{color:var(--dim)}
+body.adw .adw-filterbar .filter-sep{width:1px;height:22px;background:var(--divider);margin:0 2px}
+body.adw .adw-filterbar .filter-actions{display:inline-flex;gap:8px;margin-left:auto}
+body.adw .adw-filterbar .filter-actions button{min-height:32px;padding:5px 14px}
+body.adw .adw-filterbar .filter-status-line{display:flex;flex-wrap:wrap;gap:2px 18px;margin-top:6px;padding-top:5px;border-top:1px solid var(--divider)}
+body.adw .adw-filterbar .filter-scope{display:block;margin:0;font-size:11px;line-height:1.35}
 
 /* ---------- Split view ---------- */
 body.adw{--chrome-h:130px}
 body.adw .adw-body{display:flex;align-items:stretch;min-height:calc(100vh - var(--chrome-h))}
-body.adw .adw-sidebar{flex:0 0 208px;width:208px;background:var(--sidebar-bg);border-right:1px solid var(--border);
-  padding:14px 10px;box-sizing:border-box;position:sticky;top:var(--chrome-h);align-self:flex-start;max-height:calc(100vh - var(--chrome-h));overflow:auto}
-body.adw .adw-navlist{display:flex;flex-direction:column;gap:6px;background:transparent;border:0;box-shadow:none;padding:0;margin:0}
-body.adw .adw-navlist .tab-btn{display:flex;align-items:center;gap:12px;width:100%;text-align:left;
-  padding:12px 13px;border:0;border-radius:var(--radius);background:transparent;color:var(--text);font-weight:500;font-size:14.5px;min-height:46px}
+/* Cột điều hướng cao hết khung nhìn (nền liền mạch, không thành hộp lơ lửng),
+   ghi chú tab dính đáy cột. */
+body.adw .adw-sidebar{flex:0 0 196px;width:196px;background:var(--sidebar-bg);border-right:1px solid var(--border);
+  padding:12px 8px;box-sizing:border-box;position:sticky;top:var(--chrome-h);align-self:flex-start;
+  height:calc(100vh - var(--chrome-h));max-height:calc(100vh - var(--chrome-h));overflow:auto;display:flex;flex-direction:column}
+body.adw .adw-navlist{display:flex;flex-direction:column;gap:2px;background:transparent;border:0;box-shadow:none;padding:0;margin:0;flex:1 0 auto}
+body.adw .adw-navlist .tab-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 11px;border:0;border-radius:var(--radius);background:transparent;color:var(--text);font-weight:500;font-size:13.5px;min-height:38px;white-space:nowrap}
 body.adw .adw-navlist .tab-btn .tab-icon{flex:0 0 auto;width:18px;height:18px;opacity:.75}
 body.adw .adw-navlist .tab-btn:hover{background:var(--hover)}
 body.adw .adw-navlist .tab-btn.active{background:var(--accent);color:var(--accent-fg);font-weight:700}
 body.adw .adw-navlist .tab-btn.active .tab-icon{opacity:1}
-body.adw .adw-sidebar-note{display:block;margin-top:18px;padding:0 13px;font-size:11.5px;color:var(--dim);line-height:1.5}
+body.adw .adw-sidebar-note{display:block;margin-top:auto;padding:10px 11px 2px;border-top:1px solid var(--divider);font-size:11px;color:var(--dim);line-height:1.45}
 body.adw .adw-main{flex:1;min-width:0}
 body.adw .adw-clamp{width:min(1560px,100%);margin:0 auto;padding:18px 20px 40px;box-sizing:border-box}
 
@@ -583,22 +598,33 @@ body.adw .adw-clamp{width:min(1560px,100%);margin:0 auto;padding:18px 20px 40px;
 body.adw .card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:14px}
 body.adw .kpi-shell{margin:0 0 12px;display:block}
 body.adw .kpi-shell>.card{padding:10px}
-body.adw .kpi-row{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:10px;align-items:start}
-body.adw .kpi-group{border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--view-bg);padding:10px;height:fit-content}
-body.adw .kpi-group-title{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:10px}
-body.adw .kpi{background:transparent;border:1px solid var(--divider);border-radius:var(--radius);min-height:62px;padding:8px;box-shadow:none}
-/* Tóm tắt cuộc gọi ưu tiên một hàng chỉ số + một hàng trạng thái; tránh để
-   các chip trạng thái hẹp làm cả khối KPI cao bất thường. */
-body.adw .kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+body.adw .kpi-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;align-items:stretch}
+body.adw .kpi-group{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--view-bg);padding:10px}
+body.adw .kpi-group-title{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
+body.adw .kpi-group-grid{flex:1;grid-auto-rows:minmax(64px,1fr)}
+body.adw .kpi{background:transparent;border:1px solid var(--divider);border-radius:var(--radius);min-height:64px;padding:8px;box-shadow:none;gap:3px}
+/* Tổng quan: 4 chỉ số trên một hàng, hàng dưới là phân bổ trạng thái full-width.
+   Hai nhóm còn lại là lưới 2×2 nên ba nhóm luôn cao bằng nhau. */
+body.adw .kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
 body.adw .kpi-row>.kpi-group:first-child #kpi_conn{grid-column:1/-1;min-height:52px}
-body.adw .kpi-row>.kpi-group:first-child #kpi_total{order:1}
-body.adw .kpi-row>.kpi-group:first-child #kpi_connect_rate{order:2}
-body.adw .kpi-row>.kpi-group:first-child #kpi_answer{order:3}
-body.adw .kpi-row>.kpi-group:first-child #kpi_connect_excl_fail{order:4}
-body.adw .kpi-row>.kpi-group:first-child #kpi_conn{order:5}
-body.adw .kpi-row>.kpi-group:first-child #kpi_connect_excl_fail{grid-column:2/4}
-body.adw .kpi-row>.kpi-group:first-child #kpi_conn .status-chips{flex-wrap:nowrap;gap:4px}
-body.adw .kpi-row>.kpi-group:first-child #kpi_conn .status-chip{font-size:10.5px;padding:3px 7px;white-space:nowrap}
+body.adw .kpi-status{flex-direction:row;align-items:center;justify-content:space-between;gap:12px;text-align:left;padding:8px 10px}
+body.adw .kpi-status-head{display:flex;flex-direction:column;gap:6px;flex:1 1 140px;min-width:110px;max-width:220px}
+body.adw .kpi-status-head .muted{font-size:11.5px}
+body.adw .kpi-status-bar{display:flex;height:6px;border-radius:999px;overflow:hidden;background:var(--divider)}
+body.adw .kpi-status-bar>span{display:block;height:100%}
+body.adw .kpi-status-bar>.fail{background:var(--error)} body.adw .kpi-status-bar>.noans{background:var(--u-orange)}
+body.adw .kpi-status-bar>.canc{background:var(--dim)} body.adw .kpi-status-bar>.conn{background:var(--success)}
+body.adw .kpi-status .status-chips{flex:0 1 auto;justify-content:flex-end;flex-wrap:wrap;gap:5px}
+body.adw .kpi-status .status-chips button.status-chip{font-size:11px;padding:4px 7px;white-space:nowrap}
+body.adw .kpi-setting .kpi-value{display:flex;align-items:baseline;justify-content:center;gap:2px}
+body.adw .kpi-setting input{width:3.2ch;padding:0 2px;border:0;border-bottom:1px dashed var(--border);border-radius:0;background:transparent;color:var(--text);font:inherit;text-align:center;-moz-appearance:textfield}
+body.adw .kpi-setting input::-webkit-inner-spin-button,body.adw .kpi-setting input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+body.adw .kpi-setting input:focus{outline:none;border-bottom:2px solid var(--accent)}
+body.adw .kpi-unit{font-size:15px;color:var(--dim);font-weight:600}
+@media(max-width:1500px){
+  body.adw .kpi-row{grid-template-columns:1fr 1fr}
+  body.adw .kpi-row>.kpi-group:first-child{grid-column:1/-1}
+}
 body.adw .kpi .kpi-value{font-size:23px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
 .formula-info{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;cursor:help;color:var(--accent);font-size:12px;font-weight:700;vertical-align:middle}
 .formula-info:hover,.formula-info:focus-visible{background:var(--hover);outline:none}
@@ -782,7 +808,7 @@ body.adw .ask-panel{position:fixed;width:min(560px,calc(100vw - 24px));height:mi
   background:var(--window-bg);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-pop);
   overflow:hidden;z-index:211;display:flex;flex-direction:column}
 body.adw .ask-panel[hidden]{display:none}
-body.adw .ask-panel-header{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;
+body.adw .ask-panel-header{display:grid;grid-template-columns:auto 1fr auto auto auto;align-items:center;gap:10px;
   padding:11px 12px;background:var(--headerbar-bg);border-bottom:1px solid var(--border)}
 body.adw .ask-panel-mark{display:grid;place-items:center;width:34px;height:34px;border-radius:10px;background:color-mix(in srgb,var(--accent) 14%,transparent);color:var(--accent);font-size:17px}
 body.adw .ask-panel-title{font-weight:800;font-size:14.5px}
@@ -801,6 +827,28 @@ body.adw .ask-msg.user{background:linear-gradient(135deg,var(--accent),color-mix
 body.adw .ask-msg.ai{width:100%;max-width:none;padding:9px;background:color-mix(in srgb,var(--card-bg) 82%,var(--view-bg));border:1px solid var(--border);border-left:4px solid var(--success);border-radius:14px;align-self:stretch;overflow:hidden}
 body.adw .ask-msg-meta{font-size:11px;color:var(--dim);margin-top:5px}
 body.adw .ask-status{min-height:16px;font-size:11.5px}
+body.adw .ask-panel-heading{min-width:0}
+body.adw .ask-panel-subtitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.adw .ask-session-drawer{position:absolute;left:0;right:0;top:57px;bottom:0;z-index:3;display:flex;flex-direction:column;background:var(--window-bg);border-top:1px solid var(--border)}
+body.adw .ask-session-drawer[hidden]{display:none}
+body.adw .ask-session-drawer-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:10px 13px;border-bottom:1px solid var(--divider);font-size:13px}
+body.adw .ask-session-drawer-foot{padding:8px 13px;border-top:1px solid var(--divider);font-size:11px}
+body.adw .ask-session-list{flex:1;overflow:auto;padding:6px}
+body.adw .ask-session-item{display:grid;grid-template-columns:auto 1fr auto auto;align-items:center;gap:8px;padding:8px 9px;border-radius:9px;cursor:pointer}
+body.adw .ask-session-item:hover{background:var(--view-bg)}
+body.adw .ask-session-item.active{background:color-mix(in srgb,var(--accent) 12%,transparent)}
+body.adw .ask-session-index{font-size:11px;color:var(--dim);min-width:18px;text-align:right}
+body.adw .ask-session-name{min-width:0;font-size:12.5px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.adw .ask-session-sub{font-size:11px;font-weight:400;color:var(--dim)}
+body.adw .ask-session-item button{min-height:24px;padding:2px 7px;font-size:11px}
+body.adw .ask-command-menu{position:absolute;left:12px;right:12px;bottom:calc(100% - 4px);z-index:4;max-height:260px;overflow:auto;padding:5px;background:var(--window-bg);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-pop)}
+body.adw .ask-command-menu[hidden]{display:none}
+body.adw .ask-command-item{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:baseline;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:12px}
+body.adw .ask-command-item.active,body.adw .ask-command-item:hover{background:color-mix(in srgb,var(--accent) 13%,transparent)}
+body.adw .ask-command-name{font-family:ui-monospace,Consolas,monospace;font-weight:700;color:var(--accent)}
+body.adw .ask-command-desc{color:var(--dim)}
+body.adw .ask-msg.system{align-self:stretch;max-width:none;padding:7px 10px;font-size:12px;color:var(--dim);background:var(--view-bg);border:1px dashed var(--border);white-space:pre-wrap}
+body.adw .ask-divider{align-self:stretch;text-align:center;font-size:11px;color:var(--dim);border-top:1px dashed var(--divider);padding-top:4px}
 body.adw .ai-answer{display:flex;flex-direction:column;gap:8px;min-width:0}
 body.adw .ai-answer-head{padding:4px 2px 8px;border:0;border-bottom:1px solid var(--divider);border-radius:0;background:transparent}
 body.adw .ai-answer-title{font-size:14px;font-weight:850;color:var(--text)}
@@ -828,7 +876,7 @@ body.adw .ai-diagram-node{min-width:118px;flex:1;padding:9px;border:1px solid va
 body.adw .ai-diagram-label{font-size:11px;color:var(--dim)} body.adw .ai-diagram-value{margin-top:3px;font-weight:800}
 body.adw .ai-diagram-arrow{align-self:center;color:var(--accent);font-size:18px}
 body.adw .ai-actions{margin:0;padding-left:19px} body.adw .ai-actions li+li{margin-top:6px}
-body.adw .ask-panel-footer{display:grid;grid-template-columns:1fr auto;gap:7px;padding:10px 12px;border-top:1px solid var(--border);background:var(--headerbar-bg)}
+body.adw .ask-panel-footer{position:relative;display:grid;grid-template-columns:1fr auto;gap:7px;padding:10px 12px;border-top:1px solid var(--border);background:var(--headerbar-bg)}
 body.adw .ask-panel-footer textarea{min-height:42px;max-height:110px;resize:vertical;padding:9px 10px;font:inherit}
 body.adw .ask-panel-footer .ask-composer-hint{grid-column:1/-1;font-size:10.5px;color:var(--dim)}
 body.adw .llm-explain-btn{flex-shrink:0;min-height:26px;padding:3px 10px;font-size:11.5px;border-radius:999px}
@@ -890,6 +938,11 @@ body.adw .adw-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;pad
 body.adw .adw-banner[hidden]{display:none}
 body.adw .adw-banner-text{flex:1;min-width:220px}
 body.adw #applyFilter.dirty{box-shadow:0 0 0 3px rgba(233,84,32,.32)}
+.freshness-list{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:0 0 10px}
+.freshness-list dt{color:var(--muted)}
+.freshness-list dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.freshness-list dd.warn{color:var(--red)}
+.freshness-actions{justify-content:flex-end;gap:8px;margin-top:6px}
 
 /* ---------- Bao cao rui ro CID / Gateway ---------- */
 body.adw .risk-report{display:grid;gap:18px;margin-top:14px}
@@ -939,7 +992,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
 }
 @media(max-width:860px){
   body.adw .adw-body{display:block}
-  body.adw .adw-sidebar{position:static;width:auto;max-height:none;flex:none;display:block;border-right:0;border-bottom:1px solid var(--border)}
+  body.adw .adw-sidebar{position:static;width:auto;height:auto;max-height:none;flex:none;display:block;border-right:0;border-bottom:1px solid var(--border)}
   body.adw .adw-navlist{flex-direction:row;overflow-x:auto;gap:6px}
   body.adw .adw-navlist .tab-btn{width:auto;flex:0 0 auto;border-radius:999px}
   body.adw .adw-sidebar-note{display:none}
@@ -950,8 +1003,9 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
   body.adw .risk-section-head{display:block}
   body.adw .risk-section-note{margin-top:3px;text-align:left}
   body.adw .kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  body.adw .kpi-row>.kpi-group:first-child #kpi_conn{grid-column:auto}
-  body.adw .kpi-row>.kpi-group:first-child #kpi_conn .status-chips{flex-wrap:wrap}
+  body.adw .kpi-status{flex-direction:column;align-items:stretch}
+  body.adw .kpi-status-head{max-width:none}
+  body.adw .kpi-status .status-chips{justify-content:flex-start}
 }
 @media print{
   body.adw .adw-headerbar,body.adw .adw-filterbar,body.adw .adw-sidebar,
@@ -1000,19 +1054,26 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
 
   <div class="adw-filterbar">
 <div class="control-group filter-control"><div class="control-title">Bộ lọc chính</div>
-        <div class="control-row">
-          <label>Kết nối MPT <select id="mainMptProfile"><option value="">-- Chọn kết nối --</option></select></label>
-          <label>Ngày từ <input id="startDate" type="date"/></label>
-          <label>Đến <input id="endDate" type="date"/></label>
-          <label>Giờ từ <input id="startTime" type="time" value="00:00" step="60"/></label>
-          <label>Đến giờ <input id="endTime" type="time" value="23:59" step="60"/></label>
-        </div>
-        <div class="control-row quick-range">
-          <button id="qr_today">Hôm nay</button>
-          <button id="qr_7">7 ngày qua</button>
-          <button id="qr_this_month">Tháng này</button>
-          <button id="qr_last_month">Tháng trước</button>
-          <label>Tài khoản đang xem
+        <!-- Dòng 1 — phạm vi: kết nối · khoảng thời gian · chọn nhanh · tài khoản.
+             Dòng 2 — bộ lọc chi tiết + hành động (canh phải). -->
+        <div class="control-row filter-scope-row">
+          <label title="Kết nối MPT">Kết nối <select id="mainMptProfile"><option value="">-- Chọn kết nối --</option></select></label>
+          <span class="filter-sep" aria-hidden="true"></span>
+          <span class="filter-group">
+            <label>Từ <input id="startDate" type="date"/></label>
+            <input id="startTime" type="time" value="00:00" step="60" aria-label="Giờ từ"/>
+            <span class="filter-arrow" aria-hidden="true">→</span>
+            <label>Đến <input id="endDate" type="date"/></label>
+            <input id="endTime" type="time" value="23:59" step="60" aria-label="Đến giờ"/>
+          </span>
+          <span class="filter-group quick-range" role="group" aria-label="Chọn nhanh khoảng ngày">
+            <button id="qr_today">Hôm nay</button>
+            <button id="qr_7">7 ngày qua</button>
+            <button id="qr_this_month">Tháng này</button>
+            <button id="qr_last_month">Tháng trước</button>
+          </span>
+          <span class="filter-sep" aria-hidden="true"></span>
+          <label title="Tài khoản đang xem">Tài khoản
             <span class="dropdown" id="accountDropdown">
               <button type="button" id="accountDropdownBtn" class="muted-btn">All ▾</button>
               <span id="accountCount" class="muted" style="margin-left:6px"></span>
@@ -1033,21 +1094,21 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
         <div class="control-row report-filter-row">
           <label>Hướng gọi<select id="mainDirection"><option value="">Tất cả</option><option value="1">Outbound (Gọi ra)</option><option value="2">Inbound (Gọi vào)</option></select></label>
           <label>Nhà mạng<select id="mainTelco"><option value="0">Tất cả</option><option>Viettel</option><option>Mobi</option><option>Vina</option><option>Vietnammobile</option><option>Gmobile</option><option>Itel</option><option>Reddi</option><option>Unknown</option></select></label>
-          <label>Nguyên nhân kết thúc<select id="mainHangup"><option value="0">Tất cả</option><option>NORMAL_CLEARING</option><option>ORIGINATOR_CANCEL</option><option>USER_BUSY</option><option>NO_USER_RESPONSE</option><option>UNALLOCATED_NUMBER</option><option>CALL_REJECTED</option><option>NO_ANSWER</option><option>RECOVERY_ON_TIMER_EXPIRE</option><option>NORMAL_TEMPORARY_FAILURE</option><option>NORMAL_UNSPECIFIED</option><option>INCOMPATIBLE_DESTINATION</option><option>NO_ROUTE_DESTINATION</option><option>SUBSCRIBER_ABSENT</option><option>SERVICE_NOT_IMPLEMENTED</option><option>SERVICE_UNAVAILABLE</option><option>ALLOTTED_TIMEOUT</option><option>NETWORK_OUT_OF_ORDER</option><option>GATEWAY_DOWN</option><option>DESTINATION_OUT_OF_ORDER</option><option>PROTOCOL_ERROR</option><option>FACILITY_REJECTED</option><option>SWITCH_CONGESTION</option><option>MEDIA_TIMEOUT</option><option>VOICEMAIL</option><option>INVALID_NUMBER_FORMAT</option><option>UNKNOWN</option><option>NONE</option></select></label>
-          <label>Loại cuộc gọi<select id="mainCallType"><option value="">Tất cả</option><option value="2">Local</option><option value="3">External</option><option value="1">Unknown</option></select></label>
-          <button id="refreshMptData" type="button">Đồng bộ lại từ MPT</button>
-          <button id="applyFilter" class="primary-btn">Xem/Cập nhật báo cáo</button>
+          <label title="Nguyên nhân kết thúc (hangup cause)">Nguyên nhân<select id="mainHangup"><option value="0">Tất cả</option><option>NORMAL_CLEARING</option><option>ORIGINATOR_CANCEL</option><option>USER_BUSY</option><option>NO_USER_RESPONSE</option><option>UNALLOCATED_NUMBER</option><option>CALL_REJECTED</option><option>NO_ANSWER</option><option>RECOVERY_ON_TIMER_EXPIRE</option><option>NORMAL_TEMPORARY_FAILURE</option><option>NORMAL_UNSPECIFIED</option><option>INCOMPATIBLE_DESTINATION</option><option>NO_ROUTE_DESTINATION</option><option>SUBSCRIBER_ABSENT</option><option>SERVICE_NOT_IMPLEMENTED</option><option>SERVICE_UNAVAILABLE</option><option>ALLOTTED_TIMEOUT</option><option>NETWORK_OUT_OF_ORDER</option><option>GATEWAY_DOWN</option><option>DESTINATION_OUT_OF_ORDER</option><option>PROTOCOL_ERROR</option><option>FACILITY_REJECTED</option><option>SWITCH_CONGESTION</option><option>MEDIA_TIMEOUT</option><option>VOICEMAIL</option><option>INVALID_NUMBER_FORMAT</option><option>UNKNOWN</option><option>NONE</option></select></label>
+          <label title="Loại cuộc gọi">Loại gọi<select id="mainCallType"><option value="">Tất cả</option><option value="2">Local</option><option value="3">External</option><option value="1">Unknown</option></select></label>
+          <span class="filter-sep" aria-hidden="true"></span>
+          <label title="Không bắt buộc">Số gọi<input id="mainCaller" inputmode="tel" placeholder="Tất cả"></label>
+          <label title="Không bắt buộc">Số nhận<input id="mainDestination" inputmode="tel" placeholder="Tất cả"></label>
+          <span class="filter-actions">
+            <button id="applyFilter" class="primary-btn" title="Chỉ đọc dữ liệu đã lưu trong DB, không tải từ MPT">Xem</button>
+            <button id="updateReport" type="button" title="Tải dữ liệu mới nhất từ MPT cho các ngày còn thiếu/chưa trọn vẹn rồi hiển thị">Cập nhật báo cáo</button>
+          </span>
         </div>
-        <details id="mainAdvancedFilter" class="mpt-advanced-scope">
-          <summary>Lọc theo số điện thoại <span class="muted">Không bắt buộc</span></summary>
-          <div class="mpt-field-grid" style="margin-top:8px">
-            <label>Số gọi<input id="mainCaller" inputmode="tel" placeholder="Tất cả"></label>
-            <label>Số nhận<input id="mainDestination" inputmode="tel" placeholder="Tất cả"></label>
-          </div>
-        </details>
-        <div id="mainFilterScope" class="filter-scope muted" role="status" aria-live="polite">Chọn kết nối và phạm vi, sau đó bấm “Xem/Cập nhật báo cáo”.</div>
+        <div class="filter-status-line">
+        <div id="mainFilterScope" class="filter-scope muted" role="status" aria-live="polite">Chọn kết nối và phạm vi, sau đó bấm “Xem” (đọc DB) hoặc “Cập nhật báo cáo” (tải mới từ MPT).</div>
         <div id="databaseStatus" class="filter-scope muted" role="status" aria-live="polite">Cơ sở dữ liệu chưa có dữ liệu.</div>
         <div id="rowCapNotice" class="filter-scope muted" role="status" aria-live="polite" hidden></div>
+        </div>
       </div>
   </div>
 
@@ -1244,10 +1305,17 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
   <aside id="askDashboardPanel" class="ask-panel" hidden aria-label="Trợ lý AI">
     <div class="ask-panel-header">
       <div class="ask-panel-mark" aria-hidden="true">✦</div>
-      <div><div class="ask-panel-title">Trợ lý phân tích</div><div class="ask-panel-subtitle">Đọc toàn bộ dữ liệu trong phạm vi đang lọc</div></div>
+      <div class="ask-panel-heading"><div class="ask-panel-title">Trợ lý phân tích</div><div class="ask-panel-subtitle" id="askSessionTitle">Phiên mới</div></div>
+      <button type="button" id="askSessionsBtn" class="flat-btn icon-only" title="Danh sách phiên (/sessions)" aria-label="Danh sách phiên làm việc" aria-expanded="false" aria-controls="askSessionDrawer"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+      <button type="button" id="askNewSessionBtn" class="flat-btn icon-only" title="Phiên mới (/new)" aria-label="Tạo phiên làm việc mới"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 3v10M3 8h10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
       <button type="button" id="askPanelClose" class="flat-btn icon-only" aria-label="Đóng trợ lý AI"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
     </div>
     <div class="ask-scope-bar"><span class="ask-scope-dot" aria-hidden="true"></span><span id="askScopeLabel">Chưa có bộ lọc được áp dụng</span></div>
+    <div id="askSessionDrawer" class="ask-session-drawer" hidden>
+      <div class="ask-session-drawer-head"><strong>Phiên làm việc</strong><span class="muted" id="askSessionCount"></span></div>
+      <div id="askSessionList" class="ask-session-list" role="listbox" aria-label="Danh sách phiên"></div>
+      <div class="ask-session-drawer-foot muted">Lưu trên máy này · tối đa 30 phiên · gõ /help để xem lệnh</div>
+    </div>
     <div class="ask-panel-body">
       <div id="askWelcome" class="ask-welcome">
         <div class="ask-welcome-title">Hỏi bằng dữ liệu, xem bằng trực quan</div>
@@ -1262,9 +1330,10 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
       <div id="askStatus" class="ask-status muted" role="status"></div>
     </div>
     <div class="ask-panel-footer" id="askComposer">
-      <textarea id="askQuestionInput" rows="1" placeholder="Hỏi về dữ liệu trong phạm vi đang lọc…" aria-label="Câu hỏi cho trợ lý AI"></textarea>
+      <div id="askCommandMenu" class="ask-command-menu" role="listbox" aria-label="Lệnh" hidden></div>
+      <textarea id="askQuestionInput" rows="1" placeholder="Hỏi về dữ liệu đang lọc, hoặc gõ / để dùng lệnh…" aria-label="Câu hỏi cho trợ lý AI"></textarea>
       <button type="button" id="askSendBtn" class="primary-btn">Gửi</button>
-      <div class="ask-composer-hint">Enter để gửi · Shift+Enter để xuống dòng</div>
+      <div class="ask-composer-hint">Enter để gửi · Shift+Enter để xuống dòng · gõ / để dùng lệnh (/new, /sessions, /help)</div>
     </div>
   </aside>
   <dialog id="filesDialog" class="adw-dialog">
@@ -1285,6 +1354,20 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
           <span id="uploadStatus" class="muted" role="status" aria-live="polite"></span>
         </div>
       
+    </div>
+  </dialog>
+  <dialog id="dataFreshnessDialog" class="adw-dialog">
+    <div class="adw-dialog-header">
+      <div class="adw-dialog-title">Dữ liệu trong DB cho bộ lọc này</div>
+      <button type="button" class="flat-btn icon-only adw-dialog-close" data-close-dialog aria-label="Đóng"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    </div>
+    <div class="adw-dialog-body">
+      <dl id="dataFreshnessList" class="freshness-list"></dl>
+      <p id="dataFreshnessHint" class="muted"></p>
+      <div class="control-row freshness-actions">
+        <button type="button" data-close-dialog>Đóng</button>
+        <button type="button" id="dataFreshnessUpdate" class="primary-btn">Cập nhật báo cáo</button>
+      </div>
     </div>
   </dialog>
   <dialog id="optionsDialog" class="adw-dialog">
@@ -1380,10 +1463,10 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
           <div class="kpi-group-title">Tổng quan cuộc gọi</div>
           <div class="kpi-group-grid">
             <div class="kpi compact" id="kpi_total"><div class="kpi-value" id="kpi_total_text">—</div><div class="muted">Tổng cuộc</div></div>
-            <div class="kpi compact" id="kpi_conn"><div class="kpi-value status-chips" id="kpi_conn_text">—</div><div class="muted">Fail / NoAnswer / Huỷ / Connected</div></div>
             <div class="kpi compact tone-green" id="kpi_connect_rate"><div class="kpi-value" id="kpi_connect_rate_text">—</div><div class="muted">Tỷ lệ kết nối / tổng lượt gọi <span class="formula-info" tabindex="0" data-tooltip="Connected / Tổng cuộc, bao gồm cả Fail, Huỷ và Unknown.">ⓘ</span></div></div>
             <div class="kpi compact tone-green" id="kpi_answer"><div class="kpi-value" id="kpi_answer_text">—</div><div class="muted">ASR hợp lệ <span class="formula-info" tabindex="0" data-tooltip="Connected / (Connected + No Answer). Chỉ tính các cuộc hợp lệ để đo khả năng trả lời.">ⓘ</span></div></div>
             <div class="kpi compact tone-green" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="muted">Kết nối loại Fail <span class="formula-info" tabindex="0" data-tooltip="Connected / (Tổng cuộc − Fail). Chỉ loại đúng nhóm Fail khỏi mẫu số.">ⓘ</span></div></div>
+            <div class="kpi compact kpi-status" id="kpi_conn"><div class="kpi-status-head"><span class="muted">Phân bổ trạng thái</span><div class="kpi-status-bar" id="kpi_conn_bar" aria-hidden="true"></div></div><div class="kpi-value status-chips" id="kpi_conn_text">—</div></div>
           </div>
         </div>
         <div class="kpi-group">
@@ -1392,7 +1475,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
             <div class="kpi compact" id="kpi_minutes"><div class="kpi-value" id="kpi_minutes_text">—</div><div class="muted">Tổng phút gọi</div></div>
             <div class="kpi compact" id="kpi_peak"><div class="kpi-value" id="kpi_peak_text">—</div><div class="muted">Đồng thời cao nhất <span class="formula-info" tabindex="0" data-tooltip="Số cuộc đồng thời lớn nhất trong khoảng thời gian lọc.">ⓘ</span></div></div>
             <div class="kpi compact" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="muted">Billsec trung bình <span class="formula-info" tabindex="0" data-tooltip="Tổng billsec của cuộc Connected chia cho số cuộc Connected.">ⓘ</span></div></div>
-            <div class="muted" style="display:flex;align-items:center;gap:8px;justify-content:center"><label for="alertThreshold">Ngưỡng ASR (%):</label><input id="alertThreshold" type="number" min="0" max="100" step="1" value="40" style="width:80px"></div>
+            <div class="kpi compact kpi-setting"><div class="kpi-value"><input id="alertThreshold" type="number" min="0" max="100" step="1" value="40" aria-describedby="alertThresholdLabel"><span class="kpi-unit">%</span></div><div class="muted"><label for="alertThreshold" id="alertThresholdLabel">Ngưỡng cảnh báo ASR</label> <span class="formula-info" tabindex="0" data-tooltip="ASR hợp lệ thấp hơn ngưỡng này sẽ được tô cảnh báo. Giá trị được lưu trên máy.">ⓘ</span></div></div>
           </div>
         </div>
         <div class="kpi-group">
@@ -1951,6 +2034,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
           <div class="kpi-group-title">Thành tiền</div>
           <div class="kpi-group-grid" style="grid-template-columns:1fr">
             <div class="kpi tone-green" id="billKpiCost"><div class="kpi-value kpi-value-lg" id="billKpiCostText">—</div><div class="muted">Tổng thành tiền (VNĐ)</div></div>
+            <div class="kpi" id="billKpiForecast" title="Cước thực tế từ ngày 1 + ước tính các ngày còn lại theo trung bình cùng thứ trong 4 tuần gần nhất. Khoảng thấp – cao = P20 – P80."><div class="kpi-value" id="billKpiForecastText">—</div><div class="muted" id="billKpiForecastLabel">Dự đoán cuối tháng (VNĐ)</div><div class="muted" id="billKpiForecastRange" style="font-size:11px"></div></div>
           </div>
         </div>
         <div class="kpi-group">
@@ -1973,6 +2057,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
       </div>
       <div id="billingRangeSubLabel" class="muted" style="margin-top:8px"></div>
       <div id="billingFormula" class="muted" style="margin-top:4px;font-size:12px"></div>
+      <div id="billingForecast" class="muted" style="margin-top:4px;font-size:12px"></div>
     </div>
 
     <div id="chart_billing_by_period" class="card large" data-tab="billing" draggable="true"></div>
@@ -2849,7 +2934,7 @@ function markFilterDirty(dirty){
   const button=document.getElementById('applyFilter');
   if(!button) return;
   button.classList.toggle('dirty',!!dirty);
-  button.textContent='Xem/Cập nhật báo cáo';
+  button.textContent='Xem';
 }
 function initFilterDirtyState(){
   ['startDate','endDate','startTime','endTime','mainCaller','mainDestination','mainDirection','mainTelco','mainHangup','mainCallType'].forEach(id=>{
@@ -4216,11 +4301,19 @@ function refreshAccountFilter(selectedOverride){
   activeReportAccountIds=Array.from(prevSelected);
   container.innerHTML='';
 
-  const ids = (Array.isArray(loadedAccountIds) && loadedAccountIds.length)
-    ? loadedAccountIds.slice()
-    : (mptAccounts.length
-      ? mptAccounts.map(item=>String(item.id))
-      : Array.from(new Set(enriched.map(r=>String(r.account_id)))).sort());
+  // Dropdown này vừa lọc vừa quyết định account nào được "Xem"/"Cập nhật", nên
+  // phải liệt kê MỌI account của kết nối — không chỉ account có trong dữ liệu
+  // vừa tải (tải 1 account xong thì danh sách chỉ còn 1, không chọn lại được).
+  // Account có trong dữ liệu mà MPT không trả về vẫn được thêm vào cuối, nhưng
+  // chỉ khi dữ liệu đó thuộc đúng kết nối đang chọn.
+  let loadedIds = (Array.isArray(loadedAccountIds) && loadedAccountIds.length)
+    ? loadedAccountIds.map(String)
+    : Array.from(new Set(enriched.map(r=>String(r.account_id)))).sort();
+  if(mptAccounts.length){
+    const loadedProfile=(()=>{ try{ return new URL(lastReportDataUrl,location.origin).searchParams.get('profile_id')||''; }catch(_){ return ''; } })();
+    if(loadedProfile && loadedProfile!==mptActiveProfileId) loadedIds=[];
+  }
+  const ids = Array.from(new Set([...mptAccounts.map(item=>String(item.id)), ...loadedIds]));
   ids.forEach((id,idx)=>{
     const name = String(getAccountNameForId(id));
     // Hiển thị TÊN account; chỉ rơi về id khi chưa có tên. id vẫn xem được khi di chuột.
@@ -4341,7 +4434,7 @@ function updateKPIAlertsFallback(answerRate){
 // Debounce the heavy update call when changing filters
 const updateDashboardWithFiltersDebounced = debounce(updateDashboardWithFilters, 180);
 
-// Ngày/giờ là một phần của khu lọc thống nhất; chỉ chạy khi bấm Xem/Cập nhật báo cáo.
+// Ngày/giờ là một phần của khu lọc thống nhất; chỉ chạy khi bấm Xem hoặc Cập nhật báo cáo.
 (function wireDebouncedInputs(){
   const sd=document.getElementById('startDate'), ed=document.getElementById('endDate');
   const st=document.getElementById('startTime'), et=document.getElementById('endTime');
@@ -5159,6 +5252,10 @@ function renderCommon(filtered, ov, colors){
     if((counts.Cancelled||0) > 0) chips.push(`<button type="button" class="status-chip canc drilldown-trigger" data-drill-status="Cancelled" data-drill-title="Chi tiết Huỷ">Huỷ ${counts.Cancelled||0} · ${ov.pct.Cancelled}%</button>`);
     chips.push(`<button type="button" class="status-chip conn drilldown-trigger" data-drill-status="Connected" data-drill-title="Chi tiết Connected">Connected ${counts.Connected||0} · ${ov.pct.Connected}%</button>`);
     kpiConnEl.innerHTML = chips.join('');
+    const bar = document.getElementById('kpi_conn_bar');
+    const total = ov.totalCalls || 0;
+    if(bar) bar.innerHTML = total ? [['fail',counts.Fail],['noans',counts['No Answer']],['canc',counts.Cancelled],['conn',counts.Connected]]
+      .filter(([,n])=>n>0).map(([cls,n])=>`<span class="${cls}" style="width:${(n/total*100).toFixed(2)}%"></span>`).join('') : '';
   }
 
   const kpiConnectRateEl = document.getElementById('kpi_connect_rate_text');
@@ -5500,18 +5597,20 @@ async function renderBillingTab(){
       : '<b>Phạm vi Cước phí:</b> chưa có dữ liệu CDR.';
   }
   // computeBilling chạy trong worker (bộ lọc cước riêng); fallback main-thread.
-  let res, rowCount;
+  let res, rowCount, forecast = null;
   if(dashWorker.available()){
     try{
       const b = await dashWorker.billing(cfg);
-      res = b.report; rowCount = b.rowCount;
+      res = b.report; rowCount = b.rowCount; forecast = b.forecast || null;
     }catch(e){ console.warn('dashWorker.billing lỗi, fallback:', e && e.message); }
   }
   if(!res){
     const rows = getBillingRows(cfg);
     res = computeBilling(rows, cfg); rowCount = rows.length;
+    forecast = computeBillingForecast(enriched || [], cfg);
   }
-  lastBilling = {cfg, res, rowCount};
+  lastBilling = {cfg, res, rowCount, forecast};
+  renderBillingForecast(forecast, cfg);
   const colors = dashState.colors || getSeriesColors();
 
   const t = res.totals;
@@ -5566,6 +5665,62 @@ async function renderBillingTab(){
     ()=> renderBillingPeriodTable(res, cfg),
     ()=> renderBillingAccountTable(res, cfg),
   ]);
+}
+
+const BILL_WEEKDAYS = ['CN','T2','T3','T4','T5','T6','T7'];
+/** Ô KPI + dòng giải thích "Dự đoán cuối tháng" (computeBillingForecast trong dashboard-core.js). */
+function renderBillingForecast(fc, cfg){
+  const txt = document.getElementById('billKpiForecastText');
+  const lbl = document.getElementById('billKpiForecastLabel');
+  const rng = document.getElementById('billKpiForecastRange');
+  const box = document.getElementById('billingForecast');
+  if(!txt || !box) return;
+  const dm = iso=> iso ? iso.slice(8,10)+'/'+iso.slice(5,7) : '—';
+  const hasRate = !!cfg.rate;
+  // Chưa nhập đơn giá -> hiển thị theo phút để dự đoán vẫn dùng được.
+  const val = (sec, cost)=> hasRate ? fmtVND(cost)+' đ' : fmtVND(sec/60)+' phút';
+  const short = (sec, cost)=> hasRate ? fmtCompact(cost) : fmtVND(sec/60)+' ph';
+  box.style.color = '';
+  if(!fc || fc.status==='no-data'){
+    txt.innerText = '—'; if(rng) rng.innerText = '';
+    if(lbl) lbl.innerText = 'Dự đoán cuối tháng';
+    box.innerHTML = fc && fc.month ? `Dự đoán cuối tháng: chưa có CDR của tháng ${fc.month.slice(5)}/${fc.month.slice(0,4)}.` : '';
+    return;
+  }
+  const monthLbl = fc.month.slice(5)+'/'+fc.month.slice(0,4);
+  if(lbl) lbl.innerText = `Dự đoán cuối tháng ${monthLbl}` + (hasRate ? ' (VNĐ)' : ' (phút)');
+  const sec = fc.forecastSec, cost = fc.forecastCost;
+  txt.innerText = val(sec.mid, cost.mid);
+  if(rng) rng.innerText = fc.complete ? 'Tháng đã đủ dữ liệu' : `Khoảng ${short(sec.low, cost.low)} – ${short(sec.high, cost.high)}`;
+
+  const money = s=> hasRate ? roundMoney(s/60*cfg.rate, cfg.roundStep) : 0;
+  const parts = [];
+  parts.push(`Thực tế ${dm(fc.monthStart)} → ${dm(fc.lastDate)} (CDR đến ${fc.lastStamp.slice(11,16)}): <b>${val(fc.actualSec, fc.actualCost)}</b>`);
+  if(fc.remainder){
+    const r = fc.remainder;
+    parts.push(`phần còn lại ${dm(r.date)} (${r.fromHour}h–23h, TB ${r.n} ${r.fallback?'ngày gần nhất':BILL_WEEKDAYS[r.weekday]+' trước'}): ${val(r.mid, money(r.mid))}`);
+  }
+  if(fc.days.length){
+    const sumMid = fc.days.reduce((a,d)=>a+d.mid,0);
+    const list = fc.days.map(d=>`${BILL_WEEKDAYS[d.weekday]} ${dm(d.date)} ${short(d.mid, money(d.mid))}${d.fallback?'*':''}`).join(', ');
+    parts.push(`${fc.days.length} ngày còn lại (${list}): ${val(sumMid, money(sumMid))}`);
+  }
+  let html = `<b>Dự đoán cuối tháng:</b> ` + parts.join(' + ') + ` = <b>${val(sec.mid, cost.mid)}</b>.`;
+  if(!fc.complete) html += ` Khoảng thấp – cao (P20 – P80 cùng thứ): ${val(sec.low, cost.low)} – ${val(sec.high, cost.high)}.`;
+  html += ` Mẫu: ${fc.historyDays} ngày có CDR từ ${dm(fc.histStart)} → ${dm(fc.histEnd)}`
+    + (fc.partialLastDay ? ` (bỏ ${dm(fc.lastDate)} vì chưa hết ngày)` : '') + '.';
+  if(fc.days.some(d=>d.fallback) || (fc.remainder && fc.remainder.fallback))
+    html += ' * Thứ này có dưới 2 mẫu → dùng TB 7 ngày gần nhất.';
+  if(cfg.account || cfg.telco) html += ' Áp dụng cùng bộ lọc Account/Telco của tab.';
+  const warns = [];
+  if(fc.missingMonthStart) warns.push(`thiếu dữ liệu đầu tháng — CDR tháng ${monthLbl} chỉ bắt đầu từ ${dm(fc.firstCovered)}, số thực tế và dự đoán đang thấp hơn thật. Hãy tải thêm CDR từ ${dm(fc.monthStart)}`);
+  if(fc.status==='no-history') warns.push('chưa có ngày lịch sử để ước tính các ngày còn lại');
+  if(warns.length){
+    html += ' <b>Cảnh báo: ' + warns.join('; ') + '.</b>';
+    box.style.color = 'var(--red)';
+    if(rng) rng.innerText = '⚠ ' + (fc.missingMonthStart ? 'Thiếu dữ liệu đầu tháng' : 'Thiếu dữ liệu lịch sử');
+  }
+  box.innerHTML = html;
 }
 
 function plotBillingByPeriod(res, cfg, metric, colors){
@@ -7070,7 +7225,8 @@ function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
 
   // Downsample for faster rendering on large ranges
   const ds = downsampleSeriesMax(res.xISO, res.totalY, 1800);
-  const downsampled = ds.x.length < res.xISO.length;
+  // Worker có thể đã rút gọn trước (res.fullPoints = số mốc gốc).
+  const downsampled = ds.x.length < res.xISO.length || (res.fullPoints||0) > res.xISO.length;
   const dateKeys=new Set(ds.x.map(value=>String(value||'').slice(0,10)).filter(Boolean));
   const isMultiDay=dateKeys.size>1;
 
@@ -7895,11 +8051,12 @@ function maskDn(dn){
 }
 function plotCallbackDistribution(rows, colors){
   if(!rows || !rows.length) return showNoData('chart_callback_dist','Không có dữ liệu');
-  const stats = (cubeVal('callbackStats', ()=>computeCallbackStats(rows))||[]).filter(x=> x.firstConnectAttempt!=null);
-  if(!stats.length) return showNoData('chart_callback_dist','Không có số đích nào kết nối trong khoảng lọc');
-  const vals = stats.map(x=> x.firstConnectAttempt);
+  // Worker gửi bản rút gọn (đếm theo số lần gọi); fallback main-thread thì rút gọn tại đây.
+  const hist = slimCallbackStats(cubeVal('callbackStats', ()=>computeCallbackStats(rows))).firstAttemptHist;
+  if(!hist.length) return showNoData('chart_callback_dist','Không có số đích nào kết nối trong khoảng lọc');
   Plotly.react('chart_callback_dist', [{
-    x: vals, type:'histogram',
+    // histfunc 'sum' trên (giá trị, số lượng) = histogram trên từng giá trị như trước.
+    x: hist.map(h=>h[0]), y: hist.map(h=>h[1]), type:'histogram', histfunc:'sum',
     marker:{color: (colors && colors.MinutesBar) ? colors.MinutesBar : undefined},
     hovertemplate:'Attempt trước khi connect: %{x}<br>Số lượng: %{y}<extra></extra>'
   }], {
@@ -7915,7 +8072,7 @@ function renderCallbackTopTable(rows, topN=30, minAttempts=3){
   tb.innerHTML='';
   if(!rows || !rows.length) return;
 
-  const stats = (cubeVal('callbackStats', ()=>computeCallbackStats(rows))||[])
+  const stats = slimCallbackStats(cubeVal('callbackStats', ()=>computeCallbackStats(rows))).top
     .filter(x=> x.tot>=minAttempts)
     .sort((a,b)=> b.tot-a.tot);
 
@@ -8202,7 +8359,7 @@ function updateFilterScopeNotice(start,end){
   if(!el) return;
   if(!loadedDataRange){
     el.className='filter-scope muted';
-    el.textContent='Chưa có dữ liệu. Hãy bấm “Xem/Cập nhật báo cáo” hoặc mở “Tải file thủ công”.';
+    el.textContent='Chưa có dữ liệu. Hãy bấm “Xem” (đọc DB), “Cập nhật báo cáo” (tải từ MPT) hoặc mở “Tải file thủ công”.';
     return;
   }
   const {min,max,rows}=loadedDataRange;
@@ -8222,8 +8379,8 @@ function updateFilterScopeNotice(start,end){
     : `Khoảng lọc ${formatVnDate(start)} → ${formatVnDate(end)} rộng hơn dữ liệu đã tải (${formatVnDate(min)} → ${formatVnDate(max)}); phần nằm ngoài chưa được tải về.`;
   const button=document.createElement('button');
   button.type='button';
-  button.textContent='Cập nhật khoảng này';
-  button.addEventListener('click',()=>runUnifiedReport(false));
+  button.textContent='Xem khoảng này';
+  button.addEventListener('click',()=>runUnifiedReport('view'));
   el.append(text,button);
 }
 
@@ -8390,7 +8547,12 @@ document.getElementById('loadSample').addEventListener('click', async ()=>{ cons
   {"Account":"lab-D","Caller":"02479924050","Destination":"0966312373","Ani":"7000000054","Call type":"Outbound","Start time":"9/10/2025 09:12","Answer time":"9/10/2025 09:12","End time":"9/10/2025 09:13","Duration":"75","Billsec":"61","Telco":"VIETTEL","Hangup Cause":"NORMAL_CLEARING","Status Code":"200","MOS":"4.5","Quality (%)":"100","Jitter Min (ms)":"0","Jitter Max (ms)":"0","Jitter Loss Rate (%)":"0","Packet Count":"1200","Skip Packet Count":"3","RTCP Packet Count":"12","RTCP RTT (ms)":"45"}
 ]; await applyLoadedRows(normalizeCallRecords(sample)); document.getElementById('uploadStatus').innerText = 'Sample loaded'; toast('Sample loaded'); });
 
-document.getElementById('applyFilter').addEventListener('click', ()=> runUnifiedReport(false));
+document.getElementById('applyFilter').addEventListener('click', ()=> runUnifiedReport('view'));
+document.getElementById('updateReport')?.addEventListener('click', ()=> runUnifiedReport('update'));
+document.getElementById('dataFreshnessUpdate')?.addEventListener('click', ()=>{
+  adwCloseDialog('dataFreshnessDialog');
+  runUnifiedReport('update');
+});
 
 document.getElementById('exportCSV').addEventListener('click', ()=> exportCSV(lastFiltered.length?lastFiltered:enriched));
 document.getElementById('downloadFilteredJSON').addEventListener('click', ()=> downloadJSON(lastFiltered.length ? lastFiltered : enriched));
@@ -8539,16 +8701,24 @@ let reportLoadingBaseDetail='';
 let reportProgressTimer=null;
 let lastReportDataUrl='';
 
-function setReportActionsBusy(busy,force=false){
-  const apply=document.getElementById('applyFilter');
-  const refresh=document.getElementById('refreshMptData');
-  if(apply){
-    apply.disabled=!!busy;
-    apply.textContent=busy&&!force?'Đang cập nhật…':'Xem/Cập nhật báo cáo';
+// Kết quả DB của lần tải gần nhất (header X-MPT-*), để nút "Xem" báo độ mới.
+let lastReportMeta=null;
+
+function reportSyncMode(dataUrl){
+  try{ return new URL(dataUrl,location.origin).searchParams.get('sync')||'auto'; }catch(_){ return 'auto'; }
+}
+
+function setReportActionsBusy(busy,syncMode='auto'){
+  const view=document.getElementById('applyFilter');
+  const update=document.getElementById('updateReport');
+  const reading=syncMode==='none';
+  if(view){
+    view.disabled=!!busy;
+    view.textContent=busy&&reading?'Đang đọc DB…':'Xem';
   }
-  if(refresh){
-    refresh.disabled=!!busy;
-    refresh.textContent=busy&&force?'Đang đồng bộ…':'Đồng bộ lại từ MPT';
+  if(update){
+    update.disabled=!!busy;
+    update.textContent=busy&&!reading?'Đang cập nhật…':'Cập nhật báo cáo';
   }
 }
 
@@ -8688,10 +8858,11 @@ const dashWorker=(()=>{
   }
   return {
     available:()=>!!ensure(),
-    ingest:(text,opts)=>call('ingest',{text,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex,...opts},45000),
-    ingestRows:(rows,opts)=>call('ingestRows',{rows,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex,...opts},45000),
+    // Hết giờ thì rơi về xử lý trên luồng chính (còn chậm hơn nhiều) -> để rộng.
+    ingest:(text,opts)=>call('ingest',{text,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex,...opts},120000),
+    ingestRows:(rows,opts)=>call('ingestRows',{rows,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex,...opts},120000),
     reenrich:nameMap=>call('reenrich',{nameMap,cap:MAIN_ROW_CAP,gwIndex:gatewayCidIndex},30000),
-    cube:params=>call('cube',{params},25000),
+    cube:params=>call('cube',{params},60000),
     billing:cfg=>call('billing',{cfg},20000),
     page:(offset,limit,params)=>call('page',{offset,limit,params},10000),
     detailPage:(offset,limit,params)=>call('detailPage',{offset,limit,params},10000)
@@ -8862,28 +9033,36 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
   if(typeof drilldownInvalidate === 'function') drilldownInvalidate();
   if(reportAbortController) reportAbortController.abort();
   lastReportDataUrl=dataUrl;
+  lastReportMeta=null;
+  const syncMode=reportSyncMode(dataUrl);
+  const readOnly=syncMode==='none';
   if(updateBrowserUrl){
+    // F5/bookmark chỉ đọc lại DB; muốn tải mới thì bấm "Cập nhật báo cáo".
+    let savedUrl=dataUrl;
+    if(String(dataUrl).startsWith('/api/calldata.csv')){
+      const parsed=new URL(dataUrl,location.origin);
+      parsed.searchParams.set('sync','none');
+      savedUrl=parsed.pathname+parsed.search;
+    }
     const nextUrl=new URL(location.href);
     nextUrl.search='';
-    nextUrl.searchParams.set('csv',dataUrl);
-    history.replaceState({csv:dataUrl},'',nextUrl);
+    nextUrl.searchParams.set('csv',savedUrl);
+    history.replaceState({csv:savedUrl},'',nextUrl);
   }
   const controller=new AbortController();
   reportAbortController=controller;
-  let forceSync=false;
-  try{ forceSync=new URL(dataUrl,location.origin).searchParams.get('sync')==='force'; }catch(_){}
-  setReportActionsBusy(true,forceSync);
-  let initialDetail='Đang kiểm tra dữ liệu đã lưu và đồng bộ phần còn thiếu…';
+  setReportActionsBusy(true,syncMode);
+  let initialDetail=readOnly?'Đang đọc dữ liệu đã lưu trong DB…':'Đang kiểm tra dữ liệu đã lưu và tải phần mới từ MPT…';
   let accountTotal=0;
   try{
     const accountValue=new URL(dataUrl,location.origin).searchParams.get('account_id')||'';
     accountTotal=accountValue.split(',').filter(value=>value&&value!=='0').length;
-    if(accountTotal>1) initialDetail=`Đang lấy dữ liệu tuần tự từ ${accountTotal} tài khoản để đảm bảo đúng bộ lọc…`;
+    if(accountTotal>1&&!readOnly) initialDetail=`Đang lấy dữ liệu tuần tự từ ${accountTotal} tài khoản để đảm bảo đúng bộ lọc…`;
   }catch(_){}
   // Job id chỉ dùng để hỏi tiến độ; không đưa vào lastReportDataUrl/URL trình duyệt.
   let fetchUrl=dataUrl;
   let jobId='';
-  if(accountTotal>1&&String(dataUrl).startsWith('/api/calldata.csv')){
+  if(accountTotal>1&&!readOnly&&String(dataUrl).startsWith('/api/calldata.csv')){
     jobId='job-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
     fetchUrl=dataUrl+(dataUrl.includes('?')?'&':'?')+'job_id='+encodeURIComponent(jobId);
   }
@@ -8896,6 +9075,14 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
       let message=`HTTP ${res.status}`;
       try{ const body=await res.json(); if(body.error) message=body.error; }catch(_){}
       throw new Error(message);
+    }
+    if(res.headers.has('X-MPT-Last-Call')){
+      lastReportMeta={
+        cache:res.headers.get('X-MPT-Cache')||'',
+        lastCall:res.headers.get('X-MPT-Last-Call')||'',
+        syncedAt:res.headers.get('X-MPT-Synced-At')||'',
+        missingDays:(res.headers.get('X-MPT-Missing-Days')||'').split(',').filter(Boolean),
+      };
     }
     let text = await res.text();
     if(!isCurrent()) return false;
@@ -9233,7 +9420,9 @@ function mptBuildDataUrl(){
   return '/api/calldata.csv?'+params.toString();
 }
 
-function unifiedReportDataUrl(force=false){
+// mode: 'view' = chỉ đọc DB · 'update' = tải từ MPT các ngày thiếu/chưa trọn · 'force' = tải lại toàn bộ.
+const REPORT_SYNC_PARAM={view:'none',update:'update',force:'force'};
+function unifiedReportDataUrl(mode='view'){
   const params=new URLSearchParams();
   const accountIds=getSelectedAccounts();
   params.set('profile_id',mptActiveProfileId);
@@ -9246,8 +9435,41 @@ function unifiedReportDataUrl(force=false){
   params.set('hangupcause',mptEl('mainHangup')?.value.trim()||'0');
   params.set('calltype',mptEl('mainCallType')?.value.trim()||'');
   params.set('telco',mptEl('mainTelco')?.value||'0');
-  params.set('sync',force?'force':'auto');
+  params.set('sync',REPORT_SYNC_PARAM[mode]||'none');
   return '/api/calldata.csv?'+params.toString();
+}
+
+function formatVnDateTime(value){
+  if(!value) return '—';
+  const parsed=new Date(String(value).replace(' ','T'));
+  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('vi-VN');
+}
+
+// Popup sau khi bấm "Xem": DB đang có dữ liệu của bộ lọc này tới thời điểm nào.
+function showDataFreshness(meta,rows){
+  const list=mptEl('dataFreshnessList');
+  const hint=mptEl('dataFreshnessHint');
+  if(!list||!hint||!meta) return;
+  const from=mptEl('startDate').value, to=mptEl('endDate').value;
+  const missing=meta.missingDays||[];
+  const today=mptLocalDate();
+  const items=[
+    ['Phạm vi',`${formatVnDate(from)} → ${formatVnDate(to)}`,false],
+    ['Số cuộc gọi trong DB',Number(rows||0).toLocaleString('vi-VN'),!rows],
+    ['Cuộc gọi cuối cùng',meta.lastCall?formatVnDateTime(meta.lastCall):'Chưa có',!meta.lastCall],
+    ['Cập nhật từ MPT lúc',meta.syncedAt?formatVnDateTime(meta.syncedAt):'Chưa từng',!meta.syncedAt],
+  ];
+  if(missing.length) items.push(['Ngày chưa tải',missing.map(formatVnDate).join(', '),true]);
+  list.replaceChildren(...items.flatMap(([label,value,warn])=>{
+    const dt=document.createElement('dt'); dt.textContent=label;
+    const dd=document.createElement('dd'); dd.textContent=value; if(warn) dd.className='warn';
+    return [dt,dd];
+  }));
+  if(!rows&&!meta.syncedAt) hint.textContent='DB chưa có dữ liệu cho bộ lọc này. Bấm “Cập nhật báo cáo” để tải từ MPT.';
+  else if(missing.length) hint.textContent=`Còn ${missing.length} ngày chưa tải từ MPT nên số liệu chưa đủ. Bấm “Cập nhật báo cáo” để tải bổ sung.`;
+  else if(to>=today) hint.textContent='Khoảng lọc có ngày hôm nay: dữ liệu chỉ tới thời điểm cập nhật ở trên. Bấm “Cập nhật báo cáo” để lấy cuộc gọi mới nhất.';
+  else hint.textContent='Dữ liệu của bộ lọc này đã đủ trong DB.';
+  adwOpenDialog('dataFreshnessDialog');
 }
 
 async function updateDatabaseStatus(){
@@ -9258,14 +9480,46 @@ async function updateDatabaseStatus(){
     const response=await fetch('/api/data-status?profile_id='+encodeURIComponent(mptActiveProfileId),{cache:'no-store'});
     if(!response.ok) throw new Error(await mptApiError(response));
     const status=await response.json();
-    if(!status.rows){ target.textContent='DB chưa có dữ liệu cho kết nối này · lưu tối đa 31 ngày.'; return; }
-    const updated=status.updatedAt?new Date(status.updatedAt).toLocaleString('vi-VN'):'—';
-    const size=(Number(status.databaseBytes||0)/1024/1024).toFixed(1);
-    target.textContent=`DB: ${Number(status.rows).toLocaleString('vi-VN')} dòng · ${status.dateMin||'—'} → ${status.dateMax||'—'} · cập nhật ${updated} · ${size} MB · lưu ${status.retentionDays} ngày`;
+    const mb=bytes=>(Number(bytes||0)/1024/1024).toFixed(1);
+    // Dung lượng là của CẢ file (mọi kết nối), nên ghi kèm tổng số dòng cho khỏi hiểu nhầm.
+    const fileText=`cả file: ${Number(status.totalRows||0).toLocaleString('vi-VN')} dòng · ${mb(status.databaseBytes)} MB`;
+    if(!status.rows){
+      target.textContent=`DB chưa có dữ liệu cho kết nối này (${fileText}) · lưu tối đa ${status.retentionDays} ngày.`;
+    }else{
+      const updated=status.updatedAt?new Date(status.updatedAt).toLocaleString('vi-VN'):'—';
+      target.textContent=`DB kết nối này: ${Number(status.rows).toLocaleString('vi-VN')} dòng · ${status.dateMin||'—'} → ${status.dateMax||'—'} · cập nhật ${updated} · ${fileText} · lưu ${status.retentionDays} ngày`;
+    }
+    // File tạo trước bản sửa auto_vacuum (hoặc có nhiều trang trống) -> cho thu gọn.
+    if(status.autoVacuum===0||Number(status.freeBytes||0)>64*1024*1024){
+      const button=document.createElement('button');
+      button.type='button';
+      button.className='flat-btn';
+      button.textContent='Thu gọn DB';
+      button.title='Chạy VACUUM một lần: thu hồi chỗ trống và bật tự thu gọn khi xoá dữ liệu quá hạn.';
+      button.addEventListener('click',()=>compactDatabase(button,status));
+      target.append(' ',button);
+    }
   }catch(error){ target.textContent='Không đọc được trạng thái DB: '+error.message; }
 }
 
-async function runUnifiedReport(force=false){
+async function compactDatabase(button,status){
+  const size=(Number(status.databaseBytes||0)/1024/1024).toFixed(0);
+  if(!confirm(`Thu gọn file DB (${size} MB)? Mất khoảng 15–60 giây, trong lúc đó không cập nhật được dữ liệu. Cần chỗ trống trên ổ đĩa bằng khoảng kích thước file.`)) return;
+  button.disabled=true;
+  button.textContent='Đang thu gọn…';
+  try{
+    const response=await fetch('/api/db-compact',{method:'POST'});
+    if(!response.ok) throw new Error(await mptApiError(response));
+    const result=await response.json();
+    const mb=bytes=>(Number(bytes||0)/1024/1024).toFixed(1);
+    toast(`Đã thu gọn DB: ${mb(result.beforeBytes)} MB → ${mb(result.afterBytes)} MB.`);
+  }catch(error){
+    toast('Không thu gọn được DB: '+error.message,true);
+  }
+  await updateDatabaseStatus();
+}
+
+async function runUnifiedReport(mode='view'){
   if(!mptActiveProfileId){
     mptSetStatus('error','Hãy chọn kết nối MPT trước.');
     adwOpenDialog('mptSourcePanel');
@@ -9273,10 +9527,11 @@ async function runUnifiedReport(force=false){
   }
   const from=mptEl('startDate').value, to=mptEl('endDate').value;
   if(!from||!to||from>to){ toast('Khoảng ngày không hợp lệ.',true); return false; }
-  const success=await loadReportDataUrl(unifiedReportDataUrl(force),true);
+  const success=await loadReportDataUrl(unifiedReportDataUrl(mode),true);
   if(success){
     markFilterDirty(false);
     await updateDatabaseStatus();
+    if(mode==='view') showDataFreshness(lastReportMeta,loadedDataRange?loadedDataRange.rows:0);
   }
   return success;
 }
@@ -9335,7 +9590,6 @@ function initMptSourcePanel(){
   mptEl('mainMptProfile')?.addEventListener('change',event=>{
     mptSelectProfile(event.target.value,true).then(()=>markFilterDirty(true)).catch(error=>mptAccountLoadFailed(error));
   });
-  mptEl('refreshMptData')?.addEventListener('click',()=>runUnifiedReport(true));
   mptEl('mptRefreshAccounts').addEventListener('click',()=>mptFetchAccounts(true).catch(error=>mptAccountLoadFailed(error)));
   mptEl('mptOpenManager').addEventListener('click',adwOpenConnectionManager);
   mptEl('mptAccountSearch').addEventListener('input',mptFilterAccountList);
@@ -10264,7 +10518,6 @@ const LLM_FEATURES = [
   {key:'riskReport', label:'Báo cáo rủi ro CID/Gateway tự động'},
 ];
 let llmStatus = null;
-let llmAskHistory = [];
 
 function llmSetConfigStatus(kind, text){
   const el = document.getElementById('llmConfigStatusSlot');
@@ -10407,11 +10660,12 @@ async function llmExplainClicked(button){
   try{ payload = JSON.parse(button.dataset.explain || '{}'); }
   catch(_){ payload = {}; }
   llmAskPanelOpen();
+  const sessionId = llmActiveSession().id;
   llmAppendMessage('user', `Giải thích: ${payload.tieuDe || payload.loai || 'dòng dữ liệu đã chọn'}`);
   llmSetAskStatus('Đang giải thích…');
   try{
     const result = await llmAsk('explain', payload, '');
-    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`, result.presentation);
+    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`, result.presentation, sessionId);
     llmSetAskStatus('');
   }catch(error){
     llmSetAskStatus('Lỗi: '+error.message);
@@ -10514,7 +10768,13 @@ function llmInitDraggableBubble(){
 function llmAskPanelOpen(){
   const panel = document.getElementById('askDashboardPanel');
   if(!panel) return;
+  const wasHidden = panel.hidden;
   panel.hidden = false;
+  if(wasHidden){
+    const session = llmActiveSession();
+    if(session.messages.length && Date.now() - (session.updated||0) > LLM_SESSION_IDLE_MS)
+      llmStartNewSession('', 'Phiên trước đã lâu không dùng nên đã mở phiên mới. Gõ /resume 2 để quay lại.');
+  }
   llmUpdateScopeLabel();
   llmPositionAskPanel();
   const toggle = document.getElementById('askDashboardToggle');
@@ -10525,6 +10785,8 @@ function llmAskPanelClose(){
   const panel = document.getElementById('askDashboardPanel');
   if(!panel) return;
   panel.hidden = true;
+  llmHideCommandMenu();
+  llmToggleSessionDrawer(false);
   const toggle = document.getElementById('askDashboardToggle');
   toggle?.setAttribute('aria-expanded','false');
   toggle?.setAttribute('aria-label','Mở trợ lý AI; kéo để di chuyển');
@@ -10731,21 +10993,397 @@ function llmRenderPresentation(raw, fallbackText){
   return answer;
 }
 
-function llmAppendMessage(role, text, meta, presentation){
+function llmRenderMessage(msg){
   const host = document.getElementById('askMessages');
   if(!host) return;
+  const role = msg.role;
+  if(role==='divider'){
+    host.appendChild(llmDom('div', 'ask-divider', msg.text));
+    host.scrollTop = host.scrollHeight;
+    return;
+  }
   const div = document.createElement('div');
-  div.className = 'ask-msg '+(role==='user'?'user':'ai');
-  if(role==='user') div.textContent = text;
-  else div.appendChild(llmRenderPresentation(presentation, text));
-  if(meta){
+  div.className = 'ask-msg '+(role==='user'?'user':role==='system'?'system':'ai');
+  if(role==='user' || role==='system') div.textContent = msg.text;
+  else div.appendChild(llmRenderPresentation(msg.presentation, msg.text));
+  if(msg.meta){
     const metaEl = document.createElement('div');
     metaEl.className = 'ask-msg-meta';
-    metaEl.textContent = meta;
+    metaEl.textContent = msg.meta;
     div.appendChild(metaEl);
   }
   host.appendChild(div);
   host.scrollTop = host.scrollHeight;
+}
+
+// Ghi tin nhắn vào phiên (mặc định phiên đang mở) rồi vẽ nếu phiên đó đang hiển thị.
+// Truyền sessionId khi câu trả lời về muộn: người dùng có thể đã /new hoặc /resume
+// trong lúc chờ, câu trả lời vẫn phải vào đúng phiên đã hỏi.
+function llmAppendMessage(role, text, meta, presentation, sessionId){
+  const msg = {role, text: String(text ?? ''), meta: meta || '', presentation: presentation ?? null, at: Date.now()};
+  if(role==='system'){ llmRenderMessage(msg); return; }  // thông báo lệnh: chỉ hiện, không lưu
+  const session = llmFindSession(sessionId) || llmActiveSession();
+  session.messages.push(msg);
+  if(session.messages.length > LLM_SESSION_MAX_MESSAGES) session.messages.splice(0, session.messages.length - LLM_SESSION_MAX_MESSAGES);
+  session.updated = Date.now();
+  if(role==='user' && session.autoTitle && !session.title) session.title = llmTitleFrom(text);
+  llmSaveSessions();
+  if(session.id === llmLoadSessions().activeId){
+    document.getElementById('askWelcome')?.setAttribute('hidden','');
+    llmRenderMessage(msg);
+    llmRenderSessionTitle();
+  }
+}
+
+// ---- Phiên làm việc AI -------------------------------------------------
+// Mỗi phiên giữ tin nhắn hiển thị + history (các lượt hỏi-đáp gửi kèm cho
+// model). Lưu localStorage của máy này; hỏng/đầy storage thì vẫn chạy trong RAM.
+const LLM_SESSIONS_KEY = 'mpt.askSessions.v1';
+const LLM_SESSION_MAX = 30;
+const LLM_SESSION_MAX_MESSAGES = 80;
+const LLM_HISTORY_SEND = 6;          // số tin (3 lượt) gửi kèm; server cũng cắt 6
+const LLM_HISTORY_KEEP = 20;
+const LLM_SESSION_IDLE_MS = 2*60*60*1000;  // mở lại sau 2 giờ không dùng → phiên mới
+let llmSessionStore = null;
+
+function llmMakeSession(title){
+  const now = Date.now();
+  return {id:'s'+now.toString(36)+Math.random().toString(36).slice(2,6), title:title||'', autoTitle:!title,
+          created:now, updated:now, messages:[], history:[]};
+}
+function llmTitleFrom(text){
+  const clean = String(text||'').replace(/\s+/g,' ').trim();
+  return clean.length > 48 ? clean.slice(0,47)+'…' : clean;
+}
+function llmLoadSessions(){
+  if(llmSessionStore) return llmSessionStore;
+  let data = null;
+  try{ data = JSON.parse(localStorage.getItem(LLM_SESSIONS_KEY) || 'null'); }catch(_){}
+  if(!data || !Array.isArray(data.sessions)) data = {activeId:'', sessions:[]};
+  data.sessions = data.sessions.filter(x=>x && x.id && Array.isArray(x.messages));
+  data.sessions.forEach(x=>{ if(!Array.isArray(x.history)) x.history = []; });
+  if(!data.sessions.some(x=>x.id===data.activeId)){
+    if(!data.sessions.length) data.sessions.push(llmMakeSession());
+    data.activeId = data.sessions[0].id;
+  }
+  llmSessionStore = data;
+  return data;
+}
+function llmSortedSessions(){
+  return llmLoadSessions().sessions.slice().sort((a,b)=>(b.updated||0)-(a.updated||0));
+}
+function llmFindSession(id){
+  return id ? llmLoadSessions().sessions.find(x=>x.id===id) || null : null;
+}
+function llmActiveSession(){
+  const data = llmLoadSessions();
+  return data.sessions.find(x=>x.id===data.activeId);
+}
+function llmSaveSessions(){
+  const data = llmLoadSessions();
+  // Bỏ phiên rỗng không active, rồi giới hạn số phiên (giữ phiên đang mở).
+  data.sessions = data.sessions.filter(x=>x.messages.length || x.id===data.activeId);
+  const sorted = llmSortedSessions();
+  if(sorted.length > LLM_SESSION_MAX){
+    const drop = new Set(sorted.filter(x=>x.id!==data.activeId).slice(LLM_SESSION_MAX-1).map(x=>x.id));
+    data.sessions = data.sessions.filter(x=>!drop.has(x.id));
+  }
+  for(let attempt=0; attempt<LLM_SESSION_MAX; attempt++){
+    try{ localStorage.setItem(LLM_SESSIONS_KEY, JSON.stringify(data)); return; }
+    catch(_){
+      // Đầy quota: trước tiên bỏ phần trình bày (bảng/biểu đồ) của phiên cũ, sau đó bỏ phiên cũ nhất.
+      const old = llmSortedSessions().filter(x=>x.id!==data.activeId).reverse();
+      const heavy = old.find(x=>x.messages.some(m=>m.presentation));
+      if(heavy) heavy.messages.forEach(m=>{ m.presentation = null; });
+      else if(old.length) data.sessions = data.sessions.filter(x=>x.id!==old[0].id);
+      else return;
+    }
+  }
+}
+function llmSessionLabel(session){
+  return session.title || 'Phiên mới';
+}
+function llmFormatTime(ts){
+  try{ return new Date(ts).toLocaleString('vi-VN',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }
+  catch(_){ return ''; }
+}
+function llmRenderSessionTitle(){
+  const el = document.getElementById('askSessionTitle');
+  const session = llmActiveSession();
+  if(!el || !session) return;
+  const turns = Math.floor(Math.min(session.history.length, LLM_HISTORY_SEND)/2);
+  el.textContent = `${llmSessionLabel(session)} · nhớ ${turns} lượt`;
+  el.title = llmSessionLabel(session);
+}
+function llmRenderActiveSession(){
+  const host = document.getElementById('askMessages');
+  const session = llmActiveSession();
+  if(host) host.replaceChildren();
+  document.getElementById('askWelcome')?.toggleAttribute('hidden', session.messages.length > 0);
+  session.messages.forEach(llmRenderMessage);
+  llmRenderSessionTitle();
+  llmRenderSessionList();
+}
+function llmStartNewSession(title, note){
+  const data = llmLoadSessions();
+  let session = llmActiveSession();
+  if(session.messages.length || session.history.length){
+    session = llmMakeSession(title);
+    data.sessions.push(session);
+    data.activeId = session.id;
+  }else if(title){
+    session.title = title; session.autoTitle = false;
+  }
+  session.updated = Date.now();
+  llmSaveSessions();
+  llmRenderActiveSession();
+  llmToggleSessionDrawer(false);
+  llmSetAskStatus(note || 'Đã mở phiên mới — hội thoại cũ không còn được gửi kèm cho AI. Gõ /resume để quay lại phiên trước.');
+}
+function llmSwitchSession(id){
+  const data = llmLoadSessions();
+  if(!llmFindSession(id)) return false;
+  data.activeId = id;
+  llmSaveSessions();
+  llmRenderActiveSession();
+  llmToggleSessionDrawer(false);
+  llmSetAskStatus(`Đã chuyển sang phiên “${llmSessionLabel(llmActiveSession())}”.`);
+  return true;
+}
+function llmDeleteSession(id){
+  const data = llmLoadSessions();
+  const target = llmFindSession(id);
+  if(!target) return;
+  data.sessions = data.sessions.filter(x=>x.id!==id);
+  if(data.activeId===id){
+    const next = llmSortedSessions()[0];
+    if(next) data.activeId = next.id;
+    else { const fresh = llmMakeSession(); data.sessions.push(fresh); data.activeId = fresh.id; }
+  }
+  llmSaveSessions();
+  llmRenderActiveSession();
+  llmSetAskStatus(`Đã xoá phiên “${llmSessionLabel(target)}”.`);
+}
+function llmRenameSession(id, title){
+  const session = llmFindSession(id);
+  const clean = String(title||'').trim().slice(0,80);
+  if(!session || !clean) return;
+  session.title = clean; session.autoTitle = false;
+  llmSaveSessions();
+  llmRenderSessionTitle();
+  llmRenderSessionList();
+}
+function llmResolveSessionRef(ref){
+  const sorted = llmSortedSessions();
+  const text = String(ref||'').trim();
+  if(!text) return null;
+  if(/^\d+$/.test(text)) return sorted[Number(text)-1] || null;
+  const needle = text.toLocaleLowerCase('vi');
+  return sorted.find(x=>llmSessionLabel(x).toLocaleLowerCase('vi').includes(needle)) || null;
+}
+function llmToggleSessionDrawer(force){
+  const drawer = document.getElementById('askSessionDrawer');
+  if(!drawer) return;
+  const open = force===undefined ? drawer.hidden : force;
+  drawer.hidden = !open;
+  document.getElementById('askSessionsBtn')?.setAttribute('aria-expanded', String(open));
+  if(open) llmRenderSessionList();
+}
+function llmRenderSessionList(){
+  const list = document.getElementById('askSessionList');
+  if(!list) return;
+  const activeId = llmLoadSessions().activeId;
+  const sorted = llmSortedSessions();
+  const count = document.getElementById('askSessionCount');
+  if(count) count.textContent = `${sorted.length} phiên`;
+  list.replaceChildren(...sorted.map((session, index)=>{
+    const row = llmDom('div', 'ask-session-item'+(session.id===activeId?' active':''));
+    row.setAttribute('role','option');
+    row.setAttribute('aria-selected', String(session.id===activeId));
+    row.appendChild(llmDom('span', 'ask-session-index', index+1));
+    const name = llmDom('div', 'ask-session-name', llmSessionLabel(session));
+    const users = session.messages.filter(m=>m.role==='user').length;
+    name.appendChild(llmDom('div', 'ask-session-sub', `${users} câu hỏi · ${llmFormatTime(session.updated)}${session.id===activeId?' · đang mở':''}`));
+    row.appendChild(name);
+    const rename = llmDom('button', 'flat-btn', 'Đổi tên');
+    rename.type = 'button';
+    rename.addEventListener('click', event=>{
+      event.stopPropagation();
+      const title = window.prompt('Tên phiên:', session.title || '');
+      if(title!==null) llmRenameSession(session.id, title);
+    });
+    const del = llmDom('button', 'flat-btn', 'Xoá');
+    del.type = 'button';
+    del.addEventListener('click', event=>{
+      event.stopPropagation();
+      if(window.confirm(`Xoá phiên “${llmSessionLabel(session)}”?`)) llmDeleteSession(session.id);
+    });
+    row.append(rename, del);
+    row.addEventListener('click', ()=> llmSwitchSession(session.id));
+    return row;
+  }));
+}
+
+// ---- Lệnh gạch chéo (/new, /sessions, …) --------------------------------
+const LLM_COMMANDS = [
+  {name:'/new', args:'[tiêu đề]', desc:'Tạo phiên mới, bỏ ngữ cảnh hội thoại cũ'},
+  {name:'/sessions', desc:'Mở danh sách phiên đã lưu'},
+  {name:'/resume', args:'<số|tên>', desc:'Quay lại một phiên cũ'},
+  {name:'/rename', args:'<tên>', desc:'Đổi tên phiên hiện tại'},
+  {name:'/clear', desc:'Xoá tin nhắn và trí nhớ của phiên hiện tại'},
+  {name:'/compact', args:'[n]', desc:'AI chỉ nhớ n lượt hỏi-đáp gần nhất (mặc định 1)'},
+  {name:'/delete', args:'[số]', desc:'Xoá phiên hiện tại, hoặc phiên số n'},
+  {name:'/summary', desc:'Tóm tắt phạm vi dữ liệu đang lọc'},
+  {name:'/context', desc:'Xem AI đang nhớ gì và dữ liệu gửi kèm nặng bao nhiêu'},
+  {name:'/export', desc:'Tải phiên hiện tại thành file Markdown'},
+  {name:'/help', desc:'Danh sách lệnh'},
+];
+const LLM_COMMAND_ALIASES = {'/history':'/sessions', '/switch':'/resume', '/reset':'/clear', '/?':'/help'};
+let llmCommandMenuIndex = 0;
+
+function llmMatchingCommands(value){
+  const text = String(value||'');
+  if(!text.startsWith('/') || /\s/.test(text)) return [];
+  const needle = text.toLowerCase();
+  return LLM_COMMANDS.filter(c=>c.name.startsWith(needle));
+}
+function llmUpdateCommandMenu(){
+  const input = document.getElementById('askQuestionInput');
+  const menu = document.getElementById('askCommandMenu');
+  if(!input || !menu) return;
+  const matches = llmMatchingCommands(input.value);
+  if(!matches.length){ menu.hidden = true; return; }
+  llmCommandMenuIndex = Math.min(llmCommandMenuIndex, matches.length-1);
+  menu.replaceChildren(...matches.map((cmd, index)=>{
+    const item = llmDom('div', 'ask-command-item'+(index===llmCommandMenuIndex?' active':''));
+    item.setAttribute('role','option');
+    item.appendChild(llmDom('span', 'ask-command-name', cmd.name+(cmd.args?' '+cmd.args:'')));
+    item.appendChild(llmDom('span', 'ask-command-desc', cmd.desc));
+    item.addEventListener('mousedown', event=>{ event.preventDefault(); llmPickCommand(cmd, true); });
+    return item;
+  }));
+  menu.hidden = false;
+}
+function llmHideCommandMenu(){
+  const menu = document.getElementById('askCommandMenu');
+  if(menu) menu.hidden = true;
+  llmCommandMenuIndex = 0;
+}
+// Chọn lệnh từ menu: lệnh cần tham số bắt buộc thì điền sẵn để gõ tiếp, còn lại chạy luôn.
+function llmPickCommand(cmd, run){
+  const input = document.getElementById('askQuestionInput');
+  if(!input) return;
+  llmHideCommandMenu();
+  if(run && !(cmd.args||'').startsWith('<')){ input.value = cmd.name; llmRunChat(); return; }
+  input.value = cmd.name + ' ';
+  input.focus();
+}
+// Trả về true nếu phím đã được menu lệnh xử lý.
+function llmCommandMenuKey(event){
+  const menu = document.getElementById('askCommandMenu');
+  if(!menu || menu.hidden) return false;
+  const matches = llmMatchingCommands(document.getElementById('askQuestionInput')?.value);
+  if(!matches.length) return false;
+  if(event.key==='ArrowDown' || event.key==='ArrowUp'){
+    event.preventDefault();
+    llmCommandMenuIndex = (llmCommandMenuIndex + (event.key==='ArrowDown'?1:-1) + matches.length) % matches.length;
+    llmUpdateCommandMenu();
+    return true;
+  }
+  if(event.key==='Tab' || (event.key==='Enter' && !event.shiftKey)){
+    event.preventDefault();
+    llmPickCommand(matches[llmCommandMenuIndex], event.key==='Enter');
+    return true;
+  }
+  if(event.key==='Escape'){ event.preventDefault(); llmHideCommandMenu(); return true; }
+  return false;
+}
+function llmContextStats(){
+  const context = llmContextForCurrentTab();
+  if(!context) return null;
+  let chars = 0;
+  try{ chars = JSON.stringify(context).length; }catch(_){}
+  return {kb: chars/1024, tokens: Math.round(chars/3.2)};
+}
+function llmExportSession(){
+  const session = llmActiveSession();
+  if(!session.messages.length){ llmSetAskStatus('Phiên hiện tại chưa có nội dung để xuất.'); return; }
+  const lines = [`# ${llmSessionLabel(session)}`, '', `Tạo: ${llmFormatTime(session.created)} · Cập nhật: ${llmFormatTime(session.updated)}`, ''];
+  session.messages.forEach(m=>{
+    if(m.role==='divider'){ lines.push('---', `_${m.text}_`, ''); return; }
+    lines.push(m.role==='user' ? '## Bạn' : `## AI${m.meta?` (${m.meta})`:''}`, '', m.text, '');
+  });
+  const blob = new Blob([lines.join('\n')], {type:'text/markdown;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `phien-ai-${new Date(session.created).toISOString().slice(0,16).replace(/[:T]/g,'-')}.md`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+  llmSetAskStatus('Đã xuất phiên thành file Markdown.');
+}
+function llmRunCommand(raw){
+  const text = String(raw||'').trim();
+  const space = text.search(/\s/);
+  let name = (space<0 ? text : text.slice(0,space)).toLowerCase();
+  const arg = space<0 ? '' : text.slice(space+1).trim();
+  name = LLM_COMMAND_ALIASES[name] || name;
+  const session = llmActiveSession();
+  llmSetAskStatus('');
+  switch(name){
+    case '/new': llmStartNewSession(arg); return;
+    case '/sessions': llmToggleSessionDrawer(true); return;
+    case '/resume': {
+      if(!arg){ llmToggleSessionDrawer(true); return; }
+      const target = llmResolveSessionRef(arg);
+      if(target) llmSwitchSession(target.id);
+      else llmSetAskStatus(`Không tìm thấy phiên “${arg}”. Gõ /sessions để xem danh sách.`);
+      return;
+    }
+    case '/rename':
+      if(!arg){ llmSetAskStatus('Cần tên mới, ví dụ: /rename Phân tích Viettel tuần 38'); return; }
+      llmRenameSession(session.id, arg);
+      llmSetAskStatus('Đã đổi tên phiên.');
+      return;
+    case '/clear':
+      session.messages = []; session.history = []; session.updated = Date.now();
+      llmSaveSessions(); llmRenderActiveSession();
+      llmSetAskStatus('Đã xoá nội dung phiên hiện tại.');
+      return;
+    case '/compact': {
+      const turns = Math.max(0, Math.min(10, parseInt(arg || '1', 10) || 0));
+      const before = Math.floor(session.history.length/2);
+      session.history = turns ? session.history.slice(-turns*2) : [];
+      llmAppendMessage('divider', `Đã thu gọn ngữ cảnh: AI chỉ còn nhớ ${Math.min(turns,before)} lượt hỏi-đáp gần nhất`);
+      llmSetAskStatus(`Bỏ ${Math.max(0,before-turns)} lượt cũ khỏi trí nhớ AI (tin nhắn vẫn hiển thị).`);
+      return;
+    }
+    case '/delete': {
+      const target = arg ? llmResolveSessionRef(arg) : session;
+      if(!target){ llmSetAskStatus(`Không tìm thấy phiên “${arg}”.`); return; }
+      if(window.confirm(`Xoá phiên “${llmSessionLabel(target)}”?`)) llmDeleteSession(target.id);
+      return;
+    }
+    case '/summary': llmRunSummary(); return;
+    case '/context': {
+      const stats = llmContextStats();
+      const turns = Math.floor(Math.min(session.history.length, LLM_HISTORY_SEND)/2);
+      const scope = document.getElementById('askScopeLabel')?.textContent || '';
+      llmAppendMessage('system', [
+        `Phiên: ${llmSessionLabel(session)} (${session.messages.filter(m=>m.role==='user').length} câu hỏi)`,
+        `Trí nhớ hội thoại gửi kèm: ${turns}/${LLM_HISTORY_SEND/2} lượt gần nhất`,
+        stats ? `Dữ liệu dashboard gửi kèm mỗi câu hỏi: ~${stats.kb.toFixed(0)} KB (~${stats.tokens.toLocaleString('vi-VN')} token)` : 'Chưa có dữ liệu dashboard (chưa Apply bộ lọc).',
+        `Phạm vi: ${scope}`,
+        'Mẹo: /compact để AI quên bớt lượt cũ, /new để bắt đầu lại sạch.',
+      ].join('\n'));
+      return;
+    }
+    case '/export': llmExportSession(); return;
+    case '/help':
+      llmAppendMessage('system', 'Lệnh có sẵn:\n' + LLM_COMMANDS.map(c=>`${c.name}${c.args?' '+c.args:''} — ${c.desc}`).join('\n'));
+      return;
+    default:
+      llmSetAskStatus(`Không có lệnh ${name}. Gõ /help để xem danh sách lệnh.`);
+  }
 }
 
 function llmSetAskStatus(text){
@@ -10754,7 +11392,7 @@ function llmSetAskStatus(text){
 }
 
 async function llmAsk(mode, context, question){
-  const body = {mode, context, scope:llmCurrentFilterScope(), question: question||'', history: llmAskHistory.slice(-6)};
+  const body = {mode, context, scope:llmCurrentFilterScope(), question: question||'', history: llmActiveSession().history.slice(-LLM_HISTORY_SEND)};
   const response = await fetch('/api/llm-ask', {
     method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body),
   });
@@ -10795,10 +11433,11 @@ async function llmRunSummary(){
   const context = llmContextForCurrentTab();
   if(!context){ llmAskPanelOpen(); llmSetAskStatus('Chưa có dữ liệu báo cáo để tóm tắt.'); return; }
   llmAskPanelOpen();
+  const sessionId = llmActiveSession().id;
   llmSetAskStatus('Đang tóm tắt…');
   try{
     const result = await llmAsk('summary', context, '');
-    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`, result.presentation);
+    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`, result.presentation, sessionId);
     llmSetAskStatus('');
   }catch(error){
     llmSetAskStatus('Lỗi: '+error.message);
@@ -10809,15 +11448,22 @@ async function llmRunChat(){
   const input = document.getElementById('askQuestionInput');
   const question = (input?.value || '').trim();
   if(!question) return;
+  llmHideCommandMenu();
+  if(question.startsWith('/')){
+    if(input) input.value = '';
+    llmRunCommand(question);
+    return;
+  }
   const context = llmContextForCurrentTab();
+  const session = llmActiveSession();
   llmAppendMessage('user', question);
   if(input) input.value = '';
   llmSetAskStatus('Đang hỏi…');
   try{
     const result = await llmAsk('chat', context, question);
-    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`, result.presentation);
-    llmAskHistory.push({role:'user', content:question});
-    llmAskHistory.push({role:'assistant', content:result.text});
+    session.history.push({role:'user', content:question}, {role:'assistant', content:result.text});
+    if(session.history.length > LLM_HISTORY_KEEP) session.history.splice(0, session.history.length - LLM_HISTORY_KEEP);
+    llmAppendMessage('ai', result.text, `Trả lời bởi: ${result.providerLabel}/${result.model}`, result.presentation, session.id);
     llmSetAskStatus('');
   }catch(error){
     llmSetAskStatus('Lỗi: '+error.message);
@@ -10977,8 +11623,14 @@ function initLlmChrome(){
   document.getElementById('askSummaryBtn')?.addEventListener('click', llmRunSummary);
   document.getElementById('askSendBtn')?.addEventListener('click', llmRunChat);
   document.getElementById('askQuestionInput')?.addEventListener('keydown', event=>{
+    if(llmCommandMenuKey(event)) return;
     if(event.key==='Enter' && !event.shiftKey){ event.preventDefault(); llmRunChat(); }
   });
+  document.getElementById('askQuestionInput')?.addEventListener('input', ()=>{ llmCommandMenuIndex = 0; llmUpdateCommandMenu(); });
+  document.getElementById('askQuestionInput')?.addEventListener('blur', llmHideCommandMenu);
+  document.getElementById('askNewSessionBtn')?.addEventListener('click', ()=> llmStartNewSession(''));
+  document.getElementById('askSessionsBtn')?.addEventListener('click', ()=> llmToggleSessionDrawer());
+  llmRenderActiveSession();
   document.querySelectorAll('[data-ai-question]').forEach(button=>{
     button.addEventListener('click',()=>{
       const input=document.getElementById('askQuestionInput');

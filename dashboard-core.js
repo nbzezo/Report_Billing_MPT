@@ -38,6 +38,13 @@ function retryDelayBucket(minutes) {
 }
 
 // ---------- Prefix nhà mạng ----------
+// Tập đầu số dựng MỘT lần (trước đây dựng 6 Set mới cho mỗi dòng — ~1 triệu lần).
+const PREFIX_VIETTEL2 = new Set(['32', '33', '34', '35', '36', '37', '38', '39', '86', '96', '97', '98']);
+const PREFIX_VINA2 = new Set(['81', '82', '83', '84', '85', '88', '91', '94']);
+const PREFIX_MOBI2 = new Set(['70', '76', '77', '78', '79', '89', '90', '93']);
+const PREFIX_VIETTEL3 = new Set(['032', '033', '034', '035', '036', '037', '038', '039', '086', '096', '097', '098']);
+const PREFIX_VINA3 = new Set(['081', '082', '083', '084', '085', '088', '091', '094']);
+const PREFIX_MOBI3 = new Set(['070', '076', '077', '078', '079', '089', '090', '093']);
 function mapPrefix(caller) {
   const s = String(caller || '').trim();
   if (s.length < 2) return 'Other';
@@ -57,17 +64,9 @@ function mapPrefix(caller) {
   if (p3 === '092' || p2 === '92') return '_092';
   if (p3 === '058' || p2 === '58') return '_058';
 
-  const viettel2 = new Set(['32', '33', '34', '35', '36', '37', '38', '39', '86', '96', '97', '98']);
-  const vinaphone2 = new Set(['81', '82', '83', '84', '85', '88', '91', '94']);
-  const mobifone2 = new Set(['70', '76', '77', '78', '79', '89', '90', '93']);
-
-  const viettel3 = new Set(['032', '033', '034', '035', '036', '037', '038', '039', '086', '096', '097', '098']);
-  const vinaphone3 = new Set(['081', '082', '083', '084', '085', '088', '091', '094']);
-  const mobifone3 = new Set(['070', '076', '077', '078', '079', '089', '090', '093']);
-
-  if (viettel2.has(p2) || viettel3.has(p3)) return 'vbn_vt';
-  if (vinaphone2.has(p2) || vinaphone3.has(p3)) return 'vbn_vina';
-  if (mobifone2.has(p2) || mobifone3.has(p3)) return 'vbn_mobi';
+  if (PREFIX_VIETTEL2.has(p2) || PREFIX_VIETTEL3.has(p3)) return 'vbn_vt';
+  if (PREFIX_VINA2.has(p2) || PREFIX_VINA3.has(p3)) return 'vbn_vina';
+  if (PREFIX_MOBI2.has(p2) || PREFIX_MOBI3.has(p3)) return 'vbn_mobi';
 
   return 'Other';
 }
@@ -151,20 +150,27 @@ function classifyCall(rec) {
 function dateKey(ts) { if (!ts) return 'Unknown'; return String(ts).slice(0, 10); }
 
 // ---------- Telco ----------
+const TELCO_NAME_MAP = {
+  'vina': 'VinaPhone', 'vinaphone': 'VinaPhone', 'vnpt': 'VinaPhone', 'vinaphon': 'VinaPhone',
+  'viettel': 'Viettel', 'vt': 'Viettel',
+  'mobi': 'MobiFone', 'mobifone': 'MobiFone', 'mobiphone': 'MobiFone', 'mphone': 'MobiFone',
+  'vietnamobile': 'Vietnamobile', 'vietnammobile': 'Vietnamobile', 'vnmobile': 'Vietnamobile', 'vnmobi': 'Vietnamobile',
+  'gmobile': 'Gmobile', 'beeline': 'Gmobile', 'gtel': 'Gmobile',
+  'fixed': 'Cố định', 'landline': 'Cố định', 'pstn': 'Cố định',
+  'itel': 'Itel', 'wintel': 'Wintel', 'reddi': 'Reddi', 'vnsky': 'VNSKY', 'local': 'Cố định'
+};
+// Chỉ vài chục giá trị telco khác nhau cho cả triệu dòng -> nhớ kết quả.
+const __telcoNameMemo = new Map();
 function normalizeTelcoName(raw) {
   const v = String(raw || '').trim();
   if (!v) return 'Unknown';
+  let out = __telcoNameMemo.get(v);
+  if (out !== undefined) return out;
   const key = v.toLowerCase().replace(/\s+/g, '').replace(/[^a-z0-9]/g, '');
-  const map = {
-    'vina': 'VinaPhone', 'vinaphone': 'VinaPhone', 'vnpt': 'VinaPhone', 'vinaphon': 'VinaPhone',
-    'viettel': 'Viettel', 'vt': 'Viettel',
-    'mobi': 'MobiFone', 'mobifone': 'MobiFone', 'mobiphone': 'MobiFone', 'mphone': 'MobiFone',
-    'vietnamobile': 'Vietnamobile', 'vietnammobile': 'Vietnamobile', 'vnmobile': 'Vietnamobile', 'vnmobi': 'Vietnamobile',
-    'gmobile': 'Gmobile', 'beeline': 'Gmobile', 'gtel': 'Gmobile',
-    'fixed': 'Cố định', 'landline': 'Cố định', 'pstn': 'Cố định',
-    'itel': 'Itel', 'wintel': 'Wintel', 'reddi': 'Reddi', 'vnsky': 'VNSKY', 'local': 'Cố định'
-  };
-  return map[key] || v;
+  out = TELCO_NAME_MAP[key] || v;
+  if (__telcoNameMemo.size > 5000) __telcoNameMemo.clear();
+  __telcoNameMemo.set(v, out);
+  return out;
 }
 function getTelco(r) {
   const prefer = ['telco'];
@@ -238,7 +244,9 @@ const NUMERIC_FIELDS = ['duration', 'billsec', 'status_code', 'mos', 'quality_pc
 function toNumberLoose(v) {
   if (v === null || v === undefined) return null;
   if (typeof v === 'number') return isFinite(v) ? v : null;
-  const s = String(v).trim().replace(/^"|"$/g, '').replace(/,/g, '');
+  let s = String(v).trim();
+  // Chỉ chạy regex khi thật sự có " hoặc dấu phẩy (số từ DB không có).
+  if (s.indexOf('"') !== -1 || s.indexOf(',') !== -1) s = s.replace(/^"|"$/g, '').replace(/,/g, '');
   if (s === '') return null;
   const n = Number(s);
   return isFinite(n) ? n : null;
@@ -252,6 +260,9 @@ function pad2(n) { return String(n).padStart(2, '0'); }
 function normalizeTimestamp(raw) {
   const s = String(raw === null || raw === undefined ? '' : raw).trim().replace(/^"|"$/g, '');
   if (!s) return { value: '', hasSeconds: false };
+  // Đường nhanh: đã đúng "YYYY-MM-DD HH:mm:ss" (mọi dữ liệu từ DB) -> nhánh
+  // regex đầu tiên bên dưới cũng trả nguyên chuỗi này.
+  if (isCanonicalStamp(s)) return { value: s, hasSeconds: true };
 
   let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
   if (m) {
@@ -282,6 +293,55 @@ function normalizeTimestamp(raw) {
   return { value: s, hasSeconds: /\d{1,2}:\d{2}:\d{2}/.test(s) };
 }
 
+/** Đúng khuôn "YYYY-MM-DD HH:mm:ss" (kiểm tra theo ký tự, không regex). */
+function isCanonicalStamp(s) {
+  if (s.length !== 19 || s.charCodeAt(4) !== 45 || s.charCodeAt(7) !== 45 || s.charCodeAt(10) !== 32 ||
+      s.charCodeAt(13) !== 58 || s.charCodeAt(16) !== 58) return false;
+  for (const i of CANONICAL_STAMP_DIGITS) {
+    const c = s.charCodeAt(i);
+    if (c < 48 || c > 57) return false;
+  }
+  return true;
+}
+const CANONICAL_STAMP_DIGITS = [0, 1, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15, 17, 18];
+
+/**
+ * = a.localeCompare(b) cho start_stamp. Hai chuỗi cùng khuôn chuẩn chỉ khác
+ * nhau ở chữ số tại cùng vị trí nên thứ tự collation trùng thứ tự mã ký tự ->
+ * so sánh thường (nhanh). Khuôn khác -> Intl.Collator (= localeCompare theo ECMA-402).
+ */
+const __stampCollator = (typeof Intl !== 'undefined' && Intl.Collator) ? new Intl.Collator() : null;
+function __stampCompare(a, b) {
+  if (a === b) return 0;
+  if (isCanonicalStamp(a) && isCanonicalStamp(b)) return a < b ? -1 : 1;
+  return __stampCollator ? __stampCollator.compare(a, b) : a.localeCompare(b);
+}
+
+/**
+ * = Date.parse(stamp.replace(' ', 'T')) (giờ địa phương) nhưng nhanh: nhớ mốc
+ * đầu mỗi PHÚT rồi cộng giây (đổi giờ DST chỉ xảy ra ở ranh giới giờ nên
+ * cộng giây trong một phút luôn đúng). Khuôn khác -> Date.parse như cũ.
+ */
+const __minuteMsMemo = new Map();
+function stampToMs(value) {
+  const v = String(value || '');
+  if (isCanonicalStamp(v)) {
+    const sec = (v.charCodeAt(17) - 48) * 10 + (v.charCodeAt(18) - 48);
+    const hour = (v.charCodeAt(11) - 48) * 10 + (v.charCodeAt(12) - 48);
+    if (sec < 60 && hour < 24) {
+      const minuteKey = v.slice(0, 16);
+      let base = __minuteMsMemo.get(minuteKey);
+      if (base === undefined) {
+        base = Date.parse(minuteKey.replace(' ', 'T') + ':00');
+        if (__minuteMsMemo.size > 200000) __minuteMsMemo.clear();
+        __minuteMsMemo.set(minuteKey, base);
+      }
+      if (!isNaN(base)) return base + sec * 1000;
+    }
+  }
+  return Date.parse(v.replace(' ', 'T'));
+}
+
 /** Cộng thêm giây vào timestamp dạng "YYYY-MM-DD HH:mm:ss". */
 function addSecondsToStamp(stamp, seconds) {
   const m = String(stamp || '').match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
@@ -301,21 +361,87 @@ function hash32(str) {
   return h.toString(16).padStart(8, '0');
 }
 
-function createNormalizeContext() { return { sigCount: Object.create(null) }; }
+const __headerAliasMemo = new Map();
+
+/**
+ * Hàm dựng object có sẵn đúng các khoá `keys` (theo thứ tự), giá trị lấy từ
+ * mảng `values` (thiếu -> undefined).
+ *
+ * Vì sao: dựng object bằng `o[tenCot] = v` quá 12 khoá làm V8 chuyển object sang
+ * chế độ "từ điển" (bảng băm) -> mọi lần đọc thuộc tính và `{...r}` về sau đều
+ * chậm; với 1 triệu dòng đó là phần lớn thời gian nạp dữ liệu. Object literal
+ * với khoá cố định giữ chế độ nhanh. Mỗi bộ khoá chỉ sinh hàm một lần.
+ */
+const __rowFactoryMemo = new Map();
+function makeRowFactory(keys) {
+  const sig = keys.join(String.fromCharCode(1));
+  let make = __rowFactoryMemo.get(sig);
+  if (make) return make;
+  const plain = values => {
+    const o = {};
+    for (let i = 0; i < keys.length; i++) o[keys[i]] = values ? values[i] : undefined;
+    return o;
+  };
+  make = plain;
+  if (keys.length <= 120 && keys.indexOf('__proto__') === -1) {
+    try {
+      make = new Function('v', 'v = v || []; return {' +
+        keys.map((k, i) => JSON.stringify(k) + ': v[' + i + ']').join(', ') + '};');
+    } catch (_) { make = plain; }  // CSP chặn eval -> vẫn đúng, chỉ chậm hơn
+  }
+  if (__rowFactoryMemo.size > 200) __rowFactoryMemo.clear();
+  __rowFactoryMemo.set(sig, make);
+  return make;
+}
+
+// Kế hoạch chuẩn hoá cho MỘT bộ tên cột (mọi dòng CSV giống nhau): khoá đích
+// của từng cột + thứ tự khoá đầu ra đúng như khi gán lần lượt.
+function __normalizePlan(keys, ctx) {
+  const last = ctx.plan;
+  if (last && last.keys.length === keys.length) {
+    let same = true;
+    for (let i = 0; i < keys.length; i++) if (last.keys[i] !== keys[i]) { same = false; break; }
+    if (same) return last;
+  }
+  const targets = [], isAlias = [], outKeys = [], seen = new Set();
+  for (const key of keys) {
+    let mapped = null;
+    if (key !== '__source_file') {
+      mapped = __headerAliasMemo.get(key);
+      if (mapped === undefined) {
+        mapped = CSV_HEADER_ALIASES[normalizeHeaderKey(key)] || null;
+        if (__headerAliasMemo.size > 5000) __headerAliasMemo.clear();
+        __headerAliasMemo.set(key, mapped);
+      }
+    }
+    const target = mapped || key;
+    targets.push(target);
+    isAlias.push(!!mapped);
+    if (!seen.has(target)) { seen.add(target); outKeys.push(target); }
+  }
+  ctx.plan = { keys: keys.slice(), targets, isAlias, make: makeRowFactory(outKeys) };
+  return ctx.plan;
+}
+
+function createNormalizeContext() { return { sigCount: Object.create(null), plan: null }; }
 
 function normalizeCallRecord(raw, ctx) {
   if (!raw || typeof raw !== 'object') return null;
   ctx = ctx || createNormalizeContext();
 
-  const out = {};
-  for (const key of Object.keys(raw)) {
-    if (key === '__source_file') { out.__source_file = raw[key]; continue; }
-    const mapped = CSV_HEADER_ALIASES[normalizeHeaderKey(key)];
-    if (mapped) {
-      const cur = out[mapped];
-      if (cur === undefined || cur === null || cur === '') out[mapped] = raw[key];
+  // Tên cột giống nhau ở mọi dòng -> dùng lại kế hoạch + object dựng sẵn khoá
+  // (giữ chế độ thuộc tính nhanh của V8, xem makeRowFactory).
+  const keys = Object.keys(raw);
+  const plan = __normalizePlan(keys, ctx);
+  const out = plan.make();
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i];
+    const target = plan.targets[i];
+    if (plan.isAlias[i]) {
+      const cur = out[target];
+      if (cur === undefined || cur === null || cur === '') out[target] = raw[key];
     } else {
-      out[key] = raw[key];
+      out[target] = raw[key];
     }
   }
 
@@ -382,8 +508,8 @@ function enrichData(arr, accountNameMap, gatewayCidIndex) {
       || nameMap[acc]
       || acc;
 
-    const start_ts = (() => { const v = String(r.start_stamp || ''); const t = Date.parse(v.replace(' ', 'T')); return isNaN(t) ? null : t; })();
-    const end_ts = (() => { const v = String(r.end_stamp || ''); if (!v) return null; const t = Date.parse(v.replace(' ', 'T')); return isNaN(t) ? null : t; })();
+    const start_ts = (() => { const t = stampToMs(r.start_stamp); return isNaN(t) ? null : t; })();
+    const end_ts = (() => { const v = String(r.end_stamp || ''); if (!v) return null; const t = stampToMs(v); return isNaN(t) ? null : t; })();
 
     const gw = gwIndex ? gwIndex[normalizeCidNational(r.caller_id_number)] : null;
 
@@ -629,7 +755,7 @@ function computeRequiredColumnHealth(rows){
       if(!(c in r)) continue;
       present[c]++;
       const v = r[c];
-      if(v!==null && v!==undefined && String(v).trim()!=='') filled[c]++;
+      if(v!==null && v!==undefined && (typeof v==='number' || String(v).trim()!=='')) filled[c]++;
     }
     if(Number(r.billsec||0) > 0)  billsecPositive++;
     if(Number(r.duration||0) > 0) durationPositive++;
@@ -802,14 +928,128 @@ function buildCube(enrichedRows, params) {
     gatewayBlockReconcile: computeGatewayBlockReconcile(rows),
     callbackStats: computeCallbackStats(rows),
     retryPattern: computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account'),
-    concurrency: {
-      all: __computeConcurrency(rows, () => 'Tất cả', ccuScope),
-      byTelco: __computeConcurrency(rows, getTelco, ccuScope),
-      ccuByTelco: computeCcuByTelco(rows, { scope: ccuScope, filterSpanSec })
-    },
+    concurrency: (() => {
+      const byTelco = __computeConcurrency(rows, getTelco, ccuScope);
+      return {
+        all: __computeConcurrency(rows, () => 'Tất cả', ccuScope),
+        byTelco,
+        ccuByTelco: computeCcuByTelco(rows, { scope: ccuScope, filterSpanSec, byTelco })
+      };
+    })(),
     // --- Cước phí (chỉ khi có cấu hình billing) ---
     billing: params.billing ? computeBilling(rows, params.billing) : null
   };
+}
+
+/* ==========================================================================
+   [SECTION] SLIM CUBE — bản cube gửi từ worker sang luồng chính.
+
+   buildCube giữ đầy đủ (test/LLM/fallback dùng), nhưng vài nhánh có 1 phần tử
+   cho MỖI số đích hoặc MỖI mốc thời gian: 1 triệu cuộc -> ~158 MB phải
+   structured-clone sang UI trong khi UI chỉ vẽ top-N / ~2000 điểm. Các hàm
+   dưới đây giữ ĐÚNG phần UI dùng, nên bảng/biểu đồ ra kết quả như cũ.
+   ========================================================================== */
+const SLIM_TOP_KEEP = 500;          // UI vẽ top 10 (topDest) / top 30 (callback)
+const SLIM_TOP_DEST_MIN_CALLS = 5;  // = minCallsForFail của renderTopDestTable
+const SLIM_CONCURRENCY_POINTS = 1800;   // = downsampleSeriesMax(…, 1800) của plotConcurrentCalls
+
+/**
+ * Chỉ số của n phần tử có key LỚN nhất, bằng nhau thì dòng trước đứng trước —
+ * đúng kết quả của sort ổn định `(a,b)=>key(b)-key(a)` rồi slice(0,n) mà
+ * renderTopDestTable/renderCallbackTopTable làm, nhưng không sort cả triệu
+ * phần tử: tìm ngưỡng bằng sort mảng số rồi chỉ sort nhóm ứng viên.
+ */
+function __stableTopIdx(arr, key, n, keep) {
+  const vals = [];
+  for (let i = 0; i < arr.length; i++) if (!keep || keep(arr[i])) vals.push(key(arr[i]));
+  if (!vals.length || n <= 0) return [];
+  const sorted = Float64Array.from(vals).sort();
+  const t = sorted[Math.max(0, sorted.length - n)];
+  const above = [], at = [];
+  for (let i = 0; i < arr.length; i++) {
+    if (keep && !keep(arr[i])) continue;
+    const k = key(arr[i]);
+    if (k > t) above.push(i); else if (k === t) at.push(i);
+  }
+  const idx = above.concat(at.slice(0, Math.max(0, n - above.length)));
+  idx.sort((a, b) => key(arr[b]) - key(arr[a]) || a - b);
+  return idx.slice(0, n);
+}
+
+function slimTopDest(arr) {
+  if (!Array.isArray(arr) || arr.length <= SLIM_TOP_KEEP * 2) return arr;
+  const keep = new Set(__stableTopIdx(arr, x => x.total, SLIM_TOP_KEEP));
+  // Như renderTopDestTable: chỉ số có >= minCallsForFail cuộc, xếp theo failPct.
+  __stableTopIdx(arr, x => x.failPct, SLIM_TOP_KEEP, x => x.total >= SLIM_TOP_DEST_MIN_CALLS)
+    .forEach(i => keep.add(i));
+  // Giữ thứ tự gốc của mảng đầy đủ.
+  return arr.filter((_, i) => keep.has(i));
+}
+
+/**
+ * callbackStats (mảng mỗi số đích 1 dòng) -> {slim, total, top, firstAttemptHist}.
+ * `top` = SLIM_TOP_KEEP số gọi nhiều nhất (đã sắp theo tot giảm dần, ổn định);
+ * `firstAttemptHist` = [[số lần gọi tới khi nối, số đích], ...] cho histogram.
+ * Gọi lại trên bản đã slim thì trả nguyên (UI gọi cả cho kết quả fallback).
+ */
+function slimCallbackStats(stats) {
+  if (!Array.isArray(stats)) return stats || { slim: true, total: 0, top: [], firstAttemptHist: [] };
+  const hist = new Map();
+  for (const s of stats) {
+    if (s.firstConnectAttempt == null) continue;
+    hist.set(s.firstConnectAttempt, (hist.get(s.firstConnectAttempt) || 0) + 1);
+  }
+  return {
+    slim: true,
+    total: stats.length,
+    top: __stableTopIdx(stats, x => x.tot, SLIM_TOP_KEEP).map(i => stats[i]),
+    firstAttemptHist: Array.from(hist.entries()).sort((a, b) => a[0] - b[0])
+  };
+}
+
+/**
+ * Rút chuỗi đồng thời về ~maxPoints mốc: mỗi nhóm giữ mốc có TỔNG cao nhất
+ * (như downsampleSeriesMax UI vẫn làm), và lấy giá trị từng nhà mạng tại CÙNG
+ * mốc đó để vùng xếp chồng vẫn khớp tổng. peaks/systemPeak... giữ nguyên.
+ */
+function slimConcurrency(c, maxPoints) {
+  maxPoints = maxPoints || SLIM_CONCURRENCY_POINTS;
+  if (!c || !Array.isArray(c.times) || c.times.length <= maxPoints) return c;
+  const n = c.times.length;
+  const step = Math.ceil(n / maxPoints);
+  const idx = [];
+  for (let i = 0; i < n; i += step) {
+    const end = Math.min(n, i + step);
+    let best = i;
+    for (let j = i; j < end; j++) if (c.totalY[j] > c.totalY[best]) best = j;
+    idx.push(best);
+  }
+  const series = Object.create(null);
+  for (const k of (c.keys || [])) {
+    const y = (c.series[k] && c.series[k].y) || [];
+    series[k] = { y: idx.map(i => y[i]) };
+  }
+  return Object.assign({}, c, {
+    times: idx.map(i => c.times[i]),
+    xISO: idx.map(i => c.xISO[i]),
+    totalY: idx.map(i => c.totalY[i]),
+    series,
+    fullPoints: n
+  });
+}
+
+function slimCubeForTransfer(cube) {
+  if (!cube) return cube;
+  const out = Object.assign({}, cube);
+  out.topDest = slimTopDest(cube.topDest);
+  out.callbackStats = slimCallbackStats(cube.callbackStats);
+  if (cube.concurrency) {
+    out.concurrency = Object.assign({}, cube.concurrency, {
+      all: slimConcurrency(cube.concurrency.all),
+      byTelco: slimConcurrency(cube.concurrency.byTelco)
+    });
+  }
+  return out;
 }
 
 // Cube dung cho render UI co the lon (topDest/retryPattern.events co the hang
@@ -827,8 +1067,97 @@ const LLM_CONTEXT_TAB_FIELDS = {
   billing: ['meta', 'overview', 'billing']
 };
 const LLM_CONTEXT_TOP_N = 20;
+// Trần kích thước JSON ngữ cảnh (~125K token). Vượt trần thì bỏ dần các miền
+// lớn nhất — tránh lỗi "input token count exceeds" của model (vd Gemini 1M).
+const LLM_CONTEXT_MAX_CHARS = 400000;
+const LLM_CONTEXT_MAX_KEYS = 200;
+const LLM_CONTEXT_MAX_DEPTH = 8;
+
+// Chuỗi đồng thời có 1 điểm cho MỖI mốc bắt đầu/kết thúc cuộc gọi (155K cuộc
+// → ~35K điểm × mỗi nhà mạng ≈ 3.5MB JSON). Gửi LLM bản rút gọn: đỉnh theo
+// giờ-trong-ngày + dòng thời gian đỉnh theo giờ (hoặc theo ngày nếu dài).
+function llmSummarizeConcurrency(c) {
+  if (!c || !Array.isArray(c.times) || !Array.isArray(c.totalY)) return c;
+  const keys = Array.isArray(c.keys) ? c.keys : [];
+  const series = c.series || {};
+  const byHour = new Map();
+  const byHourOfDay = Array.from({ length: 24 }, (_, h) => ({ hour: h, peak: 0 }));
+  for (let i = 0; i < c.times.length; i++) {
+    const iso = String((c.xISO && c.xISO[i]) || localISODateTime(c.times[i]) || '');
+    const tot = c.totalY[i] || 0;
+    const hod = Number(iso.slice(11, 13));
+    if (hod >= 0 && hod < 24 && tot > byHourOfDay[hod].peak) byHourOfDay[hod].peak = tot;
+    const slot = iso.slice(0, 13);
+    let point = byHour.get(slot);
+    if (!point) { point = { t: slot + ':00', peak: 0, byKey: {} }; byHour.set(slot, point); }
+    if (tot > point.peak) point.peak = tot;
+    if (keys.length > 1) {
+      for (const k of keys) {
+        const v = (series[k] && series[k].y && series[k].y[i]) || 0;
+        if (v > (point.byKey[k] || 0)) point.byKey[k] = v;
+      }
+    }
+  }
+  let points = Array.from(byHour.values());
+  let granularity = 'hour';
+  if (points.length > 48) {  // > 2 ngày: gộp theo ngày (mảng > 50 phần tử sẽ bị cắt)
+    const byDay = new Map();
+    for (const p of points) {
+      const day = p.t.slice(0, 10);
+      let d = byDay.get(day);
+      if (!d) { d = { t: day, peak: 0, byKey: {} }; byDay.set(day, d); }
+      if (p.peak > d.peak) d.peak = p.peak;
+      for (const k in p.byKey) if (p.byKey[k] > (d.byKey[k] || 0)) d.byKey[k] = p.byKey[k];
+    }
+    points = Array.from(byDay.values());
+    granularity = 'day';
+  }
+  points.forEach(p => { if (!Object.keys(p.byKey).length) delete p.byKey; });
+  const peakAtISO = {};
+  for (const k in (c.peakAt || {})) peakAtISO[k] = c.peakAt[k] == null ? null : localISODateTime(c.peakAt[k]);
+  return {
+    keys, peaks: c.peaks, peakAtISO,
+    systemPeak: c.systemPeak,
+    systemPeakAtISO: c.systemPeakAt == null ? null : localISODateTime(c.systemPeakAt),
+    atSystemPeak: c.atSystemPeak, erlangSec: c.erlangSec, totalErlangSec: c.totalErlangSec,
+    observedSpanSec: c.observedSpanSec, calls: c.calls, scope: c.scope,
+    peakByHourOfDay: byHourOfDay,
+    peakTimeline: { granularity, points: points.slice(-50), totalPoints: points.length },
+    _note: `Đã rút gọn từ ${c.times.length} mốc thay đổi thành đỉnh theo ${granularity === 'day' ? 'ngày' : 'giờ'}` +
+      (points.length > 50 ? ` (chỉ giữ 50 ${granularity === 'day' ? 'ngày' : 'giờ'} gần nhất).` : '.')
+  };
+}
+
+// Cắt đệ quy các mảng/đối tượng lồng nhau quá lớn mà llmTrimCubeField không
+// nhìn thấy (mảng số dài → thống kê min/max/avg; mảng object → 50 phần tử đầu).
+function llmCompactValue(value, depth) {
+  if (value == null || typeof value !== 'object') {
+    return (typeof value === 'string' && value.length > 2000) ? value.slice(0, 2000) + '…' : value;
+  }
+  if (depth > LLM_CONTEXT_MAX_DEPTH) return '[đã lược bớt: lồng quá sâu]';
+  if (Array.isArray(value)) {
+    if (value.length > 50 && value.every(v => typeof v === 'number' || v == null)) {
+      const nums = value.filter(v => typeof v === 'number' && isFinite(v));
+      let min = Infinity, max = -Infinity, sum = 0;
+      for (const v of nums) { if (v < min) min = v; if (v > max) max = v; sum += v; }
+      return { _numericSeries: value.length, min: nums.length ? min : null, max: nums.length ? max : null,
+               avg: nums.length ? +(sum / nums.length).toFixed(3) : null };
+    }
+    return value.slice(0, 50).map(v => llmCompactValue(v, depth + 1));
+  }
+  const keys = Object.keys(value);
+  const out = {};
+  keys.slice(0, LLM_CONTEXT_MAX_KEYS).forEach(k => { out[k] = llmCompactValue(value[k], depth + 1); });
+  if (keys.length > LLM_CONTEXT_MAX_KEYS) out._omittedKeys = keys.length - LLM_CONTEXT_MAX_KEYS;
+  return out;
+}
 
 function llmTrimCubeField(key, value) {
+  if (key === 'concurrency' && value && typeof value === 'object') {
+    const out = {};
+    for (const k in value) out[k] = llmSummarizeConcurrency(value[k]);
+    return out;
+  }
   if (key === 'topDest' && Array.isArray(value)) {
     return value.slice()
       .sort((a, b) => (b.total || 0) - (a.total || 0))
@@ -857,15 +1186,29 @@ function buildLlmContext(cube, tabKey, extra) {
   const coverage = {};
   for (const key of fields) {
     if (!(key in cube) || cube[key] == null) continue;
-    out[key] = llmTrimCubeField(key, cube[key]);
+    out[key] = llmCompactValue(llmTrimCubeField(key, cube[key]), 0);
     if (Array.isArray(cube[key]) && cube[key].length > 50) {
       coverage[key] = { total: cube[key].length, included: out[key].length };
     }
   }
+  if (extra && typeof extra === 'object') Object.assign(out, extra);
+  // Chốt trần kích thước: bỏ miền lớn nhất (trừ meta/overview) tới khi vừa.
+  const sizes = Object.keys(out)
+    .filter(key => key !== 'meta' && key !== 'overview')
+    .map(key => [key, (JSON.stringify(out[key]) || '').length])
+    .sort((a, b) => b[1] - a[1]);
+  let totalChars = (JSON.stringify(out) || '').length;
+  const omitted = {};
+  for (const [key, chars] of sizes) {
+    if (totalChars <= LLM_CONTEXT_MAX_CHARS) break;
+    out[key] = { _omitted: true, reason: 'Quá lớn để gửi kèm câu hỏi AI' };
+    omitted[key] = chars;
+    totalChars -= chars;
+  }
   out._contextMode = tabKey === '__all__' ? 'all-filtered-database-domains' : `tab:${tabKey}`;
   out._availableDomains = fields.filter(key => key in cube && cube[key] != null);
   if (Object.keys(coverage).length) out._arrayCoverage = coverage;
-  if (extra && typeof extra === 'object') Object.assign(out, extra);
+  if (Object.keys(omitted).length) out._omittedDomains = omitted;
   return out;
 }
 
@@ -1009,7 +1352,8 @@ function computeTopDest(rows){
   });
   const arr = Object.values(map).map(m=>{
     const failPct = m.total===0 ? 0 : (m.fail/m.total*100);
-    return {...m, failPct:+failPct.toFixed(2)};
+    // Literal cùng thứ tự khoá như {...m, failPct} nhưng không phải copy động.
+    return {dn:m.dn, total:m.total, connected:m.connected, noans:m.noans, fail:m.fail, failPct:+failPct.toFixed(2)};
   });
   return arr;
 }
@@ -1048,8 +1392,17 @@ function aggTelcoConnBreakdown(rows){
   return arr;
 }
 
-function weekdayIndex(dateStr){ const d=new Date(dateStr+'T00:00:00'); if(isNaN(d)) return null; // 0=Sun..6=Sat
-  return (d.getDay()); }
+// Cả triệu dòng chỉ có vài chục ngày -> nhớ kết quả theo chuỗi ngày.
+const __weekdayMemo = new Map();
+function weekdayIndex(dateStr){
+  const key = String(dateStr);
+  if(__weekdayMemo.has(key)) return __weekdayMemo.get(key);
+  const d=new Date(dateStr+'T00:00:00');
+  const out = isNaN(d) ? null : d.getDay(); // 0=Sun..6=Sat
+  if(__weekdayMemo.size > 10000) __weekdayMemo.clear();
+  __weekdayMemo.set(key, out);
+  return out;
+}
 
 function computeTimeHeatmap(rows){
   // 7 (Sun..Sat) x 24 hours
@@ -1064,7 +1417,12 @@ function computeTimeHeatmap(rows){
 
 function computeAnswerRateByAccountPerDay(rows){
   const map = {}; // {date:{acc:{con,no}}}
+  // Dòng ĐẦU TIÊN của mỗi String(account_id) — thay cho rows.find() lặp lại cả
+  // triệu dòng cho từng account khi lấy nhãn.
+  const firstRowByAcc = new Map();
   rows.forEach(r=>{
+    const idKey = String(r.account_id);
+    if(!firstRowByAcc.has(idKey)) firstRowByAcc.set(idKey, r);
     const d = r.date;
     const acc = String(r.account_id||'Unknown');
     if(!map[d]) map[d] = {};
@@ -1084,7 +1442,7 @@ function computeAnswerRateByAccountPerDay(rows){
       return tot===0 ? null : +(obj.con / tot * 100).toFixed(2);
     });
     // label
-    const row = rows.find(r=> String(r.account_id)===acc );
+    const row = firstRowByAcc.get(acc);
     const label = (row && row.account_name && String(row.account_name).trim()) || acc;
     return {name:String(label), x:dates, y};
   });
@@ -1400,23 +1758,32 @@ function computeCallbackStats(rows){
     if(isConnectedStrict(r)) byDn[dn].con += 1;
   });
 
-  // first connect attempt: sort per dn by time
-  const byDnRows={};
-  (rows||[]).forEach(r=>{
+  // Lần gọi thứ mấy thì nối được lần đầu = vị trí (1-based) của cuộc nối sớm
+  // nhất theo start_stamp. Trước đây gom mảng + sort cho từng số; nay chỉ tìm
+  // cuộc nối sớm nhất rồi đếm số cuộc đứng trước nó theo ĐÚNG thứ tự sort ổn
+  // định cũ (so start_stamp, bằng nhau thì theo thứ tự dòng).
+  const list = rows || [];
+  const firstConn = new Map();   // dn -> {stamp, idx}
+  for(let i=0;i<list.length;i++){
+    const r=list[i];
     const dn=String(r.destination_number||'');
-    if(!dn) return;
-    byDnRows[dn]=byDnRows[dn]||[];
-    byDnRows[dn].push(r);
-  });
-  Object.keys(byDnRows).forEach(dn=>{
-    const arr = byDnRows[dn].slice().sort((a,b)=> (a.start_stamp||'').localeCompare(b.start_stamp||''));
-    let attempt=0; let first=null;
-    for(const r of arr){
-      attempt++;
-      if(isConnectedStrict(r)){ first=attempt; break; }
-    }
-    if(byDn[dn]) byDn[dn].firstConnectAttempt = first; // null if never connected
-  });
+    if(!dn || !isConnectedStrict(r)) continue;
+    const stamp=r.start_stamp||'';
+    const cur=firstConn.get(dn);
+    if(!cur || __stampCompare(stamp, cur.stamp) < 0) firstConn.set(dn, {stamp, idx:i});
+  }
+  const before = new Map();      // dn -> số cuộc đứng trước cuộc nối sớm nhất
+  for(let i=0;i<list.length;i++){
+    const r=list[i];
+    const dn=String(r.destination_number||'');
+    const fc=dn ? firstConn.get(dn) : null;
+    if(!fc) continue;
+    const c=__stampCompare(r.start_stamp||'', fc.stamp);
+    if(c < 0 || (c === 0 && i < fc.idx)) before.set(dn, (before.get(dn)||0) + 1);
+  }
+  for(const [dn, fc] of firstConn){
+    if(byDn[dn]) byDn[dn].firstConnectAttempt = (before.get(dn)||0) + 1;
+  }
 
   return Object.values(byDn);
 }
@@ -1553,6 +1920,137 @@ function computeBilling(rows, cfg){
   };
 }
 
+// Bách phân vị (nội suy tuyến tính) của mảng số đã sắp xếp tăng dần.
+function __quantileSorted(sorted, q){
+  const n = sorted.length;
+  if(!n) return 0;
+  if(n === 1) return sorted[0];
+  const pos = (n - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+}
+
+/**
+ * Dự đoán cước cuối tháng theo thứ trong tuần.
+ *   Dự đoán = Cước thực tế (ngày 1 → D)
+ *           + Phần còn lại của ngày D (nếu CDR dừng trước 23h: TB giờ h+1..23 các ngày cùng thứ)
+ *           + Σ ước tính ngày D+1..cuối tháng (TB cùng thứ trong 28 ngày trước D;
+ *             < 2 mẫu cùng thứ -> TB mọi ngày trong 7 ngày gần nhất)
+ *   Khoảng thấp – cao: thay trung bình bằng P20 / P80 của cùng các mẫu.
+ * Tính trên giây tính cước (billedSec) rồi mới quy ra tiền -> khớp tổng thành tiền.
+ * Tháng dự đoán = tháng của cfg.endDate (không có thì tháng của dữ liệu mới nhất).
+ * D, "ngày có dữ liệu" và giờ cuối được xác định trên TOÀN BỘ CDR (không theo
+ * account/telco) để account ít gọi không bị hiểu nhầm là dữ liệu tải thiếu.
+ */
+function computeBillingForecast(rows, cfg, opts){
+  const o = opts || {};
+  const Q_LOW = o.qLow ?? 0.2, Q_HIGH = o.qHigh ?? 0.8;
+  const LOOKBACK = o.lookbackDays ?? 28, FALLBACK = o.fallbackDays ?? 7, MIN_SAMPLES = o.minSamples ?? 2;
+  const PARTIAL_BEFORE_HOUR = o.partialBeforeHour ?? 23;
+  const src = rows || [];
+  const addDays = (iso, n)=>{ const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + n); return localISODate(d); };
+
+  let month = /^\d{4}-\d{2}/.test(String(cfg.endDate||'')) ? String(cfg.endDate).slice(0,7) : '';
+  if(!month){
+    let max = '';
+    for(const r of src){ const d = String(r.start_stamp||'').slice(0,10); if(d > max) max = d; }
+    month = max.slice(0,7);
+  }
+  if(!/^\d{4}-\d{2}$/.test(month)) return {status:'no-data', month:''};
+  const [yy, mm] = month.split('-').map(Number);
+  const daysInMonth = new Date(yy, mm, 0).getDate();
+  const monthStart = month + '-01';
+  const monthEnd = month + '-' + String(daysInMonth).padStart(2,'0');
+  const windowStart = addDays(monthStart, -(LOOKBACK + 2));
+
+  const covered = new Set();          // ngày có CDR (toàn bộ, không lọc)
+  const daySec = new Map();           // ngày -> giây tính cước (đã lọc account/telco)
+  const hourSec = new Map();          // ngày -> Float64Array(24)
+  let lastStamp = '';                 // cuộc gọi muộn nhất trong tháng (toàn bộ)
+  const chargeZero = !cfg.onlyConnected;
+  for(const r of src){
+    const s = String(r.start_stamp||'');
+    const d = s.slice(0,10);
+    if(d < windowStart || d > monthEnd) continue;
+    covered.add(d);
+    if(d >= monthStart && s > lastStamp) lastStamp = s;
+    if(cfg.account && String(r.account_id)!==cfg.account) continue;
+    if(cfg.telco && String(r.telco)!==cfg.telco) continue;
+    const billed = billedSecondsOf(r.billsec, cfg.firstBlock, cfg.nextBlock, chargeZero);
+    if(!billed) continue;
+    daySec.set(d, (daySec.get(d)||0) + billed);
+    let h = hourSec.get(d);
+    if(!h){ h = new Float64Array(24); hourSec.set(d, h); }
+    const hr = parseInt(s.slice(11,13), 10);
+    if(hr >= 0 && hr < 24) h[hr] += billed;
+  }
+  if(!lastStamp) return {status:'no-data', month, daysInMonth};
+
+  const lastDate = lastStamp.slice(0,10);
+  const lastHour = parseInt(lastStamp.slice(11,13), 10) || 0;
+  const partialLastDay = lastHour < PARTIAL_BEFORE_HOUR;
+  let firstCovered = '';
+  for(const d of covered) if(d >= monthStart && (!firstCovered || d < firstCovered)) firstCovered = d;
+  const missingMonthStart = firstCovered > monthStart;
+
+  // Mẫu lịch sử: ngày có CDR trong LOOKBACK ngày kết thúc tại D (bỏ D nếu D chưa hết ngày).
+  const histEnd = partialLastDay ? addDays(lastDate, -1) : lastDate;
+  const histStart = addDays(histEnd, -(LOOKBACK - 1));
+  const recentStart = addDays(histEnd, -(FALLBACK - 1));
+  const history = [];
+  for(let d = histStart; d <= histEnd; d = addDays(d, 1)){
+    if(covered.has(d)) history.push({date:d, wd:weekdayIndex(d), sec:daySec.get(d)||0});
+  }
+  const samplesFor = (wd)=>{
+    const same = history.filter(h=>h.wd===wd);
+    if(same.length >= MIN_SAMPLES) return {list:same, fallback:false};
+    return {list:history.filter(h=>h.date >= recentStart), fallback:true};
+  };
+  const stats = (vals)=>{
+    const sorted = vals.slice().sort((a,b)=>a-b);
+    const mean = sorted.length ? sorted.reduce((a,b)=>a+b,0) / sorted.length : 0;
+    return {mid:mean, low:__quantileSorted(sorted, Q_LOW), high:__quantileSorted(sorted, Q_HIGH), n:sorted.length};
+  };
+
+  let actualSec = 0;
+  for(const [d, v] of daySec) if(d >= monthStart && d <= lastDate) actualSec += v;
+
+  let remainder = null;
+  if(partialLastDay){
+    const wd = weekdayIndex(lastDate);
+    const sm = samplesFor(wd);
+    const vals = sm.list.map(h=>{
+      const arr = hourSec.get(h.date);
+      let t = 0; if(arr) for(let i = lastHour + 1; i < 24; i++) t += arr[i];
+      return t;
+    });
+    remainder = {date:lastDate, weekday:wd, fromHour:lastHour + 1, fallback:sm.fallback, ...stats(vals)};
+  }
+
+  const days = [];
+  for(let d = addDays(lastDate, 1); d <= monthEnd; d = addDays(d, 1)){
+    const wd = weekdayIndex(d);
+    const sm = samplesFor(wd);
+    days.push({date:d, weekday:wd, fallback:sm.fallback, ...stats(sm.list.map(h=>h.sec))});
+  }
+
+  const sumOf = k => days.reduce((a,x)=>a + x[k], 0) + (remainder ? remainder[k] : 0);
+  const secs = {mid:actualSec + sumOf('mid'), low:actualSec + sumOf('low'), high:actualSec + sumOf('high')};
+  const money = sec => roundMoney(sec/60*cfg.rate, cfg.roundStep);
+  const status = !history.length ? 'no-history' : 'ok';
+  return {
+    status, month, daysInMonth, monthStart, monthEnd,
+    lastStamp, lastDate, lastHour, partialLastDay,
+    firstCovered, missingMonthStart,
+    historyDays: history.length, histStart, histEnd,
+    remainingDays: days.length,
+    complete: !days.length && !partialLastDay,
+    actualSec, actualCost: money(actualSec),
+    remainder, days,
+    forecastSec: secs,
+    forecastCost: {mid:money(secs.mid), low:money(secs.low), high:money(secs.high)}
+  };
+}
+
 function __ccuIntervals(rows, scope){
   const list = []; let derivedEnd = 0;
   const keep = (scope==='occupied')
@@ -1641,7 +2139,9 @@ function __computeConcurrency(rows, keyFn, scope){
 }
 
 function computeCcuByTelco(rows, opts){
-  const res = __computeConcurrency(rows, getTelco, (opts && opts.scope) || 'answered');
+  // opts.byTelco: kết quả __computeConcurrency(rows, getTelco, scope) đã tính
+  // sẵn (buildCube) -> khỏi quét lại cả triệu cuộc lần nữa.
+  const res = (opts && opts.byTelco) || __computeConcurrency(rows, getTelco, (opts && opts.scope) || 'answered');
   const filterSpan = (opts && opts.filterSpanSec != null) ? opts.filterSpanSec : null;
   const stats = res.keys.map(tel=>{
     const ys = res.series[tel].y;
@@ -3085,7 +3585,7 @@ const __exports = {
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax, downsampleSeriesMin,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeConnectRateExcludingFail, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, computeOperationalAlerts, aggregateOverview, aggByPrefix, minutesPerDay,
   computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, excelCellMatch, rowPassesColFilters, computeGatewayByAccount, computeGatewayFail, computeGatewayHangupCause, computeGatewayFailTimeline, computeGatewayBlockReconcile,
-  billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, resolveDateRangePreset, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
+  billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, computeBillingForecast, resolveDateRangePreset, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
   computeCidRecoverySurvival, computeCidReblockStats, computeCidInventoryTrend,
@@ -3096,7 +3596,10 @@ const __exports = {
   computeLoadVsBlockRisk, computeBlockPrecursors,
   computeBlockSignalPatterns, buildPrecursorWindows,
   countActiveDays, computeSignalsByAccount,
-  buildCube, buildLlmContext
+  buildCube, buildLlmContext,
+  makeRowFactory,
+  slimTopDest, slimCallbackStats, slimConcurrency, slimCubeForTransfer,
+  isCanonicalStamp, stampToMs
 };
 for (const k in __exports) { if (!(k in root)) root[k] = __exports[k]; }
 if (typeof module !== 'undefined' && module.exports) module.exports = __exports;

@@ -1289,6 +1289,36 @@ test('buildLlmContext — chỉ giữ trường liên quan tab, cắt top-N mả
   assert.equal(core.buildLlmContext(null, 'overview'), null);
 });
 
+test('buildLlmContext — rút gọn chuỗi đồng thời và giữ dưới trần kích thước', () => {
+  const n = 20000;
+  const base = Date.UTC(2026, 8, 22, 1, 0, 0);
+  const times = Array.from({ length: n }, (_, i) => base + i * 30000);
+  const y = times.map((_, i) => (i === 12345 ? 99 : i % 7));
+  const series = { all: { times, xISO: times.map(t => core.localISODateTime ? core.localISODateTime(t) : null),
+    keys: ['A', 'B'], series: { A: { y }, B: { y: y.map(v => v ? 1 : 0) } }, totalY: y,
+    peaks: { A: 99, B: 1 }, peakAt: { A: times[12345], B: times[1] }, systemPeak: 99, systemPeakAt: times[12345] } };
+  const cube = {
+    meta: { rows: n }, overview: { totalCalls: n },
+    concurrency: series,
+    nested: { deep: { values: Array.from({ length: 5000 }, (_, i) => i) } },
+    huge: Array.from({ length: 40 }, (_, i) => ({ id: i, blob: 'x'.repeat(1900) })).reduce((o, v) => { o['k' + v.id] = v; return o; }, {})
+  };
+  cube.huge2 = JSON.parse(JSON.stringify(cube.huge)); cube.huge3 = JSON.parse(JSON.stringify(cube.huge));
+  for (let i = 0; i < 6; i++) cube['wide' + i] = JSON.parse(JSON.stringify(cube.huge));
+  const out = core.buildLlmContext(cube, '__all__', {});
+  const text = JSON.stringify(out);
+  assert.ok(text.length <= 400000 + 2000, `context ${text.length} ký tự`);
+  const c = out.concurrency.all;
+  assert.equal(c.times, undefined);
+  assert.equal(c.systemPeak, 99);
+  assert.equal(Math.max(...c.peakTimeline.points.map(p => p.peak)), 99);
+  assert.equal(c.peakByHourOfDay.length, 24);
+  assert.equal(out.nested.deep.values._numericSeries, 5000);
+  assert.equal(out.nested.deep.values.max, 4999);
+  assert.ok(out._omittedDomains && Object.keys(out._omittedDomains).length > 0);
+  assert.equal(out.meta.rows, n);
+});
+
 test('buildLlmContext — extra gộp thêm vào context (vd dữ liệu CID rời cube)', () => {
   const out = core.buildLlmContext({ meta: {} }, 'cid', { cidSummary: { locked: 3 } });
   assert.deepEqual(out.cidSummary, { locked: 3 });
@@ -1337,4 +1367,132 @@ test('queryCallDetails — gateway chưa map, zero result và phân trang', () =
   assert.equal(page.rows.length, 1);
   assert.equal(page.rows[0].uuid, 'p3');
   assert.equal(core.queryCallDetails(rows, { ...base, gatewayKey: 'missing' }, 0, 25).total, 0);
+});
+
+// ---- Hiệu năng nạp dữ liệu lớn: phải cho KẾT QUẢ Y HỆT cách làm cũ ----
+
+test('makeRowFactory — đúng khoá/thứ tự/giá trị, cột trùng tên lấy giá trị sau', () => {
+  const make = core.makeRowFactory(['a', 'b', 'a', 'c d']);
+  const row = make(['1', '2', '3']);
+  assert.deepEqual(Object.keys(row), ['a', 'b', 'c d']);
+  assert.deepEqual(row, { a: '3', b: '2', 'c d': undefined });
+  assert.strictEqual(core.makeRowFactory(['a', 'b', 'a', 'c d']), make);  // dùng lại
+  assert.deepEqual(core.makeRowFactory(['__proto__', 'x'])(['1', '2']).x, '2');
+});
+
+test('normalizeCallRecord — cột alias trùng đích: giá trị không rỗng đầu tiên thắng', () => {
+  const [row] = core.normalizeCallRecords([{ Caller: '', caller_id_number: '0901', Start: 'x', 'Start time': '2026-09-23 10:00:05' }]);
+  assert.equal(row.caller_id_number, '0901');
+  assert.equal(row.start_stamp, '2026-09-23 10:00:05');
+  assert.equal(row.Start, 'x');
+});
+
+test('stampToMs = Date.parse cho cả khuôn chuẩn và khuôn lạ', () => {
+  for (const s of ['2026-09-23 10:00:59', '2026-09-23 00:00:00', '2026-02-29 10:00:00', '2026-09-23 10:00', '', 'rác'])
+    assert.equal(String(core.stampToMs(s)), String(Date.parse(s.replace(' ', 'T'))), s);
+});
+
+test('computeCallbackStats — lần nối đầu theo thứ tự sort ổn định cũ (cùng giây, khuôn lạ)', () => {
+  const reference = rows => {
+    const byDn = {};
+    rows.forEach(r => { const dn = String(r.destination_number || ''); if (!dn) return; (byDn[dn] = byDn[dn] || []).push(r); });
+    const out = {};
+    for (const dn in byDn) {
+      const arr = byDn[dn].slice().sort((a, b) => (a.start_stamp || '').localeCompare(b.start_stamp || ''));
+      const i = arr.findIndex(r => Number(r.billsec || 0) > 0);
+      out[dn] = i < 0 ? null : i + 1;
+    }
+    return out;
+  };
+  const rows = [
+    { destination_number: 'A', start_stamp: '2026-09-23 10:00:05', billsec: 5 },
+    { destination_number: 'A', start_stamp: '2026-09-23 10:00:01', billsec: 0 },
+    { destination_number: 'A', start_stamp: '2026-09-23 10:00:05', billsec: 0 },
+    { destination_number: 'B', start_stamp: '2026-09-23 09:00:00', billsec: 0 },
+    { destination_number: 'B', start_stamp: '', billsec: 3 },
+    { destination_number: 'C', start_stamp: '23/09/2026 10:00', billsec: 0 },
+    { destination_number: 'C', start_stamp: '2026-09-23 10:00:00', billsec: 2 },
+    { destination_number: 'D', start_stamp: '2026-09-23 10:00:00', billsec: 0 }
+  ];
+  const got = Object.fromEntries(core.computeCallbackStats(rows).map(s => [s.dn, s.firstConnectAttempt]));
+  assert.deepEqual(got, reference(rows));
+});
+
+test('slimCubeForTransfer — giữ đúng phần UI vẽ, bỏ phần theo từng số/mốc', () => {
+  const topDest = Array.from({ length: 3000 }, (_, i) => ({ dn: 'd' + i, total: i % 7, connected: 0, noans: 0, fail: i % 5, failPct: (i % 5) * 10 }));
+  const slim = core.slimTopDest(topDest);
+  assert.ok(slim.length < topDest.length);
+  const ui = data => {
+    const byCalls = data.slice().sort((a, b) => b.total - a.total).slice(0, 10);
+    const byFail = data.filter(x => x.total >= 5).sort((a, b) => b.failPct - a.failPct).slice(0, 10);
+    const set = new Set([...byCalls, ...byFail].map(x => x.dn));
+    return data.filter(x => set.has(x.dn)).map(x => x.dn);
+  };
+  assert.deepEqual(ui(slim), ui(topDest));
+
+  const cb = core.slimCallbackStats([{ dn: 'a', tot: 3, con: 1, firstConnectAttempt: 2 }, { dn: 'b', tot: 5, con: 0, firstConnectAttempt: null }, { dn: 'c', tot: 3, con: 1, firstConnectAttempt: 2 }]);
+  assert.deepEqual(cb.firstAttemptHist, [[2, 2]]);
+  assert.deepEqual(cb.top.map(x => x.dn), ['b', 'a', 'c']);
+  assert.strictEqual(core.slimCallbackStats(cb), cb);  // gọi lại không đổi
+
+  const n = 10000, times = Array.from({ length: n }, (_, i) => i * 1000);
+  const totalY = times.map((_, i) => (i * 7919) % 97);
+  const c = { times, xISO: times.map(String), totalY, keys: ['x'], series: { x: { y: totalY.slice() } }, systemPeak: 96 };
+  const s = core.slimConcurrency(c);
+  assert.equal(s.fullPoints, n);
+  assert.deepEqual(core.downsampleSeriesMax(c.xISO, c.totalY, 1800), { x: s.xISO, y: s.totalY });
+  assert.deepEqual(s.series.x.y, s.totalY);
+});
+
+// ---------- Dự đoán cước cuối tháng ----------
+function fcRow(stamp, billsec, extra){
+  return { start_stamp: stamp, billsec, account_id: '1', telco: 'VIETTEL', ...(extra||{}) };
+}
+const FC_CFG = { firstBlock: 6, nextBlock: 1, rate: 60, roundStep: 0, onlyConnected: true, endDate: '2026-09-24' };
+
+test('computeBillingForecast — theo thứ trong tuần, ngày cuối chưa hết ngày', () => {
+  const rows = [];
+  // 01/08 -> 23/09: mỗi ngày 1 cuộc 10h; Chủ nhật 60s, ngày khác 120s; thêm 1 cuộc 20h = 60s.
+  for (let d = new Date('2026-08-01T00:00:00'); d <= new Date('2026-09-23T00:00:00'); d.setDate(d.getDate() + 1)) {
+    const iso = core.localISODate(d);
+    rows.push(fcRow(`${iso} 10:00:00`, d.getDay() === 0 ? 60 : 120));
+    rows.push(fcRow(`${iso} 20:00:00`, 60));
+  }
+  rows.push(fcRow('2026-09-24 10:00:00', 120)); // 24/09 (T5): CDR dừng lúc 10h
+  rows.push(fcRow('2026-09-24 11:00:00', 0));   // chưa kết nối -> không tính
+  rows.push(fcRow('2026-09-24 12:00:00', 30, { account_id: '2' })); // account khác
+  const fc = core.computeBillingForecast(rows, { ...FC_CFG, account: '1' });
+  assert.equal(fc.status, 'ok');
+  assert.equal(fc.lastDate, '2026-09-24');
+  assert.equal(fc.lastHour, 12);            // giờ cuối xét trên toàn bộ CDR
+  assert.equal(fc.partialLastDay, true);
+  assert.equal(fc.missingMonthStart, false);
+  assert.equal(fc.historyDays, 28);         // 27/08 -> 23/09
+  // Thực tế: 01..23/09 có 3 CN (06,13,20): 3*120 + 20*180 = 3960; + 24/09: 120
+  assert.equal(fc.actualSec, 4080);
+  // Phần còn lại 24/09 từ 13h: TB các T5 trước = 60s (cuộc 20h)
+  assert.equal(fc.remainder.mid, 60);
+  // 25..30/09: 1 CN (27) = 120, 5 ngày khác = 900
+  assert.equal(fc.days.length, 6);
+  assert.equal(fc.days.find(d => d.date === '2026-09-27').mid, 120);
+  assert.equal(fc.forecastSec.mid, 4080 + 60 + 1020);
+  assert.equal(fc.forecastCost.mid, (4080 + 60 + 1020) / 60 * 60);
+  assert.ok(fc.forecastSec.low <= fc.forecastSec.mid && fc.forecastSec.mid <= fc.forecastSec.high);
+});
+
+test('computeBillingForecast — thiếu dữ liệu đầu tháng, fallback 7 ngày, tháng đã đủ', () => {
+  const rows = [];
+  for (let day = 20; day <= 24; day++) rows.push(fcRow(`2026-09-${day} 23:30:00`, 60));
+  const fc = core.computeBillingForecast(rows, FC_CFG);
+  assert.equal(fc.missingMonthStart, true);
+  assert.equal(fc.firstCovered, '2026-09-20');
+  assert.equal(fc.partialLastDay, false);
+  assert.ok(fc.days.every(d => d.fallback)); // mỗi thứ có < 2 mẫu
+  assert.equal(fc.days[0].mid, 60);
+
+  const done = core.computeBillingForecast([fcRow('2026-02-28 23:10:00', 60)], { ...FC_CFG, endDate: '2026-02-10' });
+  assert.equal(done.complete, true);
+  assert.equal(done.forecastSec.mid, 60);
+
+  assert.equal(core.computeBillingForecast([], FC_CFG).status, 'no-data');
 });

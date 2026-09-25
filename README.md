@@ -124,12 +124,18 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 - Bộ lọc gần nhất được ghi nhớ trong trình duyệt. Ngày mặc định dùng đúng múi giờ máy tính.
 - Màn hình tải báo cáo hiển thị thời gian chờ và cho phép hủy/thử lại. Khi tải lỗi có thêm nút **Đóng** (hoặc phím Esc) để quay lại dashboard; tham số `?csv=` cũng được gỡ khỏi URL nên lần F5 sau không tự chạy lại và kẹt tiếp.
 - Tải nhiều Account hiển thị tiến độ thật: *Đang tải tài khoản 7/40 — tên account*, lấy từ `/api/export-progress`.
-- **Bộ lọc chính** gom kết nối MPT, tài khoản, ngày/giờ, hướng gọi, nhà mạng, nguyên nhân kết thúc và loại cuộc gọi. Nút **Xem/Cập nhật báo cáo** tự đọc dữ liệu đã có trong SQLite rồi chỉ đồng bộ phần còn thiếu hoặc đã cũ từ MPT; **Đồng bộ lại từ MPT** ép đồng bộ lại toàn bộ phạm vi đang chọn.
+- **Bộ lọc chính** gom kết nối MPT, tài khoản, ngày/giờ, hướng gọi, nhà mạng, nguyên nhân kết thúc và loại cuộc gọi. Nút **Xem** chỉ đọc dữ liệu đã lưu trong SQLite (không gọi MPT) rồi mở popup cho biết cuộc gọi cuối cùng và thời điểm cập nhật từ MPT của bộ lọc đó, kèm các ngày còn thiếu. Nút **Cập nhật báo cáo** mới tải từ MPT, và chỉ tải khoảng ngày còn thiếu hoặc chưa trọn vẹn (hôm nay, hoặc ngày được đồng bộ khi chưa kết thúc); ngày đã đủ lấy thẳng từ DB. F5/bookmark luôn chỉ đọc DB. API vẫn nhận `sync=force` nếu cần ép tải lại toàn bộ.
 - CSV tải mới từ MPT được chuẩn hoá trực tiếp trong bộ nhớ vào `data/calls.sqlite3`, không tạo file CSV tạm. Kho dữ liệu giữ cuốn chiếu **31 ngày**, tự dọn dữ liệu cũ khi khởi động và định kỳ mỗi 6 giờ. Các file CSV cũ do người dùng tải thủ công không bị xoá.
+- Đọc DB nhanh: kết quả của mỗi bộ lọc được giữ trong RAM (tối đa ~320 MB, LRU) và tự bỏ khi có dữ liệu mới hoặc khi dọn cuốn chiếu, nên bấm **Xem**/F5 lại cùng bộ lọc gần như tức thì (1 triệu dòng: ~12,5 s → <1 s). Lần đọc đầu cũng nhanh gấp ~2 lần nhờ ghi CSV theo lô.
+- Nạp dữ liệu lớn trong trình duyệt (đo trên 972 nghìn dòng, kết quả được kiểm là giống hệt bản cũ):
+  - Worker parse/chuẩn hoá/enrich **45 s → 9 s** (Node) / **35 s → 16 s** (trình duyệt). Nguyên nhân chính: dựng object bằng `o[tênCột] = v` quá 12 khoá làm V8 chuyển object sang chế độ bảng băm; nay dựng bằng object literal khoá cố định (`makeRowFactory`), kèm đường nhanh cho timestamp/số/đầu số/tên nhà mạng.
+  - Cube gửi từ worker sang trang **158 MB → 4 MB** (`slimCubeForTransfer`): `topDest`/`callbackStats` chỉ giữ top 500 + histogram, chuỗi đồng thời rút về đúng 1.800 điểm mà biểu đồ vẫn vẽ. Heap của trang ~600 MB → ~80 MB.
+  - Không đổi cấu trúc bảng SQLite sang WITHOUT ROWID: đã đo, đọc 972 nghìn dòng vẫn ~7 s (chi phí nằm ở Python dựng dòng, không ở ổ đĩa).
+- Dòng trạng thái DB ghi riêng số dòng của kết nối đang chọn và tổng dòng/dung lượng của cả file. File tạo trước khi bật `auto_vacuum=INCREMENTAL` hiện nút **Thu gọn DB** (`POST /api/db-compact`, VACUUM một lần) để từ đó xoá dữ liệu quá hạn làm file nhỏ lại thật.
 - Đồng bộ được tuần tự hoá theo từng kết nối MPT: các yêu cầu trùng đang chờ dùng chung kết quả vừa hoàn tất, không thể ghi đè bộ lọc phiên của nhau. Giao diện khóa cả hai nút trong lúc xử lý và worker chỉ chấp nhận dataset của yêu cầu mới nhất, nên phản hồi cũ đến muộn không thể thay thế báo cáo đang xem.
-- **Bộ lọc chính** hiển thị phạm vi dữ liệu đang có. Nếu khoảng lọc nằm ngoài dữ liệu đã nạp, dashboard cảnh báo kèm nút **Cập nhật khoảng này** thay vì im lặng trả về 0.
-- Không nạp được danh sách Account không còn chặn cả luồng: chỉ cần chọn kết nối là bấm được **Xem/Cập nhật báo cáo** (bỏ trống account = tất cả).
-- **Bộ lọc chính** đánh dấu nút *Xem/Cập nhật báo cáo* khi có thay đổi chưa áp dụng; nhấn Enter trong ô ngày/giờ cũng cập nhật.
+- **Bộ lọc chính** hiển thị phạm vi dữ liệu đang có. Nếu khoảng lọc nằm ngoài dữ liệu đã nạp, dashboard cảnh báo kèm nút **Xem khoảng này** thay vì im lặng trả về 0.
+- Không nạp được danh sách Account không còn chặn cả luồng: chỉ cần chọn kết nối là bấm được **Xem** / **Cập nhật báo cáo** (bỏ trống account = tất cả).
+- **Bộ lọc chính** đánh dấu nút *Xem* khi có thay đổi chưa áp dụng; nhấn Enter trong ô lọc tương đương bấm **Xem**.
 - Nhãn tách bạch: **Tài khoản cần tải** (lấy từ MPT) và **Tài khoản đang xem** (lọc trên dữ liệu đã tải).
 - Dữ liệu lần gần nhất được nhớ trong IndexedDB (tối đa 200.000 dòng). Mở lại app sẽ hiện banner
   *Dữ liệu lần trước… [Dùng lại] [Bỏ qua]* thay vì phải export lại từ MPT.

@@ -145,6 +145,8 @@ EXPORT_CACHE_MAX_ITEMS = 8
 EXPORT_PROGRESS_TTL_SECONDS = 15 * 60
 RISK_ANALYSIS_CACHE_TTL_SECONDS = 10 * 60
 RISK_ANALYSIS_CACHE_MAX_ITEMS = 8
+# ~250K token: lưới an toàn phía server, trên mức client tự cắt (400K ký tự).
+LLM_ASK_MAX_CHARS = 800_000
 
 
 def normalize_domain(value):
@@ -693,7 +695,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/risk-analysis":
             self.handle_risk_analysis()
             return
+        if parsed.path == "/api/db-compact":
+            self.handle_db_compact()
+            return
         self.send_error(404)
+
+    def handle_db_compact(self):
+        try:
+            self.json_response(self.server.call_store.compact())
+        except Exception as exc:
+            self.error_response(exc)
 
     def handle_client_log(self):
         """Beacon lỗi JS từ cửa sổ native (không có DevTools) -> in ra stderr."""
@@ -1123,6 +1134,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             )
             if question:
                 user_text += "\n\nCâu hỏi: " + question
+            # Chặn trước khi gọi model: payload quá lớn sẽ bị nhà cung cấp trả
+            # HTTP 400 "input token count exceeds…" khó hiểu với người dùng.
+            if len(user_text) > LLM_ASK_MAX_CHARS:
+                raise ValueError(
+                    f"Dữ liệu gửi kèm quá lớn (~{len(user_text) // 3200}K token). "
+                    "Hãy thu hẹp bộ lọc (ít ngày/account hơn) rồi hỏi lại."
+                )
             messages.append({"role": "user", "content": user_text})
         except Exception as exc:
             self.error_response(exc, 400)
@@ -1242,11 +1260,17 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         sync_mode = params.pop("sync", "auto")
         try:
             data, cache_state = self._export_calldata_csv(params, job_id, sync_mode)
+            scopes = [x for x in params.get("account_id", "").split(",") if x and x != "0"]
+            summary = self.server.call_store.scope_summary(params, scopes)
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
             self.send_header("Content-Disposition", "inline; filename=calldata.csv")
             self.send_header("Content-Length", str(len(data)))
             self.send_header("X-MPT-Cache", cache_state)
+            # Cho nút "Xem" báo dữ liệu trong DB của bộ lọc này mới tới đâu.
+            self.send_header("X-MPT-Last-Call", summary["lastCall"])
+            self.send_header("X-MPT-Synced-At", summary["syncedAt"])
+            self.send_header("X-MPT-Missing-Days", ",".join(summary["missingDays"]))
             self.end_headers()
             self.wfile.write(data)
         except Exception as exc:
@@ -1287,8 +1311,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         profile_id = params.get("profile_id", "")
         names = self.account_names(profile_id)
         scopes = account_ids or ["*"]
-        force = str(sync_mode).lower() in ("force", "1", "true")
-        sync_allowed = str(sync_mode).lower() not in ("none", "0", "false")
+        mode = str(sync_mode).lower()
+        force = mode in ("force", "1", "true")
+        # "update" = nút Cập nhật báo cáo: tải lại mọi ngày chưa trọn vẹn ngay,
+        # không chờ hết khoảng 10 phút "còn tươi" như chế độ auto.
+        explicit = force or mode == "update"
+        sync_allowed = mode not in ("none", "0", "false")
         request_started = monotonic()
         sync_key = (profile_id, tuple(sorted(scopes)), from_day, to_day)
         cache_state = "DB"
@@ -1303,11 +1331,22 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 # Coalesce duplicate force requests that were already waiting
                 # when an identical sync completed. A later, deliberate force
                 # request still starts a new synchronization.
-                already_completed_while_waiting = force and completed >= request_started
-                should_sync = not already_completed_while_waiting and \
-                    self.server.call_store.needs_sync(
-                        profile_id, scopes, from_day, to_day, force=force,
+                already_completed_while_waiting = explicit and completed >= request_started
+                sync_from, sync_to = from_day, to_day
+                if already_completed_while_waiting:
+                    should_sync = False
+                elif force:
+                    should_sync = True
+                else:
+                    # Only re-download the span that is missing/incomplete;
+                    # days already complete in SQLite are served as-is.
+                    stale = self.server.call_store.stale_days(
+                        profile_id, scopes, from_day, to_day,
+                        max_age=0 if explicit else call_store.TODAY_FRESH_SECONDS,
                     )
+                    should_sync = bool(stale)
+                    if stale:
+                        sync_from, sync_to = min(stale), max(stale)
                 if should_sync:
                     client = self.get_export_client(profile_id)
                     # Fetch the broad account/date slice once. All other filters
@@ -1316,6 +1355,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     source_params.update({
                         "caller_number": "", "dest_number": "", "outbound": "",
                         "hangupcause": "0", "calltype": "", "telco": "0",
+                        "from_day": sync_from, "to_day": sync_to,
                     })
                     if len(account_ids) <= 1:
                         data = client.export_csv(source_params)
@@ -1329,7 +1369,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                         )
                     data = self.inject_account_names(data, names)
                     self.server.call_store.ingest_csv(
-                        profile_id, data, names, scopes, from_day, to_day,
+                        profile_id, data, names, scopes, sync_from, sync_to,
                     )
                     with self.server.profile_sync_locks_lock:
                         self.server.profile_sync_completed[sync_key] = monotonic()
