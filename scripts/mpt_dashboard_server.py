@@ -9,6 +9,9 @@ import mimetypes
 import os
 import posixpath
 import re
+import shutil
+import socket
+import ssl
 import subprocess
 import sys
 import tempfile
@@ -21,7 +24,8 @@ from datetime import date, datetime, timedelta
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from http.cookiejar import CookieJar
 from pathlib import Path
-from threading import Lock
+from queue import Empty, Queue
+from threading import Lock, Thread
 from time import monotonic
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -29,6 +33,18 @@ import routing_events  # noqa: E402  (can sys.path o tren de chay ca khi import 
 import gateway_map  # noqa: E402
 import llm_client  # noqa: E402
 import call_store  # noqa: E402
+
+_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
+
+def _hidden_subprocess_kwargs():
+    """Hide console windows for worker subprocesses launched by windowed builds."""
+    if not sys.platform.startswith("win"):
+        return {}
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0  # SW_HIDE
+    return {"creationflags": _NO_WINDOW, "startupinfo": startupinfo}
 
 
 class _DataBlob(ctypes.Structure):
@@ -142,13 +158,115 @@ DEFAULT_DOMAINS = [
     "https://customer-omihub1.mpt.com.vn",
     "https://customer-billing01.mpt.com.vn",
 ]
-EXPORT_CACHE_TTL_SECONDS = 10 * 60
-EXPORT_CACHE_MAX_ITEMS = 8
 EXPORT_PROGRESS_TTL_SECONDS = 15 * 60
 RISK_ANALYSIS_CACHE_TTL_SECONDS = 10 * 60
 RISK_ANALYSIS_CACHE_MAX_ITEMS = 8
 # ~250K token: lưới an toàn phía server, trên mức client tự cắt (400K ký tự).
 LLM_ASK_MAX_CHARS = 800_000
+
+
+class AnalyticsWorker:
+    """One long-lived Node process running the shared dashboard calculations."""
+
+    def __init__(self, root, database_path):
+        self.root = Path(root)
+        self.database_path = str(database_path)
+        bundled = self.root / "node.exe"
+        self.node = str(bundled) if bundled.exists() else shutil.which("node")
+        self.script = self.root / "analytics-worker.js"
+        self.lock = Lock()
+        self.process = None
+        self.sequence = 0
+
+    @property
+    def available(self):
+        return bool(self.node and self.script.exists())
+
+    def _start(self):
+        if not self.available:
+            raise RuntimeError(
+                "Analytics worker không khả dụng. Cần analytics-worker.js và Node.js."
+            )
+        if self.process and self.process.poll() is None:
+            return
+        self.stop()
+        self.process = subprocess.Popen(
+            [self.node, "--max-old-space-size=4096", str(self.script), str(self.root)],
+            cwd=self.root,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+            **_hidden_subprocess_kwargs(),
+        )
+
+    def request(self, operation, timeout=180, **payload):
+        with self.lock:
+            for attempt in range(2):
+                self._start()
+                self.sequence += 1
+                request_id = self.sequence
+                message = dict(payload, id=request_id, op=operation,
+                               dbPath=self.database_path)
+                try:
+                    self.process.stdin.write(
+                        json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n"
+                    )
+                    self.process.stdin.flush()
+                    output = Queue(maxsize=1)
+                    process = self.process
+                    reader = Thread(
+                        target=lambda: output.put(process.stdout.readline()), daemon=True
+                    )
+                    reader.start()
+                    try:
+                        line = output.get(timeout=max(1, int(timeout)))
+                    except Empty as exc:
+                        self.stop()
+                        raise TimeoutError(
+                            f"Analytics worker quá hạn sau {int(timeout)} giây."
+                        ) from exc
+                    if not line:
+                        raise RuntimeError("Analytics worker đã dừng đột ngột.")
+                    response = json.loads(line)
+                    if response.get("id") != request_id:
+                        raise RuntimeError("Analytics worker trả sai request id.")
+                    if response.get("error"):
+                        raise RuntimeError(response["error"])
+                    return response.get("result") or {}
+                except (BrokenPipeError, OSError, json.JSONDecodeError):
+                    self.stop()
+                    if attempt:
+                        raise
+
+    def invalidate(self):
+        if self.process and self.process.poll() is None:
+            try:
+                self.request("invalidate")
+            except Exception:
+                self.stop()
+
+    def stop(self):
+        process, self.process = self.process, None
+        if not process:
+            return
+        try:
+            process.terminate()
+            process.wait(timeout=2)
+        except Exception:
+            try:
+                process.kill()
+            except Exception:
+                pass
+        finally:
+            for stream in (process.stdin, process.stdout):
+                try:
+                    stream.close()
+                except Exception:
+                    pass
 
 
 def normalize_domain(value):
@@ -161,6 +279,24 @@ def normalize_domain(value):
     if not parsed.netloc:
         return ""
     return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+
+
+def mpt_connection_error_message(exc):
+    """Return an actionable message for outbound MPT connection failures."""
+    reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+    winerror = getattr(reason, "winerror", None)
+    if isinstance(reason, PermissionError) or winerror == 10013:
+        return (
+            "Ứng dụng đang bị Windows hoặc môi trường chạy chặn kết nối mạng ra MPT "
+            "(WinError 10013). Hãy chạy ứng dụng bình thường hoặc cho phép qua tường lửa."
+        )
+    if isinstance(reason, socket.gaierror):
+        return "Không phân giải được tên miền MPT. Hãy kiểm tra DNS hoặc kết nối mạng."
+    if isinstance(reason, ssl.SSLError):
+        return "Không thiết lập được kết nối HTTPS an toàn tới MPT. Hãy kiểm tra chứng chỉ và ngày giờ máy."
+    if isinstance(reason, (TimeoutError, socket.timeout)) or isinstance(exc, TimeoutError):
+        return "Kết nối tới MPT quá thời gian chờ. Hãy kiểm tra mạng hoặc thử lại sau."
+    return "Không kết nối được MPT. Hãy kiểm tra mạng và thử lại."
 
 
 class ProfileStore:
@@ -634,11 +770,20 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/accounts":
             self.handle_accounts(parsed)
             return
+        if parsed.path == "/api/account-names":
+            self.handle_account_names_get(parsed)
+            return
         if parsed.path == "/api/calldata.csv":
             self.handle_calldata(parsed)
             return
+        if parsed.path == "/api/report-bundle":
+            self.handle_report_bundle(parsed)
+            return
         if parsed.path == "/api/report-cube":
             self.handle_report_cube(parsed)
+            return
+        if parsed.path == "/api/call-details":
+            self.handle_call_details(parsed)
             return
         if parsed.path == "/api/data-status":
             self.handle_data_status(parsed)
@@ -682,6 +827,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/accounts":
             self.handle_accounts_post()
             return
+        if parsed.path == "/api/account-names":
+            self.handle_account_names_post()
+            return
         if parsed.path == "/api/clientlog":
             self.handle_client_log()
             return
@@ -699,6 +847,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             return
         if parsed.path == "/api/risk-analysis":
             self.handle_risk_analysis()
+            return
+        if parsed.path == "/api/billing-report":
+            self.handle_billing_report()
+            return
+        if parsed.path == "/api/billing-detail":
+            self.handle_billing_detail()
             return
         if parsed.path == "/api/db-compact":
             self.handle_db_compact()
@@ -744,7 +898,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         if isinstance(exc, urllib.error.HTTPError) and exc.code in (401, 403):
             message = "Đăng nhập MPT không hợp lệ hoặc phiên đã hết hạn."
         elif isinstance(exc, (TimeoutError, urllib.error.URLError)):
-            message = "Không kết nối được MPT. Hãy kiểm tra mạng và thử lại."
+            message = mpt_connection_error_message(exc)
         elif raw:
             message = raw
         else:
@@ -789,31 +943,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 self.server.profile_sync_locks[profile_id] = lock
             return lock
 
-    def get_cached_export(self, params):
-        key = json.dumps(params, sort_keys=True, separators=(",", ":"))
-        with self.server.export_cache_lock:
-            item = self.server.export_cache.get(key)
-            if not item:
-                return None
-            created, data = item
-            if monotonic() - created > EXPORT_CACHE_TTL_SECONDS:
-                del self.server.export_cache[key]
-                return None
-            self.server.export_cache.move_to_end(key)
-            return data
-
-    def cache_export(self, params, data):
-        key = json.dumps(params, sort_keys=True, separators=(",", ":"))
-        with self.server.export_cache_lock:
-            self.server.export_cache[key] = (monotonic(), data)
-            self.server.export_cache.move_to_end(key)
-            while len(self.server.export_cache) > EXPORT_CACHE_MAX_ITEMS:
-                self.server.export_cache.popitem(last=False)
-
-    def clear_export_cache(self):
-        with self.server.export_cache_lock:
-            self.server.export_cache.clear()
-
     def set_export_progress(self, job_id, done, total, current=""):
         """Publish sequential-export progress so the dashboard can show 7/40."""
         if not job_id:
@@ -851,7 +980,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             {
                 "profiles": self.server.profile_store.public_profiles(),
                 "defaultDomains": DEFAULT_DOMAINS,
-                "storagePath": "Mat khau duoc ma hoa cuc bo bang Windows DPAPI",
+                "storagePath": "Mật khẩu được mã hóa cục bộ bằng AES-256-GCM",
             }
         )
 
@@ -872,7 +1001,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             profile = self.server.profile_store.upsert(payload)
             self.server.profile_store.update_accounts(profile["id"], accounts)
             self.server.clients.pop(profile["id"], None)
-            self.clear_export_cache()
+            getattr(self.server, "profile_direction_modes", {}).pop(profile["id"], None)
             self.json_response(profile)
         except Exception as exc:
             self.error_response(exc, 400)
@@ -882,7 +1011,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         profile_id = query.get("id", [""])[-1]
         deleted = self.server.profile_store.delete(profile_id)
         self.server.clients.pop(profile_id, None)
-        self.clear_export_cache()
         self.json_response({"deleted": deleted})
 
     def handle_accounts(self, parsed):
@@ -917,6 +1045,25 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             if profile_id:
                 self.server.profile_store.update_accounts(profile_id, accounts)
             self.json_response(accounts)
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_account_names_get(self, parsed):
+        try:
+            call_store_obj = getattr(self.server, "call_store", None)
+            names = call_store_obj.load_account_names() if call_store_obj else {}
+            self.json_response({"names": names})
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_account_names_post(self):
+        try:
+            payload = self.read_json_body()
+            names = payload.get("names") or {}
+            call_store_obj = getattr(self.server, "call_store", None)
+            if call_store_obj:
+                call_store_obj.save_account_names(names)
+            self.json_response({"status": "saved", "count": len(names)})
         except Exception as exc:
             self.error_response(exc)
 
@@ -1264,7 +1411,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         job_id = params.pop("job_id", "")
         sync_mode = params.pop("sync", "auto")
         try:
-            data, cache_state = self._export_calldata_csv(params, job_id, sync_mode)
+            cache_state = self._sync_calldata(params, job_id, sync_mode)
             account_ids = [
                 x for x in params.get("account_id", "").split(",")
                 if x and x != "0"
@@ -1274,14 +1421,18 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/csv; charset=utf-8")
             self.send_header("Content-Disposition", "inline; filename=calldata.csv")
-            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Connection", "close")
             self.send_header("X-MPT-Cache", cache_state)
             # Cho nút "Xem" báo dữ liệu trong DB của bộ lọc này mới tới đâu.
             self.send_header("X-MPT-Last-Call", summary["lastCall"])
             self.send_header("X-MPT-Synced-At", summary["syncedAt"])
             self.send_header("X-MPT-Missing-Days", ",".join(summary["missingDays"]))
             self.end_headers()
-            self.wfile.write(data)
+            try:
+                self.server.call_store.stream_csv(params, self.wfile.write)
+            except (BrokenPipeError, ConnectionResetError):
+                return
+            self.close_connection = True
         except Exception as exc:
             self.error_response(exc)
 
@@ -1303,26 +1454,106 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         except json.JSONDecodeError:
             return default
 
+    def _analytics_request(self, operation, params, **payload):
+        profile_id = params.get("profile_id", "")
+        source_params = {
+            key: params.get(key, "") for key in call_store.QUERY_KEYS
+        }
+        dataset_key = json.dumps(
+            {
+                "params": source_params,
+                "revision": self.server.call_store.analytics_revision(profile_id),
+            },
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        )
+        return self.server.analytics_worker.request(
+            operation, params=source_params, datasetKey=dataset_key, **payload
+        )
+
+    def _cube_params(self, query, params):
+        return {
+            "startDate": params.get("from_day", ""),
+            "endDate": params.get("to_day", ""),
+            "startTime": params.get("start_time", "00:00"),
+            "endTime": params.get("end_time", "23:59"),
+            "account": self._json_query_value(query, "cube_account", "all"),
+            "ccuScope": params.get("ccu_scope", "answered"),
+            "retry": self._json_query_value(query, "retry", {}),
+        }
+
+    def handle_report_bundle(self, parsed):
+        query = urllib.parse.parse_qs(parsed.query)
+        params = {key: values[-1] for key, values in query.items()}
+        job_id = params.pop("job_id", "")
+        sync_mode = params.pop("sync", "auto")
+        try:
+            cache_state = self._sync_calldata(params, job_id, sync_mode)
+            result = self._analytics_request(
+                "bundle", params, cubeParams=self._cube_params(query, params),
+                previewLimit=50000,
+            )
+            account_ids = [
+                value for value in params.get("account_id", "").split(",")
+                if value and value != "0"
+            ]
+            summary = self.server.call_store.scope_summary(
+                params, self.account_scopes(params.get("profile_id", ""), account_ids)
+            )
+            result.setdefault("meta", {}).update({
+                "cache": cache_state,
+                "lastCall": summary["lastCall"],
+                "syncedAt": summary["syncedAt"],
+                "missingDays": summary["missingDays"],
+            })
+            self.json_response(result)
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_call_details(self, parsed):
+        query = urllib.parse.parse_qs(parsed.query)
+        params = {key: values[-1] for key, values in query.items()}
+        try:
+            detail = self._json_query_value(query, "detail", {})
+            result = self._analytics_request(
+                "detail", params, detailParams=detail,
+                offset=max(0, int(params.get("offset", 0) or 0)),
+                limit=max(1, min(200, int(params.get("limit", 25) or 25))),
+            )
+            self.json_response(result)
+        except Exception as exc:
+            self.error_response(exc)
+
+    def handle_billing_report(self):
+        try:
+            payload = self.read_json_body()
+            params = payload.get("params") or {}
+            cfg = payload.get("cfg") or {}
+            self.json_response(self._analytics_request("billing", params, cfg=cfg))
+        except Exception as exc:
+            self.error_response(exc, 400)
+
+    def handle_billing_detail(self):
+        try:
+            payload = self.read_json_body()
+            params = payload.get("params") or {}
+            cfg = payload.get("cfg") or {}
+            self.json_response(self._analytics_request(
+                "billingDetail", params, cfg=cfg,
+                offset=max(0, int(payload.get("offset", 0) or 0)),
+                limit=max(1, min(10000, int(payload.get("limit", 5000) or 5000))),
+            ))
+        except Exception as exc:
+            self.error_response(exc, 400)
+
     def handle_report_cube(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
         params = {key: values[-1] for key, values in query.items()}
         params.pop("job_id", None)
         params.pop("sync", None)
         try:
-            data = self.server.call_store.query_csv(params)
-            profile_id = params.get("profile_id", "")
-            cube_params = {
-                "startDate": params.get("from_day", ""),
-                "endDate": params.get("to_day", ""),
-                "startTime": params.get("start_time", "00:00"),
-                "endTime": params.get("end_time", "23:59"),
-                "account": self._json_query_value(query, "cube_account", "all"),
-                "ccuScope": params.get("ccu_scope", "answered"),
-                "retry": self._json_query_value(query, "retry", {}),
-            }
-            names = self.account_names(profile_id)
-            gateway_index = self._gateway_store(profile_id).read_index().get("index", {})
-            result = self.build_report_cube(data, cube_params, names, gateway_index)
+            result = self._analytics_request(
+                "cube", params, cubeParams=self._cube_params(query, params)
+            )
             self.json_response(result)
         except Exception as exc:
             self.error_response(exc)
@@ -1355,13 +1586,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 message = (completed.stderr or completed.stdout or "").strip()
                 raise RuntimeError(message or "Không tính được report cube ở backend.")
             return json.loads(completed.stdout or "{}")
-    def _export_calldata_csv(self, params, job_id="", sync_mode="auto"):
-        """Synchronize missing/stale MPT data, then serve the filtered DB slice.
 
-        The compatibility endpoint still returns CSV so the existing worker and
-        all chart calculations remain unchanged.  MPT bytes are never written
-        as a temporary file.
-        """
+    def _sync_calldata(self, params, job_id="", sync_mode="auto"):
+        """Synchronize missing/stale MPT partitions without materializing CSV."""
         from_day = params.get("from_day", "")
         to_day = params.get("to_day", "")
         try:
@@ -1420,38 +1647,63 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                     if stale:
                         sync_from, sync_to = min(stale), max(stale)
                 if should_sync:
-                    client = self.get_export_client(profile_id)
-                    # Fetch the broad account/date slice once. All other filters
-                    # run in SQLite, so those changes never re-download MPT.
-                    source_params = dict(params)
-                    source_params.update({
-                        "caller_number": "", "dest_number": "", "outbound": "",
-                        "hangupcause": "0", "calltype": "", "telco": "0",
-                        "from_day": sync_from, "to_day": sync_to,
-                    })
-                    export_account_ids = account_ids or all_account_ids
-                    if account_ids and len(account_ids) == 1:
-                        data = client.export_csv(source_params)
-                    elif not export_account_ids:
-                        data = client.export_csv(source_params)
-                    else:
-                        data = self.merge_account_exports(
-                            client, source_params, export_account_ids,
-                            progress=lambda done, current: self.set_export_progress(
-                                job_id, done, len(export_account_ids), current
-                            ),
-                            names=names,
+                    if hasattr(self.server.call_store, "mark_sync_started"):
+                        self.server.call_store.mark_sync_started(
+                            profile_id, scopes, sync_from, sync_to
                         )
-                    data = self.inject_account_names(data, names)
-                    self.server.call_store.ingest_csv(
-                        profile_id, data, names, scopes, sync_from, sync_to,
-                    )
+                    try:
+                        client = self.get_export_client(profile_id)
+                        # Fetch the broad account/date slice once. All other filters
+                        # run in SQLite, so those changes never re-download MPT.
+                        source_params = dict(params)
+                        source_params.update({
+                            "caller_number": "", "dest_number": "", "outbound": "",
+                            "hangupcause": "0", "calltype": "", "telco": "0",
+                            "from_day": sync_from, "to_day": sync_to,
+                        })
+                        export_account_ids = account_ids or all_account_ids
+                        direction_exporter = lambda export_client, export_params: (
+                            self.export_direction_aware(
+                                profile_id, export_client, export_params
+                            )
+                        )
+                        if account_ids and len(account_ids) == 1:
+                            data = direction_exporter(client, source_params)
+                        elif not export_account_ids:
+                            data = direction_exporter(client, source_params)
+                        else:
+                            data = self.merge_account_exports(
+                                client, source_params, export_account_ids,
+                                progress=lambda done, current: self.set_export_progress(
+                                    job_id, done, len(export_account_ids), current
+                                ),
+                                names=names,
+                                exporter=direction_exporter,
+                            )
+                        data = self.inject_account_names(data, names)
+                        self.server.call_store.ingest_csv(
+                            profile_id, data, names, scopes, sync_from, sync_to,
+                        )
+                    except Exception as exc:
+                        if hasattr(self.server.call_store, "mark_sync_failed"):
+                            self.server.call_store.mark_sync_failed(
+                                profile_id, scopes, sync_from, sync_to, exc
+                            )
+                        raise
                     with self.server.profile_sync_locks_lock:
                         self.server.profile_sync_completed[sync_key] = monotonic()
+                    analytics = getattr(self.server, "analytics_worker", None)
+                    if analytics:
+                        analytics.invalidate()
                     cache_state = "SYNC"
         if monotonic() - self.server.last_store_cleanup > 6 * 60 * 60:
             self.server.call_store.cleanup()
             self.server.last_store_cleanup = monotonic()
+        return cache_state
+
+    def _export_calldata_csv(self, params, job_id="", sync_mode="auto"):
+        """Compatibility/export path: sync first, then materialize the CSV."""
+        cache_state = self._sync_calldata(params, job_id, sync_mode)
         return self.server.call_store.query_csv(params), cache_state
 
     def account_names(self, profile_id):
@@ -1467,8 +1719,100 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         all_account_ids = list(self.account_names(profile_id).keys())
         return all_account_ids or ["*"]
 
+    _DIRECTION_HEADERS = {"direction", "outbound", "calldirection"}
+
+    @classmethod
+    def csv_has_native_direction(cls, csv_bytes):
+        if not csv_bytes:
+            return False
+        text = csv_bytes.decode("utf-8-sig", errors="replace")
+        header = next(csv.reader(io.StringIO(text)), [])
+        normalized = {
+            re.sub(r"[^a-z0-9]", "", str(value or "").lower())
+            for value in header
+        }
+        return bool(normalized & cls._DIRECTION_HEADERS)
+
     @staticmethod
-    def merge_account_exports(client, params, account_ids, progress=None, names=None):
+    def tag_csv_direction(csv_bytes, direction):
+        text = csv_bytes.decode("utf-8-sig", errors="replace")
+        reader = csv.DictReader(io.StringIO(text))
+        fields = list(reader.fieldnames or [])
+        if not fields:
+            return csv_bytes
+        normalized = [re.sub(r"[^a-z0-9]", "", field.lower()) for field in fields]
+        try:
+            direction_field = fields[normalized.index("direction")]
+        except ValueError:
+            direction_field = "direction"
+            fields.append(direction_field)
+        rows = []
+        for row in reader:
+            row[direction_field] = direction
+            rows.append(row)
+        output = io.StringIO(newline="")
+        writer = csv.DictWriter(output, fieldnames=fields, lineterminator="\n")
+        writer.writeheader()
+        writer.writerows(rows)
+        return output.getvalue().encode("utf-8-sig")
+
+    @staticmethod
+    def merge_csv_exports(exports):
+        header = None
+        rows = []
+        seen = set()
+        for export_data in exports:
+            raw = export_data.decode("utf-8-sig", errors="replace")
+            parsed = list(csv.reader(io.StringIO(raw)))
+            if not parsed:
+                continue
+            if header is None:
+                header = parsed[0]
+            if parsed[0] != header:
+                raise ValueError("Các lát export MPT trả về cấu trúc cột không đồng nhất.")
+            uuid_index = header.index("uuid") if "uuid" in header else -1
+            for row in parsed[1:]:
+                if not row or not any(row):
+                    continue
+                key = row[uuid_index] if uuid_index >= 0 and len(row) > uuid_index else ""
+                if key and key in seen:
+                    continue
+                if key:
+                    seen.add(key)
+                rows.append(row)
+        if header is None:
+            return b""
+        output = io.StringIO(newline="")
+        writer = csv.writer(output, lineterminator="\n")
+        writer.writerow(header)
+        writer.writerows(rows)
+        return output.getvalue().encode("utf-8-sig")
+
+    def export_direction_aware(self, profile_id, client, params):
+        modes = getattr(self.server, "profile_direction_modes", None)
+        if modes is None:
+            modes = {}
+            self.server.profile_direction_modes = modes
+        mode = modes.get(profile_id)
+        if mode == "native":
+            return client.export_csv(params)
+        if mode is None:
+            broad = client.export_csv(params)
+            if self.csv_has_native_direction(broad):
+                modes[profile_id] = "native"
+                return broad
+            modes[profile_id] = "split"
+
+        parts = []
+        for value, label in (("1", "Outbound"), ("2", "Inbound")):
+            scoped = dict(params)
+            scoped["outbound"] = value
+            parts.append(self.tag_csv_direction(client.export_csv(scoped), label))
+        return self.merge_csv_exports(parts)
+
+    @staticmethod
+    def merge_account_exports(client, params, account_ids, progress=None, names=None,
+                              exporter=None):
         names = names or {}
 
         def export_one(account_id):
@@ -1477,7 +1821,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             # MPT stores the last filter in its session. A fresh session per
             # account guarantees correct filters and permits parallel export.
             account_client = MptClient(client.base_url, client.username, client.password)
-            return account_id, account_client.export_csv(one)
+            data = exporter(account_client, one) if exporter else account_client.export_csv(one)
+            return account_id, data
 
         header = None
         rows = []
@@ -1600,23 +1945,31 @@ def app_root():
     return Path(__file__).resolve().parents[1]
 
 
+class MPTDashboardServer(ThreadingHTTPServer):
+    def server_close(self):
+        analytics = getattr(self, "analytics_worker", None)
+        if analytics:
+            analytics.stop()
+        super().server_close()
+
+
 def create_server(host="127.0.0.1", port=8787, root=None,
                   dashboard="V2_0_Call_Dashboard_MPT.html"):
     root = str(root if root is not None else app_root())
-    server = ThreadingHTTPServer((host, port), DashboardHandler)
+    server = MPTDashboardServer((host, port), DashboardHandler)
     server.root = root
     server.dashboard = dashboard
     server.profile_store = ProfileStore(root)
     server.llm_config_store = LlmConfigStore(root)
     server.call_store = call_store.CallStore(root)
+    server.analytics_worker = AnalyticsWorker(root, server.call_store.path)
     server.last_store_cleanup = monotonic()
     server.clients = {}
-    server.export_cache = OrderedDict()
-    server.export_cache_lock = Lock()
     server.export_progress = {}
     server.export_progress_lock = Lock()
     server.profile_sync_locks = {}
     server.profile_sync_completed = {}
+    server.profile_direction_modes = {}
     server.profile_sync_locks_lock = Lock()
     server.risk_analysis_cache = OrderedDict()
     server.risk_analysis_cache_lock = Lock()

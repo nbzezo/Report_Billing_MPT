@@ -445,8 +445,11 @@ function normalizeCallRecord(raw, ctx) {
     }
   }
 
-  if ((out.direction === undefined || out.direction === '') && out.calltype !== undefined) {
-    out.direction = out.calltype;
+  if (out.direction === undefined || out.direction === '') {
+    const calltypeDirection = ({ outbound: 'Outbound', out: 'Outbound', inbound: 'Inbound', in: 'Inbound' })[
+      String(out.calltype || '').trim().toLowerCase()
+    ];
+    if (calltypeDirection) out.direction = calltypeDirection;
   }
 
   for (const f of NUMERIC_FIELDS) {

@@ -383,6 +383,38 @@ if(!window.Plotly){
        .kv/.chip) thay vì tạo hệ thống UI riêng. Chỉ thêm 2 rule nhỏ:
        ========================================== */
     .bill-config-grid{display:grid;grid-template-columns:repeat(3,minmax(230px,1fr));gap:12px;margin-top:10px}
+    #panel_billing_config{padding:16px}
+    #panel_billing_config h3{margin:0 0 4px 0}
+    #panel_billing_config>h3+#billingIntro,
+    #panel_billing_config>.billing-intro{max-width:1180px;line-height:1.45}
+    #panel_billing_config #billingScopeNotice:empty{display:none}
+    #panel_billing_config .bill-config-grid{grid-template-columns:repeat(3,minmax(280px,1fr));gap:12px;margin-top:12px;align-items:stretch}
+    #panel_billing_config .control-group{display:grid;align-content:start;gap:10px;min-height:0;padding:12px;border-color:rgba(88,166,255,.18);background:color-mix(in srgb,var(--view-bg) 82%,var(--card-bg));box-shadow:none}
+    #panel_billing_config .control-title{margin:0 0 2px;color:#48658f}
+    #panel_billing_config .control-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(156px,1fr));gap:8px;align-items:center;margin:0}
+    #panel_billing_config .control-row+.control-row{margin-top:0}
+    #panel_billing_config .control-row label{display:grid;grid-template-columns:minmax(86px,max-content) minmax(0,1fr);gap:8px;align-items:center;width:100%;white-space:normal;color:var(--dim)}
+    #panel_billing_config .control-row input:not([type=checkbox]),
+    #panel_billing_config .control-row select{width:100%!important;min-width:0!important;height:36px;box-sizing:border-box}
+    #panel_billing_config .billing-rate-row{grid-template-columns:1fr}
+    #panel_billing_config .billing-block-row{grid-template-columns:repeat(2,minmax(0,1fr))}
+    #panel_billing_config .billing-check-row{display:block}
+    #panel_billing_config .billing-check-row label{display:flex;align-items:center;gap:8px;color:var(--text);line-height:1.35}
+    #panel_billing_config .billing-check-row input{flex:0 0 auto}
+    #panel_billing_config .billing-quick-actions{display:flex;flex-wrap:wrap;gap:8px}
+    #panel_billing_config .billing-quick-actions button{min-height:32px;padding:5px 12px}
+    #panel_billing_config .billing-action-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--view-bg)}
+    #panel_billing_config .billing-action-main{display:flex;align-items:center;gap:10px;min-width:0}
+    #panel_billing_config #billingRangeLabel{min-width:0;line-height:1.35}
+    #panel_billing_config .billing-export-actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    body.dark #panel_billing_config .control-title{color:#8fb8ff}
+    @media(max-width:1180px){ #panel_billing_config .bill-config-grid{grid-template-columns:1fr} }
+    @media(max-width:760px){
+      #panel_billing_config .billing-action-bar,
+      #panel_billing_config .billing-action-main{display:grid;grid-template-columns:1fr;align-items:stretch}
+      #panel_billing_config .billing-export-actions{justify-content:stretch}
+      #panel_billing_config .billing-export-actions button{flex:1 1 180px}
+    }
     .kpi-value.kpi-value-lg{font-size:30px}
     @media(max-width:1100px){ .bill-config-grid{grid-template-columns:1fr} }
 
@@ -574,6 +606,25 @@ body.adw .adw-filterbar .filter-actions{display:inline-flex;gap:8px;margin-left:
 body.adw .adw-filterbar .filter-actions button{min-height:32px;padding:5px 14px}
 body.adw .adw-filterbar .filter-status-line{display:flex;flex-wrap:wrap;gap:2px 18px;margin-top:6px;padding-top:5px;border-top:1px solid var(--divider)}
 body.adw .adw-filterbar .filter-scope{display:block;margin:0;font-size:11px;line-height:1.35}
+body.adw .adw-filterbar .report-filter-row{align-items:center}
+body.adw .adw-filterbar .report-filter-row label{min-width:0}
+body.adw .adw-filterbar .filter-actions{flex:0 0 auto}
+body.adw #updateReport{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card-bg));font-weight:700}
+body.adw #updateReport:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 16%,var(--card-bg))}
+body.adw #applyFilter.dirty{animation:adwPulseDirty 1.8s infinite ease-in-out}
+@keyframes adwPulseDirty{0%,100%{box-shadow:0 0 0 2px rgba(233,84,32,.28)}50%{box-shadow:0 0 0 5px rgba(233,84,32,.46)}}
+body.adw[data-active-tab="billing"] .adw-filterbar .filter-scope-row,
+body.adw[data-active-tab="billing"] .adw-filterbar .report-filter-row{opacity:.55;transition:opacity .18s ease}
+body.adw[data-active-tab="billing"] .adw-filterbar:hover .filter-scope-row,
+body.adw[data-active-tab="billing"] .adw-filterbar:hover .report-filter-row{opacity:1}
+body.adw .billing-independent-badge{display:none;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;background:rgba(229,165,10,.16);color:var(--text);font-size:12px;font-weight:600}
+body.adw .billing-independent-badge button{min-height:24px;padding:2px 8px;font-size:11.5px}
+body.adw[data-active-tab="billing"] .billing-independent-badge{display:inline-flex}
+body.adw table th[style*="border"],
+body.adw table td[style*="border"]{border-color:var(--divider)!important}
+body.adw table{font-variant-numeric:tabular-nums}
+body.adw #reportGrid table thead th{position:sticky;top:0;z-index:2;background:var(--view-bg);color:var(--dim);font-weight:700;box-shadow:0 1px 0 var(--border)}
+body.adw #reportGrid table tbody tr:hover{background:var(--hover)}
 
 /* ---------- Split view ---------- */
 body.adw{--chrome-h:130px}
@@ -630,6 +681,12 @@ body.adw .kpi .kpi-value{font-size:23px;font-weight:700;letter-spacing:-.02em;co
 .formula-info:hover,.formula-info:focus-visible{background:var(--hover);outline:none}
 .formula-info::after{content:attr(data-tooltip);position:absolute;left:50%;bottom:calc(100% + 8px);z-index:120;width:max-content;max-width:min(340px,80vw);padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--card-bg);box-shadow:var(--shadow-dialog);color:var(--text);font-size:11.5px;font-weight:400;line-height:1.4;white-space:normal;opacity:0;pointer-events:none;transform:translate(-50%,4px);transition:opacity .12s,transform .12s}
 .formula-info:hover::after,.formula-info:focus-visible::after{opacity:1;transform:translate(-50%,0)}
+.kpi-group:first-child .kpi:first-child .formula-info::after{left:0;transform:translate(0,4px)}
+.kpi-group:first-child .kpi:first-child .formula-info:hover::after,
+.kpi-group:first-child .kpi:first-child .formula-info:focus-visible::after{transform:translate(0,0)}
+.kpi-group:last-child .formula-info::after{left:auto;right:0;transform:translate(0,4px)}
+.kpi-group:last-child .formula-info:hover::after,
+.kpi-group:last-child .formula-info:focus-visible::after{transform:translate(0,0)}
 body.adw .kpi.tone-green .kpi-value{color:var(--success)}
 body.adw .kpi.tone-orange .kpi-value{color:var(--u-orange)}
 body.adw .kpi.tone-red .kpi-value{color:var(--error)}
@@ -1100,12 +1157,13 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
           <label title="Không bắt buộc">Số gọi<input id="mainCaller" inputmode="tel" placeholder="Tất cả"></label>
           <label title="Không bắt buộc">Số nhận<input id="mainDestination" inputmode="tel" placeholder="Tất cả"></label>
           <span class="filter-actions">
-            <button id="applyFilter" class="primary-btn" title="Chỉ đọc dữ liệu đã lưu trong DB, không tải từ MPT">Xem</button>
-            <button id="updateReport" type="button" title="Tải dữ liệu mới nhất từ MPT cho các ngày còn thiếu/chưa trọn vẹn rồi hiển thị">Cập nhật báo cáo</button>
+            <button id="applyFilter" class="primary-btn" title="Chỉ đọc dữ liệu đã lưu trong DB, không tải từ MPT">Xem từ DB</button>
+            <button id="updateReport" type="button" title="Tải dữ liệu mới nhất từ MPT cho các ngày còn thiếu/chưa trọn vẹn rồi hiển thị">Đồng bộ MPT</button>
           </span>
         </div>
         <div class="filter-status-line">
-        <div id="mainFilterScope" class="filter-scope muted" role="status" aria-live="polite">Chọn kết nối và phạm vi, sau đó bấm “Xem” (đọc DB) hoặc “Cập nhật báo cáo” (tải mới từ MPT).</div>
+        <span id="billingIndependentBadge" class="billing-independent-badge"><span>Tab Cước phí dùng khoảng thời gian riêng bên dưới.</span><button type="button" id="quickSyncBillingFromTop">Áp bộ lọc trên vào Cước phí</button></span>
+        <div id="mainFilterScope" class="filter-scope muted" role="status" aria-live="polite">Chọn kết nối và phạm vi, sau đó bấm “Xem từ DB” hoặc “Đồng bộ MPT”.</div>
         <div id="databaseStatus" class="filter-scope muted" role="status" aria-live="polite">Cơ sở dữ liệu chưa có dữ liệu.</div>
         <div id="rowCapNotice" class="filter-scope muted" role="status" aria-live="polite" hidden></div>
         </div>
@@ -1204,7 +1262,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
               <button id="mptSaveProfile" type="button" class="primary-btn">Lưu kết nối</button>
               <button id="mptDeleteProfile" type="button" style="color:#991b1b;border-color:#fecaca">Xóa kết nối</button>
             </div>
-            <div class="mpt-manager-note">Mật khẩu được mã hóa cục bộ bằng Windows DPAPI và không hiển thị lại.</div>
+            <div class="mpt-manager-note">Mật khẩu được mã hóa cục bộ bằng AES-256-GCM và không hiển thị lại.</div>
           </details>
         </div>
     </div>
@@ -1940,7 +1998,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
          ========================================== -->
     <div id="panel_billing_config" class="card full" data-tab="billing" draggable="true">
       <h3 style="margin:0 0 4px 0">Cấu hình tính cước</h3>
-      <div class="muted" style="font-size:12px">
+      <div class="muted billing-intro" style="font-size:12px">
         Nguyên tắc <b>6s + 1</b>: <code>billsec</code> ≤ 6s tính tròn 6s, trên 6s tính đúng từng giây.
         Tổng giây sau làm tròn ÷ 60 → phút → × đơn giá. Khoảng thời gian ở tab này <b>độc lập</b> với bộ lọc chính phía trên.
       </div>
@@ -1948,10 +2006,10 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
 
       <div class="bill-config-grid">
         <div class="control-group"><div class="control-title">Đơn giá &amp; block</div>
-          <div class="control-row">
+          <div class="control-row billing-rate-row">
             <label>Đơn giá/phút (VNĐ) <input id="billRate" type="number" min="0" step="1" placeholder="VD: 250" style="width:100px"/></label>
           </div>
-          <div class="control-row">
+          <div class="control-row billing-block-row">
             <label>Block đầu (s) <input id="billFirstBlock" type="number" min="1" step="1" value="6" style="width:56px"/></label>
             <label>Block tiếp (s) <input id="billNextBlock" type="number" min="1" step="1" value="1" style="width:56px"/></label>
           </div>
@@ -1965,7 +2023,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
               </select>
             </label>
           </div>
-          <div class="control-row">
+          <div class="control-row billing-check-row">
             <label title="Cuộc gọi không được trả lời (billsec = 0) mặc định không tính cước."><input id="billOnlyConnected" type="checkbox" checked/> Chỉ tính cuộc đã kết nối (billsec &gt; 0)</label>
           </div>
         </div>
@@ -1979,7 +2037,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
             <label>Đến ngày <input id="billEndDate" type="date"/></label>
             <label>Giờ <input id="billEndTime" type="time" value="23:59"/></label>
           </div>
-          <div class="control-row quick-range">
+          <div class="control-row quick-range billing-quick-actions">
             <button type="button" id="billQuickAll">Toàn bộ</button>
             <button type="button" id="billQuickToday">Ngày mới nhất</button>
             <button type="button" id="billQuick7">7 ngày</button>
@@ -2017,13 +2075,15 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
         </div>
       </div>
 
-      <div class="control-row" style="margin-top:12px">
-        <button id="billCalc" class="primary-btn">Tính cước</button>
-        <span id="billingRangeLabel" class="muted"></span>
-      </div>
-      <div class="control-row">
-        <button id="billExport">Export CSV tổng hợp</button>
-        <button id="billExportDetail">Export chi tiết từng cuộc</button>
+      <div class="billing-action-bar">
+        <div class="billing-action-main">
+          <button id="billCalc" class="primary-btn">Tính cước</button>
+          <span id="billingRangeLabel" class="muted"></span>
+        </div>
+        <div class="billing-export-actions">
+          <button id="billExport">Export CSV tổng hợp</button>
+          <button id="billExportDetail">Export chi tiết từng cuộc</button>
+        </div>
       </div>
     </div>
 
@@ -2934,7 +2994,7 @@ function markFilterDirty(dirty){
   const button=document.getElementById('applyFilter');
   if(!button) return;
   button.classList.toggle('dirty',!!dirty);
-  button.textContent='Xem';
+  button.textContent='Xem từ DB';
 }
 function initFilterDirtyState(){
   ['startDate','endDate','startTime','endTime','mainCaller','mainDestination','mainDirection','mainTelco','mainHangup','mainCallType'].forEach(id=>{
@@ -3028,6 +3088,7 @@ function adwHideRestoreBanner(){
 }
 
 async function applyLoadedRows(rows){
+  serverBackedReport=false;
   if(typeof drilldownInvalidate === 'function') drilldownInvalidate();
   let ing=null;
   if(dashWorker.available()){
@@ -3057,6 +3118,7 @@ async function applyLoadedRows(rows){
 
 // Nạp lại từ chuỗi CSV thô đã lưu (snapshot mới) — đi qua worker như tải MPT.
 async function applyLoadedText(text){
+  serverBackedReport=false;
   let rows;
   if(dashWorker.available()){
     const ing=await dashWorker.ingest(text,{isJSON:false,sourceLabel:'snapshot',nameMap:accountNameMap});
@@ -3270,6 +3332,9 @@ function adwPlotTheme(){
       }
       const theme=adwPlotTheme();
       const next=Object.assign({},layout||{});
+      const isHardWhite=v=>typeof v==='string' && /^#fff(fff)?$/i.test(v.trim());
+      if(isHardWhite(next.paper_bgcolor)) delete next.paper_bgcolor;
+      if(isHardWhite(next.plot_bgcolor)) delete next.plot_bgcolor;
       next.font=Object.assign({},theme.font,next.font||{});
       if(next.paper_bgcolor===undefined) next.paper_bgcolor=theme.paper_bgcolor;
       if(next.plot_bgcolor===undefined) next.plot_bgcolor=theme.plot_bgcolor;
@@ -3388,9 +3453,36 @@ function loadMap(){
       if(obj && typeof obj === 'object') accountNameMap = Object.assign({}, accountNameMap, obj);
     }
   }catch(e){}
+  // 3) Sync from SQLite backend if server is connected
+  fetch('/api/account-names')
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if(data && data.names && typeof data.names === 'object'){
+        const serverNames = data.names;
+        const localKeys = Object.keys(accountNameMap);
+        const serverKeys = Object.keys(serverNames);
+        if(serverKeys.length > 0){
+          accountNameMap = Object.assign({}, accountNameMap, serverNames);
+          renderMapTable();
+          applyMappingNow();
+        } else if(localKeys.length > 0){
+          // Auto-migrate local mapping to SQLite
+          saveMap();
+        }
+      }
+    }).catch(()=>{});
 }
 
-function saveMap(){ try{ localStorage.setItem(MAP_STORAGE_KEY, JSON.stringify(accountNameMap)); }catch(e){} }
+function saveMap(){
+  try{ localStorage.setItem(MAP_STORAGE_KEY, JSON.stringify(accountNameMap)); }catch(e){}
+  try{
+    fetch('/api/account-names', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ names: accountNameMap })
+    }).catch(()=>{});
+  }catch(e){}
+}
 function setMap(id, name){ if(!id) return; accountNameMap[String(id)] = String(name||''); saveMap(); renderMapTable(); applyMappingNow(); }
 function removeMap(id){ delete accountNameMap[String(id)]; saveMap(); renderMapTable(); applyMappingNow(); }
 function clearMapAll(){ accountNameMap = {}; saveMap(); renderMapTable(); applyMappingNow(); }
@@ -3930,6 +4022,7 @@ function plotCallerParticipationHeatmap(rows, colors){
   const z = agg.telcos.map(telco=>agg.series[telco]);
   const maxValue = Math.max(0, ...z.flat());
   const heatColor = (colors && colors.AnswerRate) || '#af7aa1';
+  const emptyColor = document.body.classList.contains('dark') ? 'rgba(148,163,184,.18)' : '#f8fafc';
   const text = z.map(row=>row.map(value=>String(value)));
   const showText = agg.labels.length <= 48;
   const trace = {
@@ -3937,7 +4030,7 @@ function plotCallerParticipationHeatmap(rows, colors){
     y: agg.telcos,
     z,
     type: 'heatmap',
-    colorscale: [[0,'#f8fafc'],[1,heatColor]],
+    colorscale: [[0,emptyColor],[1,heatColor]],
     zmin: 0,
     zmax: Math.max(1, maxValue),
     text,
@@ -3951,9 +4044,7 @@ function plotCallerParticipationHeatmap(rows, colors){
     height: 380,
     margin: {l: 72, r: 78, t: 48, b: 70},
     xaxis: {title: 'Bucket thời gian', type: 'category', automargin: true, nticks: Math.min(12, agg.labels.length)},
-    yaxis: {title: 'Telco', type: 'category', automargin: true},
-    plot_bgcolor: '#fff',
-    paper_bgcolor: '#fff'
+    yaxis: {title: 'Telco', type: 'category', automargin: true}
   };
   Plotly.react(elId, [trace], layout, {responsive:true, displaylogo:false});
 }
@@ -4424,13 +4515,6 @@ function plotTimeHeatmap(rows){
   Plotly.react('chart_time_heatmap', data, layout, {responsive:true});
 }
 
-// KPI alert fallback before threshold controls are initialized.
-function updateKPIAlertsFallback(answerRate){
-  const el = document.getElementById('kpi_answer');
-  if(!el) return;
-  el.style.boxShadow = answerRate<40 ? '0 0 0 2px rgba(220,38,38,0.35)' : 'none';
-}
-
 // Debounce the heavy update call when changing filters
 const updateDashboardWithFiltersDebounced = debounce(updateDashboardWithFilters, 180);
 
@@ -4678,8 +4762,14 @@ function cubeVal(path, fallbackFn){
   return fallbackFn ? fallbackFn() : null;
 }
 
-// Cube cho bộ lọc hiện tại — backend trước, worker/browser là fallback.
+// Cube cho bộ lọc hiện tại — worker nếu có, không thì dựng ngay trên main thread.
 async function computeCubeFor(params){
+  const preloadKey=JSON.stringify(params||{});
+  if(preloadedServerCube && preloadedServerCube.key===preloadKey){
+    const cube=preloadedServerCube.cube;
+    preloadedServerCube=null;
+    return cube;
+  }
   try{
     if(lastReportDataUrl && String(lastReportDataUrl).startsWith('/api/calldata.csv')){
       const source=new URL(lastReportDataUrl,location.origin);
@@ -5015,6 +5105,7 @@ applyProgressiveDisclosure();
 
 function showTab(tabName){
   currentTab = tabName;
+  document.body.setAttribute('data-active-tab', tabName || 'overview');
   document.querySelectorAll('.tab-btn').forEach(b=>{
     const active=b.dataset.tab===tabName;
     b.classList.toggle('active',active);
@@ -5621,8 +5712,19 @@ async function renderBillingTab(){
       : '<b>Phạm vi Cước phí:</b> chưa có dữ liệu CDR.';
   }
   // computeBilling chạy trong worker (bộ lọc cước riêng); fallback main-thread.
-  let res, rowCount, forecast = null;
-  if(dashWorker.available()){
+  let res, rowCount, forecast = null, detailCount = null;
+  if(serverBackedReport){
+    try{
+      const response=await fetch('/api/billing-report',{
+        method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
+        body:JSON.stringify({params:serverSourceParams(),cfg})
+      });
+      if(!response.ok) throw new Error(await mptApiError(response));
+      const b=await response.json();
+      res=b.report; rowCount=b.rowCount; forecast=b.forecast||null; detailCount=Number(b.detailCount||0);
+    }catch(e){ console.warn('billing backend lỗi, fallback worker:',e&&e.message); }
+  }
+  if(!res&&dashWorker.available()){
     try{
       const b = await dashWorker.billing(cfg);
       res = b.report; rowCount = b.rowCount; forecast = b.forecast || null;
@@ -5633,7 +5735,7 @@ async function renderBillingTab(){
     res = computeBilling(rows, cfg); rowCount = rows.length;
     forecast = computeBillingForecast(enriched || [], cfg);
   }
-  lastBilling = {cfg, res, rowCount, forecast};
+  lastBilling = {cfg, res, rowCount, forecast, detailCount};
   renderBillingForecast(forecast, cfg);
   const colors = dashState.colors || getSeriesColors();
 
@@ -5929,12 +6031,29 @@ function exportBillingSummary(){
   downloadTextFile(`billing_summary_${cfg.startDate}_${cfg.endDate}.csv`, lines.join('\n'));
 }
 
-function exportBillingDetail(){
+async function exportBillingDetail(){
   if(!lastBilling) return toast('Chưa có kết quả tính cước', true);
   const {cfg, res} = lastBilling;
-  if(!res.detail.length) return toast('Không có cuộc gọi tính cước trong khoảng đã chọn', true);
+  let detail=Array.isArray(res.detail)?res.detail:[];
+  if(serverBackedReport){
+    const total=Number(lastBilling.detailCount||0);
+    if(!total) return toast('Không có cuộc gọi tính cước trong khoảng đã chọn', true);
+    detail=[];
+    try{
+      for(let offset=0;offset<total;offset+=5000){
+        const response=await fetch('/api/billing-detail',{
+          method:'POST',headers:{'Content-Type':'application/json'},cache:'no-store',
+          body:JSON.stringify({params:serverSourceParams(),cfg,offset,limit:5000})
+        });
+        if(!response.ok) throw new Error(await mptApiError(response));
+        const page=await response.json();
+        detail.push(...(page.rows||[]));
+      }
+    }catch(error){ return toast('Không xuất được chi tiết cước: '+error.message,true); }
+  }
+  if(!detail.length) return toast('Không có cuộc gọi tính cước trong khoảng đã chọn', true);
   const head = ['start_stamp','account_id','caller_id_number','destination_number','telco','hangup_cause','connType','duration','billsec','billed_sec','billed_min','cost_vnd'];
-  const body = res.detail.map(d=>[d.start_stamp,d.account_id,d.caller_id_number,d.destination_number,d.telco,d.hangup_cause,d.connType,d.duration,d.billsec,d.billed_sec,d.billed_min,d.cost]);
+  const body = detail.map(d=>[d.start_stamp,d.account_id,d.caller_id_number,d.destination_number,d.telco,d.hangup_cause,d.connType,d.duration,d.billsec,d.billed_sec,d.billed_min,d.cost]);
   downloadTextFile(`billing_detail_${cfg.startDate}_${cfg.endDate}.csv`, csvFromRows(head, body));
 }
 
@@ -5962,6 +6081,10 @@ function exportBillingDetail(){
     const ba = document.getElementById('billAccount');
     if(ba) ba.value = (sel.length===1) ? sel[0] : '';
     rerender();
+  });
+  on('quickSyncBillingFromTop', ()=>{
+    document.getElementById('billSyncMain')?.click();
+    if(typeof toast === 'function') toast('Đã đồng bộ bộ lọc chính xuống tab Cước phí.');
   });
   on('billExport', exportBillingSummary);
   on('billExportDetail', exportBillingDetail);
@@ -7094,8 +7217,8 @@ function loadGridOrder(){
   const grid = document.getElementById('reportGrid');
   if(!grid) return;
   let dragEl = null;
-  Array.from(grid.querySelectorAll(':scope > .card[data-tab][draggable="true"]')).forEach(card=>{
-    card.removeAttribute('draggable');
+  Array.from(grid.querySelectorAll(':scope > .card[data-tab]')).forEach(card=>{
+    card.setAttribute('draggable','false');
     if(card.classList.contains('report-more-toggle') || card.querySelector(':scope > .card-drag-handle')) return;
     const handle=document.createElement('button');
     handle.type='button';
@@ -7113,6 +7236,7 @@ function loadGridOrder(){
     dragEl = card;
     dragEl.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', card.id || 'report-card');
   });
   grid.addEventListener('dragend', ()=>{
     grid.querySelectorAll('.drag-over').forEach(card=>card.classList.remove('drag-over'));
@@ -8522,9 +8646,10 @@ async function updateDashboardWithFilters(){
 }
 
 
-function setDateRangeInputs(min, max, rowCount){
+function setDateRangeInputs(min, max, rowCount, updateInputs=true){
   if(!min || !max){ loadedDataRange = null; return; }
   loadedDataRange = {min, max, rows: rowCount||0};
+  if(!updateInputs) return;
   const sd = document.getElementById('startDate'); const ed = document.getElementById('endDate');
   if(sd) sd.value = min; if(ed) ed.value = max;
 }
@@ -8770,6 +8895,8 @@ let reportLoadingTimer=null;
 let reportLoadingBaseDetail='';
 let reportProgressTimer=null;
 let lastReportDataUrl='';
+let serverBackedReport=false;
+let preloadedServerCube=null;
 
 // Kết quả DB của lần tải gần nhất (header X-MPT-*), để nút "Xem" báo độ mới.
 let lastReportMeta=null;
@@ -8784,11 +8911,11 @@ function setReportActionsBusy(busy,syncMode='auto'){
   const reading=syncMode==='none';
   if(view){
     view.disabled=!!busy;
-    view.textContent=busy&&reading?'Đang đọc DB…':'Xem';
+    view.textContent=busy&&reading?'Đang đọc DB…':'Xem từ DB';
   }
   if(update){
     update.disabled=!!busy;
-    update.textContent=busy&&!reading?'Đang cập nhật…':'Cập nhật báo cáo';
+    update.textContent=busy&&!reading?'Đang cập nhật…':'Đồng bộ MPT';
   }
 }
 
@@ -9055,7 +9182,23 @@ async function loadCallDrilldownPage(){
   drilldownSetBodyLoading(params);
   try{
     let result = null;
-    if(dashWorker.available()){
+    if(serverBackedReport&&lastReportDataUrl){
+      try{
+        const source=new URL(lastReportDataUrl,location.origin);
+        const url=new URL('/api/call-details',location.origin);
+        source.searchParams.forEach((value,key)=>{
+          if(key!=='sync'&&key!=='job_id') url.searchParams.set(key,value);
+        });
+        url.searchParams.set('detail',JSON.stringify(params||{}));
+        url.searchParams.set('offset',String(drilldownState.page*DRILLDOWN_PAGE_SIZE));
+        url.searchParams.set('limit',String(DRILLDOWN_PAGE_SIZE));
+        const response=await fetch(url.pathname+url.search,{cache:'no-store'});
+        if(!response.ok) throw new Error(await mptApiError(response));
+        result=await response.json();
+        drilldownState.source='server';
+      }catch(error){ console.warn('drilldown backend lỗi, fallback worker:',error&&error.message); }
+    }
+    if(!result&&dashWorker.available()){
       try{
         result = await dashWorker.detailPage(drilldownState.page * DRILLDOWN_PAGE_SIZE, DRILLDOWN_PAGE_SIZE, params);
         drilldownState.source = 'worker';
@@ -9101,8 +9244,116 @@ function closeCallDrilldown(restoreFocus=true){
   if(restoreFocus && trigger && typeof trigger.focus === 'function') trigger.focus();
 }
 
+function serverSourceParams(){
+  try{
+    const source=new URL(lastReportDataUrl,location.origin);
+    const out={};
+    ['profile_id','account_id','caller_number','dest_number','outbound','from_day','to_day','hangupcause','calltype','telco']
+      .forEach(key=>out[key]=source.searchParams.get(key)||'');
+    return out;
+  }catch(_){ return null; }
+}
+
+async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
+  const requestId=++reportRequestSeq;
+  const requestScope=reportScopeFromDataUrl(dataUrl);
+  applyReportScopeToControls(requestScope);
+  const isCurrent=()=>requestId===reportRequestSeq;
+  if(typeof drilldownInvalidate==='function') drilldownInvalidate();
+  if(reportAbortController) reportAbortController.abort();
+  lastReportDataUrl=dataUrl;
+  lastReportMeta=null;
+  serverBackedReport=true;
+  const syncMode=reportSyncMode(dataUrl);
+  const readOnly=syncMode==='none';
+  if(updateBrowserUrl){
+    const saved=new URL(dataUrl,location.origin);
+    saved.searchParams.set('sync','none');
+    const savedUrl=saved.pathname+saved.search;
+    const nextUrl=new URL(location.href);
+    nextUrl.search=''; nextUrl.searchParams.set('csv',savedUrl);
+    history.replaceState({csv:savedUrl},'',nextUrl);
+  }
+  const source=new URL(dataUrl,location.origin);
+  const accountIds=(source.searchParams.get('account_id')||'').split(',').filter(x=>x&&x!=='0');
+  const accountParam=accountIds.length?accountIds:'all';
+  const cubeParams=currentCubeParams(
+    source.searchParams.get('from_day')||mptEl('startDate').value,
+    source.searchParams.get('to_day')||mptEl('endDate').value,
+    mptEl('startTime')?.value||'00:00',mptEl('endTime')?.value||'23:59',accountParam
+  );
+  const bundleUrl=new URL('/api/report-bundle',location.origin);
+  source.searchParams.forEach((value,key)=>bundleUrl.searchParams.set(key,value));
+  bundleUrl.searchParams.set('start_time',cubeParams.startTime);
+  bundleUrl.searchParams.set('end_time',cubeParams.endTime);
+  bundleUrl.searchParams.set('ccu_scope',cubeParams.ccuScope||'answered');
+  bundleUrl.searchParams.set('cube_account',JSON.stringify(cubeParams.account));
+  bundleUrl.searchParams.set('retry',JSON.stringify(cubeParams.retry||{}));
+  let jobId='';
+  if(accountIds.length>1&&!readOnly){
+    jobId='job-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
+    bundleUrl.searchParams.set('job_id',jobId);
+  }
+  const controller=new AbortController();
+  reportAbortController=controller;
+  setReportActionsBusy(true,syncMode);
+  setReportLoading(true,readOnly?'Đang dựng báo cáo từ DB…':'Đang đồng bộ MPT và dựng báo cáo…');
+  startReportProgressPolling(jobId,accountIds.length);
+  try{
+    const response=await fetch(bundleUrl.pathname+bundleUrl.search,{cache:'no-store',signal:controller.signal});
+    if(!isCurrent()) return false;
+    if(!response.ok) throw new Error(await mptApiError(response));
+    const body=await response.json();
+    if(!body||!body.meta||!body.cube) throw new Error('Backend không trả về report bundle hợp lệ.');
+    const meta=body.meta;
+    lastReportMeta={cache:meta.cache||'',lastCall:meta.lastCall||'',syncedAt:meta.syncedAt||'',missingDays:meta.missingDays||[]};
+    let rows=Array.isArray(body.rows)?body.rows:[];
+    let ing=null;
+    if(dashWorker.available()){
+      try{ ing=await dashWorker.ingestRows(rows,{nameMap:accountNameMap,datasetToken:requestId}); }
+      catch(error){ console.warn('worker ingest preview lỗi:',error&&error.message); }
+    }
+    if(!isCurrent()) return false;
+    if(ing){ enriched=ing.rows; rawData=enriched; }
+    else{ enriched=enrichData(normalizeCallRecords(rows),accountNameMap,gatewayCidIndex); rawData=enriched; }
+    const total=Number(meta.count||0);
+    loadedAccountIds=Array.isArray(meta.accountIds)?meta.accountIds:null;
+    loadedTelcos=Array.isArray(meta.telcos)?meta.telcos:null;
+    setLoadedRowCap(enriched.length,total);
+    preloadedServerCube={key:JSON.stringify(cubeParams),cube:body.cube};
+    resetDashboardCaches();
+    setDateRangeInputs(meta.dateMin,meta.dateMax,total,false);
+    refreshAccountFilter(requestScope&&Array.isArray(requestScope.accountIds)?requestScope.accountIds:undefined);
+    initBillingFilters(true);
+    const accountCount=loadedAccountIds?loadedAccountIds.length:new Set(enriched.map(r=>String(r.account_id||'Unknown'))).size;
+    const stat=`Đã tải cube ${total.toLocaleString('vi-VN')} dòng; preview ${enriched.length.toLocaleString('vi-VN')} dòng / ${accountCount} tài khoản | ${meta.cache||'DB'}.`;
+    const statusEl=document.getElementById('uploadStatus'); if(statusEl) statusEl.innerText=stat;
+    updateMptLoadedSummary(dataUrl,total,accountCount);
+    adwHideRestoreBanner();
+    setReportLoading(false);
+    toast(stat);
+    await updateDashboardWithFilters();
+    return true;
+  }catch(error){
+    if(!isCurrent()) return false;
+    if(error&&error.name==='AbortError'){
+      setReportLoading(false); toast('Đã hủy tải báo cáo.',true); return false;
+    }
+    const message='Không tải được dữ liệu: '+((error&&error.message)||error);
+    setReportLoading(true,message,true); toast(message,true); return false;
+  }finally{
+    if(isCurrent()){
+      stopReportProgressPolling(); reportAbortController=null; setReportActionsBusy(false);
+    }
+  }
+}
+
 async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
   if(!dataUrl) return false;
+  if(String(dataUrl).startsWith('/api/calldata.csv')){
+    return loadServerReportBundle(dataUrl,updateBrowserUrl);
+  }
+  serverBackedReport=false;
   const requestId=++reportRequestSeq;
   const requestScope=reportScopeFromDataUrl(dataUrl);
   // URL là phạm vi báo cáo chuẩn (đặc biệt khi mở lại link/bookmark). Đồng bộ
@@ -9686,10 +9937,15 @@ function initMptSourcePanel(){
   mptEl('mptTestConnection').addEventListener('click',async()=>{
     mptSetStatus('','Đang kiểm tra đăng nhập và tải tài khoản…');
     try{
+      const profile=mptActiveProfile();
+      const domain=(mptEl('mptDomain').value||profile?.domain||'').trim();
+      const username=(mptEl('mptUsername').value||profile?.username||'').trim();
       const password=mptEl('mptPassword').value;
+      if(!domain||!username) throw new Error('Cần domain và tên đăng nhập để kiểm tra kết nối.');
+      if(!password&&profile?.credentialAvailable===false) throw new Error('Mật khẩu đã lưu không đọc được. Hãy nhập lại mật khẩu.');
       const payload=mptActiveProfileId&&!password
         ? {profile_id:mptActiveProfileId}
-        : {domain:mptEl('mptDomain').value,username:mptEl('mptUsername').value,password};
+        : {domain,username,password};
       const response=await fetch('/api/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(!response.ok) throw new Error(await mptApiError(response));
       mptAccounts=await response.json(); mptRenderAccounts();

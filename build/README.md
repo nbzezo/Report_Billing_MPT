@@ -4,7 +4,7 @@ Tạo một thư mục chạy độc lập, **không cần cài Python**, copy s
 
 ## Yêu cầu trên máy build
 
-- Windows 10/11, Python 3.11+
+- Windows 10/11, Python 3.11+, Node.js 22.5+
 - `python -m pip install -r build/requirements-build.txt`
 
 ## Build
@@ -23,6 +23,8 @@ MPT Call Dashboard\
 ├─ mpt_filter.html
 ├─ dashboard-core.js             ← logic thuần dùng chung
 ├─ dashboard-csv-worker.js       ← Web Worker (tổng hợp ngoài luồng UI)
+├─ analytics-worker.js           ← analytics backend đọc SQLite trực tiếp
+├─ node.exe                      ← Node runtime được đóng gói sẵn
 └─ vendor\                       ← plotly + font
 ```
 
@@ -44,7 +46,8 @@ Copy **cả thư mục** `MPT Call Dashboard\`. Kể cả `config\` → mật kh
 ## Yêu cầu trên máy chạy
 
 - Windows 10 / 11
-- **Microsoft Edge** (có sẵn trên mọi máy Win10/11) hoặc **Google Chrome**. Thiếu cả hai
+- **Microsoft Edge** (có sẵn trên mọi máy Win10/11) hoặc **Google Chrome**. Node đã
+  nằm trong thư mục portable, máy đích không cần cài thêm. Thiếu cả hai trình duyệt
   thì app báo lỗi kèm hướng dẫn.
 
 ## Ghi chú

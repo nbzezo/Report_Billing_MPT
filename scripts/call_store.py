@@ -19,16 +19,30 @@ from pathlib import Path
 from threading import Lock, RLock
 
 
-RETENTION_DAYS = 31
+RETENTION_DAYS = 60
 TODAY_FRESH_SECONDS = 10 * 60
 # MPT ghi CDR khi cuộc gọi kết thúc: một ngày chỉ coi là đủ khi đã đồng bộ sau
 # nửa đêm hôm sau một khoảng này.
 DAY_SETTLE_SECONDS = 15 * 60
-# Bộ nhớ tối đa cho cache kết quả "Xem" (một khoảng 23 ngày ~1 triệu dòng ≈ 210 MB).
-QUERY_CACHE_BYTES = 320 * 1024 * 1024
+# CSV chỉ còn là đường tương thích/xuất file. Không giữ một dataset hàng trăm MB
+# trong RAM; dashboard chính đọc cube + preview qua analytics worker.
+QUERY_CACHE_BYTES = 64 * 1024 * 1024
+QUERY_CACHE_ITEM_BYTES = 16 * 1024 * 1024
 # Các tham số quyết định nội dung query_csv (bỏ sync/job_id...).
 QUERY_KEYS = ("profile_id", "from_day", "to_day", "account_id", "caller_number",
               "dest_number", "outbound", "hangupcause", "calltype", "telco")
+
+# Một số tenant MPT không xuất cột Direction. Khi đó normalize_row dùng
+# Call Type làm fallback, nên chiều gọi ra mang giá trị External thay vì
+# Outbound. Biểu đồ đã coi External là Outbound; query phải dùng cùng quy ước.
+DIRECTION_FILTERS = {
+    "1": ("outbound", "external"),
+    "outbound": ("outbound", "external"),
+    "external": ("outbound", "external"),
+    "2": ("inbound", "internal"),
+    "inbound": ("inbound", "internal"),
+    "internal": ("inbound", "internal"),
+}
 
 ALIASES = {
     "accountid": "account_id", "account": "account_id", "tenant": "account_id",
@@ -48,7 +62,8 @@ ALIASES = {
     "hangupcause": "hangup_cause", "cause": "hangup_cause",
     "statuscode": "status_code", "sipcode": "status_code",
     "telco": "telco", "carrier": "telco", "operator": "telco",
-    "direction": "direction", "calltype": "calltype", "mos": "mos",
+    "direction": "direction", "outbound": "direction",
+    "calldirection": "direction", "calltype": "calltype", "mos": "mos",
     "quality": "quality_pct", "qualitypercent": "quality_pct",
     "jitterminms": "jitter_min", "jittermin": "jitter_min",
     "jittermaxms": "jitter_max", "jittermax": "jitter_max",
@@ -116,8 +131,13 @@ def normalize_row(raw, account_names, occurrence):
                 row[mapped] = value
         else:
             extras[original] = value
-    if not row.get("direction") and row.get("calltype"):
-        row["direction"] = row["calltype"]
+    if not row.get("direction"):
+        direction = {
+            "outbound": "Outbound", "out": "Outbound",
+            "inbound": "Inbound", "in": "Inbound",
+        }.get(str(row.get("calltype") or "").strip().lower())
+        if direction:
+            row["direction"] = direction
     for field in NUMERIC:
         if field in row:
             row[field] = _number(row[field], 0 if field in {"duration", "billsec"} else None)
@@ -129,8 +149,10 @@ def normalize_row(raw, account_names, occurrence):
     row["account_id"] = account_id
     row["account_name"] = str(row.get("account_name") or account_names.get(account_id, ""))
     signature = "|".join(str(row.get(k) or "") for k in (
-        "account_id", "caller_id_number", "destination_number", "start_stamp",
-        "end_stamp", "duration", "billsec", "hangup_cause",
+        "account_id", "caller_id_number", "destination_number", "ani",
+        "start_stamp", "answer_stamp", "end_stamp", "duration", "billsec",
+        "hangup_cause", "status_code", "direction", "calltype", "telco",
+        "packet_count", "rtcp_rtt", "jitter_loss_rate", "raw_json",
     ))
     uuid = str(row.get("uuid") or "").strip()
     if not uuid:
@@ -242,6 +264,50 @@ class CallStore:
                     synced_at TEXT NOT NULL,
                     PRIMARY KEY(profile_id, account_scope, day)
                 );
+                CREATE TABLE IF NOT EXISTS sync_partitions (
+                    profile_id TEXT NOT NULL,
+                    account_scope TEXT NOT NULL,
+                    day TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    row_count INTEGER NOT NULL DEFAULT 0,
+                    source_hash TEXT NOT NULL DEFAULT '',
+                    started_at TEXT,
+                    completed_at TEXT,
+                    error TEXT NOT NULL DEFAULT '',
+                    revision INTEGER NOT NULL DEFAULT 0,
+                    PRIMARY KEY(profile_id, account_scope, day)
+                );
+                CREATE TABLE IF NOT EXISTS data_revisions (
+                    profile_id TEXT PRIMARY KEY,
+                    revision INTEGER NOT NULL DEFAULT 0,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS account_name_maps (
+                    profile_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    account_name TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY(profile_id, account_id)
+                );
+                CREATE TABLE IF NOT EXISTS gateway_mappings (
+                    profile_id TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    routing_id TEXT NOT NULL,
+                    routing_name TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY(profile_id, account_id, routing_id)
+                );
+                CREATE TABLE IF NOT EXISTS gateway_cids (
+                    profile_id TEXT NOT NULL,
+                    cid TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    routing_id TEXT NOT NULL,
+                    routing_name TEXT NOT NULL DEFAULT '',
+                    gateway TEXT NOT NULL DEFAULT '',
+                    telco_status_json TEXT NOT NULL DEFAULT '{}',
+                    built_at TEXT NOT NULL,
+                    PRIMARY KEY(profile_id, cid)
+                );
                 CREATE TABLE IF NOT EXISTS ingestion_runs (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     profile_id TEXT NOT NULL,
@@ -256,6 +322,52 @@ class CallStore:
                     status TEXT NOT NULL
                 );
             """)
+
+    def data_revision(self, profile_id):
+        with self.connect() as db:
+            row = db.execute(
+                "SELECT revision FROM data_revisions WHERE profile_id=?", (profile_id,)
+            ).fetchone()
+        return int(row["revision"]) if row else 0
+
+    def analytics_revision(self, profile_id):
+        """Revision token for raw calls plus enrichment inputs."""
+        with self.connect() as db:
+            data = db.execute(
+                "SELECT revision FROM data_revisions WHERE profile_id=?", (profile_id,)
+            ).fetchone()
+            gateway = db.execute(
+                "SELECT COALESCE(MAX(built_at),'') FROM gateway_cids WHERE profile_id=?",
+                (profile_id,),
+            ).fetchone()[0]
+            names = db.execute(
+                "SELECT COALESCE(MAX(updated_at),'') FROM account_name_maps WHERE profile_id IN (?, '')",
+                (profile_id,),
+            ).fetchone()[0]
+        return f"{int(data['revision']) if data else 0}:{gateway}:{names}"
+
+    def mark_sync_started(self, profile_id, scopes, from_day, to_day):
+        now = datetime.now().astimezone().isoformat(timespec="seconds")
+        with self.connect() as db:
+            for day in self._days(from_day, to_day):
+                for scope in (scopes or ["*"]):
+                    db.execute(
+                        "INSERT INTO sync_partitions(profile_id,account_scope,day,status,started_at,error) "
+                        "VALUES(?,?,?,'running',?,'') ON CONFLICT(profile_id,account_scope,day) "
+                        "DO UPDATE SET status='running',started_at=excluded.started_at,error=''",
+                        (profile_id, scope, day, now),
+                    )
+
+    def mark_sync_failed(self, profile_id, scopes, from_day, to_day, error):
+        message = str(error or "")[:2000]
+        with self.connect() as db:
+            for day in self._days(from_day, to_day):
+                for scope in (scopes or ["*"]):
+                    db.execute(
+                        "UPDATE sync_partitions SET status='error',error=? "
+                        "WHERE profile_id=? AND account_scope=? AND day=?",
+                        (message, profile_id, scope, day),
+                    )
 
     @staticmethod
     def _days(from_day, to_day):
@@ -342,9 +454,33 @@ class CallStore:
         started = datetime.now().astimezone().isoformat(timespec="seconds")
         digest = hashlib.sha256(csv_bytes).hexdigest()
         text = csv_bytes.decode("utf-8-sig", errors="replace")
-        reader = csv.DictReader(io.StringIO(text))
+        reader = list(csv.DictReader(io.StringIO(text)))
+        reader.sort(key=lambda r: (
+            str(r.get("start_stamp") or r.get("starttime") or r.get("calldate") or ""),
+            str(r.get("caller_id_number") or r.get("caller") or r.get("callernumber") or ""),
+            str(r.get("destination_number") or r.get("destination") or r.get("destnumber") or ""),
+            str(r.get("duration") or r.get("callduration") or ""),
+            str(r.get("account_id") or r.get("account") or ""),
+        ))
         occurrence = defaultdict(int)
         rows = [normalize_row(raw, account_names or {}, occurrence) for raw in reader]
+        scopes = [str(scope) for scope in (account_scopes or ["*"])]
+        if len(scopes) == 1 and scopes[0] != "*":
+            for row in rows:
+                if not row.get("account_id"):
+                    row["account_id"] = str(scopes[0])
+                    row["account_name"] = str(
+                        row.get("account_name") or (account_names or {}).get(str(scopes[0]), "")
+                    )
+        if scopes != ["*"]:
+            unexpected = sorted({
+                str(row.get("account_id")) for row in rows
+                if row.get("account_id") and str(row.get("account_id")) not in scopes
+            })
+            if unexpected:
+                raise ValueError(
+                    "MPT trả dữ liệu ngoài account đang đồng bộ: " + ", ".join(unexpected[:10])
+                )
         now = datetime.now().astimezone().isoformat(timespec="seconds")
         placeholders = ",".join("?" for _ in range(2 + len(COLUMNS) + 2))
         sql = f"""
@@ -371,6 +507,22 @@ class CallStore:
         """
         with self.lock, self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            # Một export thành công là snapshot chuẩn của partition được yêu cầu.
+            # Xóa partition cũ trước khi chèn để các dòng đã biến mất ở MPT không
+            # tồn tại mãi do cơ chế upsert.
+            range_values = [profile_id, from_day + " 00:00:00", to_day + " 23:59:59"]
+            if scopes == ["*"]:
+                db.execute(
+                    "DELETE FROM call_records WHERE profile_id=? AND start_stamp>=? AND start_stamp<=?",
+                    range_values,
+                )
+            else:
+                placeholders_scope = ",".join("?" for _ in scopes)
+                db.execute(
+                    "DELETE FROM call_records WHERE profile_id=? AND start_stamp>=? AND start_stamp<=? "
+                    f"AND account_id IN ({placeholders_scope})",
+                    range_values + list(scopes),
+                )
             for row in rows:
                 if not row.get("start_stamp"):
                     continue
@@ -379,13 +531,39 @@ class CallStore:
                 values.extend(row.get(column) for column in COLUMNS)
                 values.extend([row["raw_json"], now])
                 db.execute(sql, values)
-            scopes = account_scopes or ["*"]
+            partition_counts = defaultdict(int)
+            for row in rows:
+                stamp = row.get("start_stamp") or ""
+                if stamp:
+                    partition_counts[(str(row.get("account_id") or "*"), stamp[:10])] += 1
+            revision_row = db.execute(
+                "SELECT revision FROM data_revisions WHERE profile_id=?", (profile_id,)
+            ).fetchone()
+            revision = (int(revision_row["revision"]) if revision_row else 0) + 1
+            db.execute(
+                "INSERT INTO data_revisions(profile_id,revision,updated_at) VALUES(?,?,?) "
+                "ON CONFLICT(profile_id) DO UPDATE SET revision=excluded.revision,updated_at=excluded.updated_at",
+                (profile_id, revision, now),
+            )
             for day in self._days(from_day, to_day):
                 for scope in scopes:
                     db.execute(
                         "INSERT INTO sync_days(profile_id,account_scope,day,synced_at) VALUES(?,?,?,?) "
                         "ON CONFLICT(profile_id,account_scope,day) DO UPDATE SET synced_at=excluded.synced_at",
                         (profile_id, scope, day, now),
+                    )
+                    row_count = (
+                        sum(count for (account, row_day), count in partition_counts.items()
+                            if row_day == day)
+                        if scope == "*" else partition_counts.get((str(scope), day), 0)
+                    )
+                    db.execute(
+                        "INSERT INTO sync_partitions(profile_id,account_scope,day,status,row_count,source_hash,started_at,completed_at,error,revision) "
+                        "VALUES(?,?,?,'complete',?,?,?,?,'',?) "
+                        "ON CONFLICT(profile_id,account_scope,day) DO UPDATE SET "
+                        "status='complete',row_count=excluded.row_count,source_hash=excluded.source_hash,"
+                        "completed_at=excluded.completed_at,error='',revision=excluded.revision",
+                        (profile_id, scope, day, row_count, digest, started, now, revision),
                     )
             stored = len([row for row in rows if row.get("start_stamp")])
             db.execute(
@@ -395,7 +573,8 @@ class CallStore:
             )
             db.commit()
         self._invalidate()
-        return {"sourceRows": len(rows), "storedRows": stored, "sourceHash": digest}
+        return {"sourceRows": len(rows), "storedRows": stored, "sourceHash": digest,
+                "revision": revision}
 
     def query_csv(self, params):
         key = tuple(str(params.get(name, "") or "") for name in QUERY_KEYS)
@@ -425,13 +604,32 @@ class CallStore:
         data = output.getvalue().encode("utf-8-sig")
         with self._cache_lock:
             # Dữ liệu đổi trong lúc đang đọc -> không lưu kết quả có thể đã cũ.
-            if generation == self.generation and len(data) <= self.cache_bytes:
+            if (generation == self.generation and
+                    len(data) <= min(self.cache_bytes, QUERY_CACHE_ITEM_BYTES)):
                 self._cache[key] = data
                 total = sum(len(item) for item in self._cache.values())
                 while total > self.cache_bytes:
                     _, dropped = self._cache.popitem(last=False)
                     total -= len(dropped)
         return data
+
+    def stream_csv(self, params, write, chunk_size=20000):
+        """Stream a compatibility/export CSV without retaining it in memory."""
+        where, values = self._where(params)
+        sql = "SELECT %s FROM call_records WHERE %s ORDER BY start_stamp" % (
+            ",".join(COLUMNS), where
+        )
+        write(b"\xef\xbb\xbf" + (",".join(COLUMNS) + "\n").encode("utf-8"))
+        with self.connect() as db:
+            db.row_factory = None
+            cursor = db.execute(sql, values)
+            while True:
+                rows = cursor.fetchmany(chunk_size)
+                if not rows:
+                    break
+                output = io.StringIO(newline="")
+                csv.writer(output, lineterminator="\n").writerows(rows)
+                write(output.getvalue().encode("utf-8"))
 
     @staticmethod
     def _where(params):
@@ -444,9 +642,6 @@ class CallStore:
             clauses.append("account_id IN (%s)" % ",".join("?" for _ in account_ids))
             values.extend(account_ids)
         normalized_params = dict(params)
-        normalized_params["outbound"] = {
-            "1": "Outbound", "2": "Inbound",
-        }.get(str(params.get("outbound", "")), params.get("outbound", ""))
         normalized_params["calltype"] = {
             "1": "Unknown", "2": "Local", "3": "External",
         }.get(str(params.get("calltype", "")), params.get("calltype", ""))
@@ -457,8 +652,16 @@ class CallStore:
                               ("calltype", "calltype"), ("telco", "telco")):
             value = str(normalized_params.get(param, "") or "")
             if value and value != "0":
-                clauses.append(f"{column}=?")
-                values.append(value)
+                direction_values = DIRECTION_FILTERS.get(value.strip().lower()) if param == "outbound" else None
+                if direction_values:
+                    clauses.append(
+                        "LOWER(TRIM(direction)) IN (%s)" %
+                        ",".join("?" for _ in direction_values)
+                    )
+                    values.extend(direction_values)
+                else:
+                    clauses.append(f"{column}=?")
+                    values.append(value)
         return " AND ".join(clauses), values
 
     def cleanup(self):
@@ -524,3 +727,113 @@ class CallStore:
             # 0 = file được tạo trước bản sửa: xoá dữ liệu cũ không làm file nhỏ lại.
             "autoVacuum": auto_vacuum,
         }
+
+    # --- Account Name Map persistence ---
+
+    def load_account_names(self, profile_id="default"):
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT account_id, account_name FROM account_name_maps WHERE profile_id=?",
+                (profile_id or "default",),
+            ).fetchall()
+            return {r["account_id"]: r["account_name"] for r in rows}
+
+    def save_account_names(self, profile_id="default", name_map=None):
+        if name_map is None and isinstance(profile_id, dict):
+            name_map = profile_id
+            profile_id = "default"
+        now = datetime.now().isoformat(timespec="seconds")
+        pid = profile_id or "default"
+        with self.connect() as db:
+            db.execute("DELETE FROM account_name_maps WHERE profile_id=?", (pid,))
+            for acc, name in (name_map or {}).items():
+                acc = str(acc).strip()
+                if acc:
+                    db.execute(
+                        "INSERT OR REPLACE INTO account_name_maps (profile_id, account_id, account_name, updated_at) "
+                        "VALUES (?, ?, ?, ?)",
+                        (pid, acc, str(name or "").strip(), now),
+                    )
+        return self.load_account_names(profile_id)
+
+    # --- Gateway Map & CIDs persistence ---
+
+    def load_gateway_map(self, profile_id):
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT account_id, routing_id, routing_name FROM gateway_mappings WHERE profile_id=?",
+                (profile_id or "default",),
+            ).fetchall()
+            out = {}
+            for r in rows:
+                out.setdefault(r["account_id"], []).append({
+                    "routing_id": r["routing_id"],
+                    "routing_name": r["routing_name"],
+                })
+            return out
+
+    def save_gateway_map(self, profile_id, clean_mapping):
+        now = datetime.now().isoformat(timespec="seconds")
+        pid = profile_id or "default"
+        with self.connect() as db:
+            db.execute("DELETE FROM gateway_mappings WHERE profile_id=?", (pid,))
+            for acc, entries in (clean_mapping or {}).items():
+                for e in entries:
+                    db.execute(
+                        "INSERT OR REPLACE INTO gateway_mappings (profile_id, account_id, routing_id, routing_name, updated_at) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (pid, acc, e["routing_id"], e.get("routing_name", ""), now),
+                    )
+        return self.load_gateway_map(profile_id)
+
+    def load_gateway_cids_index(self, profile_id):
+        with self.connect() as db:
+            rows = db.execute(
+                "SELECT cid, account_id, routing_id, routing_name, gateway, telco_status_json, built_at "
+                "FROM gateway_cids WHERE profile_id=?",
+                (profile_id or "default",),
+            ).fetchall()
+            if not rows:
+                return {"cidCount": 0, "index": {}, "builtAt": None}
+            idx = {}
+            built_at = None
+            for r in rows:
+                built_at = r["built_at"]
+                try:
+                    ts = json.loads(r["telco_status_json"])
+                except Exception:
+                    ts = {}
+                idx[r["cid"]] = {
+                    "account_id": r["account_id"],
+                    "routing_id": r["routing_id"],
+                    "routing_name": r["routing_name"],
+                    "gateway": r["gateway"],
+                    "telco_status": ts,
+                }
+            return {
+                "cidCount": len(idx),
+                "builtAt": built_at,
+                "index": idx,
+            }
+
+    def save_gateway_cids_index(self, profile_id, index_dict, built_at=None):
+        now = built_at or datetime.now().isoformat(timespec="seconds")
+        pid = profile_id or "default"
+        with self.connect() as db:
+            db.execute("DELETE FROM gateway_cids WHERE profile_id=?", (pid,))
+            for cid, item in (index_dict or {}).items():
+                db.execute(
+                    "INSERT OR REPLACE INTO gateway_cids "
+                    "(profile_id, cid, account_id, routing_id, routing_name, gateway, telco_status_json, built_at) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        pid,
+                        cid,
+                        item.get("account_id", ""),
+                        item.get("routing_id", ""),
+                        item.get("routing_name", ""),
+                        item.get("gateway", ""),
+                        json.dumps(item.get("telco_status", {}), ensure_ascii=False),
+                        now,
+                    ),
+                )

@@ -9,15 +9,22 @@ Dashboard phan tich Call Data MPT voi workflow mot man hinh:
 
 ```powershell
 cd "C:\X1 Gen7 _ Document\Update Call Data - Copy"
-.\scripts\run-dashboard.ps1
+.\scripts\run-app.ps1
 ```
 
-Hoac bam dup shortcut `MPT Call Dashboard` tren Desktop. Shortcut khoi dong an va mo thang Dashboard hop nhat, khong de lai cua so terminal.
+Hoac bam dup `Run Dashboard.vbs` / shortcut `MPT Call Dashboard` tren Desktop. Launcher khoi dong an, mo Dashboard nhu mot cua so ung dung va khong de lai cua so terminal. `Run Dashboard.bat` van dung duoc nhu fallback nhanh, nhung Windows co the nhoang mot cua so cmd rat ngan.
 
-Script se:
+Launcher se:
 - Khoi chay server noi bo
-- Mo Dashboard tren trinh duyet
+- Mo Dashboard trong cua so Edge/Chrome che do app
+- Tu tat server khi dong cua so Dashboard
 - Khong hoi password o terminal nua
+
+Can xem log/debug thi chay:
+
+```powershell
+.\scripts\run-app.ps1 -Foreground
+```
 
 ## Ung dung Windows (ban portable)
 
@@ -80,7 +87,9 @@ doi lai, ai doc duoc thu muc deu giai ma duoc (xem **Bao mat**).
 - `dashboard-core.js` - Logic thuan (khong DOM): normalize/classify/enrich +
   ~40 ham tong hop + `buildCube()`. Dung chung boi trang, Web Worker va Node test.
 - `dashboard-csv-worker.js` - Web Worker: giu du lieu da enrich, dung "cube" tong
-  hop NGOAI luong UI (parse/normalize/enrich/aggregate deu chay o day).
+  hop NGOAI luong UI cho file nguoi dung tai thu cong va lam fallback.
+- `analytics-worker.js` - tien trinh Node ben vung: doc SQLite truc tiep, dung cube,
+  drilldown va bao cao cuoc ma khong gui toan bo CDR sang trinh duyet.
 - `mpt_filter.html` - Trang filter cu, duoc giu lai de tuong thich
 - `scripts/mpt_dashboard_server.py` - Server noi bo (proxy MPT API)
 - `scripts/mpt_dashboard_app.py` - Cua so native (dung cho ban portable)
@@ -125,8 +134,8 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 - Màn hình tải báo cáo hiển thị thời gian chờ và cho phép hủy/thử lại. Khi tải lỗi có thêm nút **Đóng** (hoặc phím Esc) để quay lại dashboard; tham số `?csv=` cũng được gỡ khỏi URL nên lần F5 sau không tự chạy lại và kẹt tiếp.
 - Tải nhiều Account hiển thị tiến độ thật: *Đang tải tài khoản 7/40 — tên account*, lấy từ `/api/export-progress`.
 - **Bộ lọc chính** gom kết nối MPT, tài khoản, ngày/giờ, hướng gọi, nhà mạng, nguyên nhân kết thúc và loại cuộc gọi. Nút **Xem** chỉ đọc dữ liệu đã lưu trong SQLite (không gọi MPT) rồi mở popup cho biết cuộc gọi cuối cùng và thời điểm cập nhật từ MPT của bộ lọc đó, kèm các ngày còn thiếu. Nút **Cập nhật báo cáo** mới tải từ MPT, và chỉ tải khoảng ngày còn thiếu hoặc chưa trọn vẹn (hôm nay, hoặc ngày được đồng bộ khi chưa kết thúc); ngày đã đủ lấy thẳng từ DB. F5/bookmark luôn chỉ đọc DB. API vẫn nhận `sync=force` nếu cần ép tải lại toàn bộ.
-- CSV tải mới từ MPT được chuẩn hoá trực tiếp trong bộ nhớ vào `data/calls.sqlite3`, không tạo file CSV tạm. Kho dữ liệu giữ cuốn chiếu **31 ngày**, tự dọn dữ liệu cũ khi khởi động và định kỳ mỗi 6 giờ. Các file CSV cũ do người dùng tải thủ công không bị xoá.
-- Đọc DB nhanh: kết quả của mỗi bộ lọc được giữ trong RAM (tối đa ~320 MB, LRU) và tự bỏ khi có dữ liệu mới hoặc khi dọn cuốn chiếu, nên bấm **Xem**/F5 lại cùng bộ lọc gần như tức thì (1 triệu dòng: ~12,5 s → <1 s). Lần đọc đầu cũng nhanh gấp ~2 lần nhờ ghi CSV theo lô.
+- CSV tải mới từ MPT được chuẩn hoá trực tiếp trong bộ nhớ vào `data/calls.sqlite3`, không tạo file CSV tạm. Kho dữ liệu giữ cuốn chiếu **60 ngày**, tự dọn dữ liệu cũ khi khởi động và định kỳ mỗi 6 giờ. Các file CSV cũ do người dùng tải thủ công không bị xoá.
+- Đọc DB theo mô hình server-side analytics: Node worker đọc SQLite trực tiếp và giữ tối đa một dataset gần nhất; dashboard chỉ nhận cube đầy đủ cùng preview tối đa 50.000 dòng. Drilldown và cước phí truy vấn backend trên toàn bộ dữ liệu. CSV legacy/xuất file được stream theo lô, còn cache CSV trong RAM chỉ nhận item nhỏ tối đa 16 MB.
 - Nạp dữ liệu lớn trong trình duyệt (đo trên 972 nghìn dòng, kết quả được kiểm là giống hệt bản cũ):
   - Worker parse/chuẩn hoá/enrich **45 s → 9 s** (Node) / **35 s → 16 s** (trình duyệt). Nguyên nhân chính: dựng object bằng `o[tênCột] = v` quá 12 khoá làm V8 chuyển object sang chế độ bảng băm; nay dựng bằng object literal khoá cố định (`makeRowFactory`), kèm đường nhanh cho timestamp/số/đầu số/tên nhà mạng.
   - Cube gửi từ worker sang trang **158 MB → 4 MB** (`slimCubeForTransfer`): `topDest`/`callbackStats` chỉ giữ top 500 + histogram, chuỗi đồng thời rút về đúng 1.800 điểm mà biểu đồ vẫn vẽ. Heap của trang ~600 MB → ~80 MB.
@@ -144,7 +153,8 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 - Bỏ nút *Lưu vào HTML* ở phần gán tên Account: mapping đã tự lưu trong trình duyệt, và file HTML tải về
   không nằm trong allowlist nên mở qua server không chạy. Vẫn còn Export/Import JSON.
 - **Báo cáo Random Number (RN)** trong tab *Dữ liệu & Tài khoản*. RN = số cuộc xen giữa hai lần dùng lại cùng `(account_id, out_number)`, nên RN thấp nghĩa là đầu số bị quay vòng dày. Hai mức xem: **theo số gọi ra** (số cuộc, min/median/avg/max RN) và **theo account** (p10/p25/median/p75). Ngưỡng RN thấp tự đặt — mặc định 2, khớp KPI *Median Random Number* — kèm ô tìm kiếm, sắp xếp theo cột và Export CSV (có BOM UTF-8 để Excel mở đúng tiếng Việt). Lần đầu một số xuất hiện không có RN nên không tính vào thống kê.
-- **Xử lý nặng chạy trong Web Worker.** Parse CSV, chuẩn hoá schema, phân loại cuộc gọi, enrich và toàn bộ ~40 phép tổng hợp (kể cả CCU/concurrency và tính cước) chạy trong `dashboard-csv-worker.js`, không khoá luồng giao diện. Trang chỉ nhận một "cube" gọn (`buildCube`) rồi vẽ. Với ~40.000 dòng: ingest ~0,85s + cube ~0,6s, đều ngoài luồng UI. Không có Worker thì tự chạy lại trên main thread (`buildCube(enriched, params)`).
+- **Xử lý nặng chạy ngoài giao diện.** Nguồn SQLite đi qua `analytics-worker.js`; nguồn CSV/JSON tải thủ công vẫn đi qua `dashboard-csv-worker.js`. Cả hai dùng chung `dashboard-core.js`, nên chỉ có một bộ công thức cho ~40 phép tổng hợp. Trang chỉ nhận cube gọn rồi vẽ.
+- Đồng bộ được ghi theo partition `profile + account + day`: dữ liệu mới được chuẩn hoá trước rồi thay thế phạm vi cũ trong một transaction, tăng `data_revision`, lưu số dòng/hash/trạng thái trong `sync_partitions`; dòng đã biến mất ở MPT không còn bị giữ lại vô thời hạn bởi upsert.
 - **Vẽ biểu đồ tăng dần.** Mỗi tab vẽ từng biểu đồ rồi nhả luồng (`renderSteps`/`yieldFrame` — ưu tiên trước paint, fallback `setTimeout` khi cửa sổ ẩn), kèm tiến độ *Đang vẽ biểu đồ X/Y* trên màn chờ. Cửa sổ phản hồi liên tục trong lúc dựng ~20 biểu đồ.
 - CSV trên 20 MB tiếp tục dùng parser streaming.
 - Plotly nằm trong `vendor/`, nên biểu đồ vẫn hoạt động khi mất Internet.

@@ -28,6 +28,7 @@ import sys as _sys
 
 _sys.path.insert(0, str(Path(__file__).resolve().parent))
 from routing_events import normalize_cid  # noqa: E402  (cung nguon CID, cung 4 dinh dang)
+import call_store  # noqa: E402
 
 _NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
 EXPECTED_HEADER = ["Position", "Gateway", "CID", "Status",
@@ -299,19 +300,30 @@ class GatewayMapStore:
 
     def __init__(self, root, profile_id):
         self.root = Path(root)
+        self.profile_id = profile_id or "default"
         self.config_dir = self.root / "config"
         self.map_path = self.config_dir / "gateway-map.json"
-        safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(profile_id or "default"))
+        safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(self.profile_id))
         self.cache_dir = self.config_dir / ".cache" / "gateway" / safe
         self.index_path = self.cache_dir / "gateway-cids.json"
+        self.call_store = call_store.CallStore(self.root)
 
     # --- mapping tay: {account_id: [{routing_id, routing_name}]} ---
 
     def load_map(self):
+        # Ưu tiên đọc từ SQLite DB
+        db_map = self.call_store.load_gateway_map(self.profile_id)
+        if db_map:
+            return db_map
         if not self.map_path.exists():
             return {}
         try:
             data = json.loads(self.map_path.read_text(encoding="utf-8"))
+            if isinstance(data, dict) and data:
+                # Tự động đồng bộ từ file JSON cũ vào DB nếu DB chưa có
+                clean = self._clean_map(data)
+                self.call_store.save_gateway_map(self.profile_id, clean)
+                return clean
         except Exception:
             return {}
         return data if isinstance(data, dict) else {}
@@ -339,10 +351,14 @@ class GatewayMapStore:
 
     def save_map(self, mapping):
         clean = self._clean_map(mapping)
+        self.call_store.save_gateway_map(self.profile_id, clean)
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.map_path.write_text(
-            json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8"
-        )
+        try:
+            self.map_path.write_text(
+                json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+        except Exception:
+            pass
         return clean
 
     def routing_to_account(self, mapping=None):
@@ -403,21 +419,29 @@ class GatewayMapStore:
                         conflicts.append({"cid": cid, "keep": prev, "drop": entry})
                     continue
                 index[cid] = entry
+        built_at = datetime.now().isoformat(timespec="seconds")
         payload = {
-            "builtAt": datetime.now().isoformat(timespec="seconds"),
+            "builtAt": built_at,
             "cidCount": len(index),
             "routingIds": sorted(r2a),
             "multiAccountRoutings": {r: a for r, a in r2a.items() if len(a) > 1},
             "conflicts": conflicts,
             "index": index,
         }
+        self.call_store.save_gateway_cids_index(self.profile_id, index, built_at)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        self.index_path.write_text(
-            json.dumps(payload, ensure_ascii=False), encoding="utf-8"
-        )
+        try:
+            self.index_path.write_text(
+                json.dumps(payload, ensure_ascii=False), encoding="utf-8"
+            )
+        except Exception:
+            pass
         return payload
 
     def read_index(self):
+        db_index = self.call_store.load_gateway_cids_index(self.profile_id)
+        if db_index and db_index.get("cidCount", 0) > 0:
+            return db_index
         if not self.index_path.exists():
             return {"cidCount": 0, "index": {}, "builtAt": None}
         try:

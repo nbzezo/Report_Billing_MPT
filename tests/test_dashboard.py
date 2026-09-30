@@ -1,4 +1,6 @@
 import importlib.util
+import csv
+import io
 import json
 import shutil
 import subprocess
@@ -6,6 +8,8 @@ import sys
 import tempfile
 import types
 import unittest
+import urllib.parse
+import urllib.request
 from unittest import mock
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -159,6 +163,23 @@ class MptClientAuthenticationTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "giữ nguyên"):
             client.get_accounts()
+
+    def test_socket_permission_error_has_actionable_message(self):
+        reason = PermissionError(13, "socket access forbidden")
+        reason.winerror = 10013
+        exc = urllib.error.URLError(reason)
+
+        message = SERVER.mpt_connection_error_message(exc)
+
+        self.assertIn("WinError 10013", message)
+        self.assertIn("chặn kết nối mạng", message)
+
+    def test_timeout_has_distinct_message(self):
+        message = SERVER.mpt_connection_error_message(
+            urllib.error.URLError(TimeoutError("timed out"))
+        )
+
+        self.assertIn("quá thời gian chờ", message)
 
 
 class PortableSecretTests(unittest.TestCase):
@@ -344,8 +365,7 @@ class CreateServerTests(unittest.TestCase):
                 self.assertIsInstance(server.profile_store, SERVER.ProfileStore)
                 self.assertIsInstance(server.llm_config_store, SERVER.LlmConfigStore)
                 self.assertIsInstance(server.call_store, SERVER.call_store.CallStore)
-                self.assertEqual(len(server.export_cache), 0)
-                self.assertTrue(hasattr(server, "export_cache_lock"))
+                self.assertIsInstance(server.analytics_worker, SERVER.AnalyticsWorker)
                 self.assertTrue(hasattr(server, "profile_sync_locks"))
                 self.assertTrue(hasattr(server, "profile_sync_completed"))
                 self.assertEqual(server.dashboard, "V2_0_Call_Dashboard_MPT.html")
@@ -402,6 +422,25 @@ class CallStoreTests(unittest.TestCase):
             self.assertEqual(summary["missingDays"], [])
             self.assertTrue(summary["syncedAt"])
 
+    def test_outbound_filter_accepts_legacy_external_direction(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            payload = (
+                "Account,Caller,Start time,Call ID,Direction,Call Type\n"
+                f"334,0901,{today} 10:00:00,u-external,External,External\n"
+                f"334,0902,{today} 11:00:00,u-local,Local,Local\n"
+            ).encode("utf-8")
+            store.ingest_csv("p", payload, {}, ["334"], today, today)
+
+            exported = store.query_csv({
+                "profile_id": "p", "account_id": "334",
+                "from_day": today, "to_day": today, "outbound": "1",
+            }).decode("utf-8-sig")
+
+            self.assertIn("u-external", exported)
+            self.assertNotIn("u-local", exported)
+
     def test_query_cache_is_reused_until_data_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             store = SERVER.call_store.CallStore(directory)
@@ -451,16 +490,196 @@ class CallStoreTests(unittest.TestCase):
 
     def test_cleanup_removes_rows_outside_rolling_window(self):
         with tempfile.TemporaryDirectory() as directory:
-            store = SERVER.call_store.CallStore(directory, retention_days=31)
-            old = (date.today() - timedelta(days=40)).isoformat()
+            store = SERVER.call_store.CallStore(directory)
+            old = (date.today() - timedelta(days=60)).isoformat()
+            boundary = (date.today() - timedelta(days=59)).isoformat()
             payload = (
                 "account_id,start_stamp,uuid\n"
                 f"334,{old} 10:00:00,old-1\n"
+                f"334,{boundary} 10:00:00,boundary-1\n"
             ).encode("utf-8")
-            store.ingest_csv("p", payload, {}, ["334"], old, old)
-            self.assertEqual(store.status("p")["rows"], 1)
+            store.ingest_csv("p", payload, {}, ["334"], old, boundary)
+            self.assertEqual(store.status("p")["retentionDays"], 60)
+            self.assertEqual(store.status("p")["rows"], 2)
             store.cleanup()
-            self.assertEqual(store.status("p")["rows"], 0)
+            status = store.status("p")
+            self.assertEqual(status["rows"], 1)
+            self.assertEqual(status["dateMin"], boundary)
+
+    def test_refresh_replaces_partition_and_advances_revision(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            first = (
+                "account_id,start_stamp,uuid\n"
+                f"334,{today} 10:00:00,old-row\n"
+            ).encode()
+            second = (
+                "account_id,start_stamp,uuid\n"
+                f"334,{today} 11:00:00,new-row\n"
+            ).encode()
+            store.ingest_csv("p", first, {}, ["334"], today, today)
+            store.ingest_csv("p", second, {}, ["334"], today, today)
+            exported = store.query_csv({
+                "profile_id": "p", "account_id": "334",
+                "from_day": today, "to_day": today,
+            }).decode("utf-8-sig")
+            self.assertNotIn("old-row", exported)
+            self.assertIn("new-row", exported)
+            self.assertEqual(store.data_revision("p"), 2)
+            with store.connect() as db:
+                partition = db.execute(
+                    "SELECT status,row_count,revision FROM sync_partitions "
+                    "WHERE profile_id='p' AND account_scope='334' AND day=?",
+                    (today,),
+                ).fetchone()
+            self.assertEqual(tuple(partition), ("complete", 1, 2))
+
+
+class AnalyticsWorkerTests(unittest.TestCase):
+    @unittest.skipIf(shutil.which("node") is None, "Node.js is required")
+    def test_worker_reads_sqlite_and_serves_compact_operations(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            payload = (
+                "uuid,account_id,caller_id_number,destination_number,start_stamp,end_stamp,duration,billsec,hangup_cause,telco,direction\n"
+                f"u1,334,0901,0911,{today} 10:00:00,{today} 10:01:00,60,30,NORMAL_CLEARING,Viettel,Outbound\n"
+                f"u2,334,0902,0912,{today} 11:00:00,{today} 11:00:00,0,0,NO_ROUTE_DESTINATION,Viettel,Outbound\n"
+            ).encode()
+            store.ingest_csv("p", payload, {"334": "Demo"}, ["334"], today, today)
+            worker = SERVER.AnalyticsWorker(ROOT, store.path)
+            params = {
+                "profile_id": "p", "account_id": "334",
+                "from_day": today, "to_day": today,
+            }
+            cube_params = {
+                "startDate": today, "endDate": today,
+                "startTime": "00:00", "endTime": "23:59", "account": "all",
+            }
+            try:
+                bundle = worker.request(
+                    "bundle", params=params, datasetKey="p:1",
+                    cubeParams=cube_params, previewLimit=1,
+                )
+                self.assertEqual(bundle["meta"]["count"], 2)
+                self.assertEqual(len(bundle["rows"]), 1)
+                self.assertEqual(bundle["cube"]["overview"]["totalCalls"], 2)
+                detail = worker.request(
+                    "detail", params=params, datasetKey="p:1",
+                    detailParams={"startDate": today, "endDate": today,
+                                  "startTime": "00:00", "endTime": "23:59",
+                                  "statuses": ["Connected"]},
+                    offset=0, limit=25,
+                )
+                self.assertEqual(detail["total"], 1)
+                billing = worker.request(
+                    "billing", params=params, datasetKey="p:1",
+                    cfg={"startDate": today, "endDate": today,
+                         "startTime": "00:00", "endTime": "23:59",
+                         "firstBlock": 6, "nextBlock": 1, "onlyConnected": True,
+                         "rate": 100, "roundStep": 0, "groupBy": "day"},
+                )
+                self.assertEqual(billing["rowCount"], 2)
+                self.assertEqual(billing["report"]["totals"]["billedCalls"], 1)
+                external_payload = (
+                    "uuid,account_id,start_stamp,direction,calltype\n"
+                    f"u3,334,{today} 12:00:00,External,External\n"
+                    f"u4,334,{today} 13:00:00,Local,Local\n"
+                ).encode()
+                store.ingest_csv("p", external_payload, {"334": "Demo"}, ["334"], today, today)
+                outbound = worker.request(
+                    "bundle", params=dict(params, outbound="1"),
+                    datasetKey="p:external", cubeParams=cube_params, previewLimit=10,
+                )
+                self.assertEqual(outbound["meta"]["count"], 1)
+                self.assertEqual(outbound["rows"][0]["uuid"], "u3")
+            finally:
+                worker.stop()
+
+
+class AnalyticsApiTests(unittest.TestCase):
+    @unittest.skipIf(shutil.which("node") is None, "Node.js is required")
+    def test_bundle_detail_and_billing_endpoints(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            shutil.copy(ROOT / "dashboard-core.js", root / "dashboard-core.js")
+            shutil.copy(ROOT / "analytics-worker.js", root / "analytics-worker.js")
+            server = SERVER.create_server(host="127.0.0.1", port=0, root=root)
+            today = date.today().isoformat()
+            server.call_store.ingest_csv(
+                "p",
+                (
+                    "uuid,account_id,caller_id_number,destination_number,start_stamp,end_stamp,duration,billsec,hangup_cause,telco,direction\n"
+                    f"u1,334,0901,0911,{today} 10:00:00,{today} 10:01:00,60,30,NORMAL_CLEARING,Viettel,Outbound\n"
+                    f"u2,334,0902,0912,{today} 11:00:00,{today} 11:00:00,0,0,NO_ROUTE_DESTINATION,Viettel,Outbound\n"
+                ).encode(),
+                {"334": "Demo"}, ["334"], today, today,
+            )
+            thread = Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            base = f"http://127.0.0.1:{server.server_address[1]}"
+            common = {
+                "profile_id": "p", "account_id": "334",
+                "from_day": today, "to_day": today, "sync": "none",
+                "start_time": "00:00", "end_time": "23:59",
+                "cube_account": json.dumps("all"),
+            }
+            try:
+                with urllib.request.urlopen(
+                    base + "/api/report-bundle?" + urllib.parse.urlencode(common), timeout=10
+                ) as response:
+                    bundle = json.loads(response.read())
+                self.assertEqual(bundle["meta"]["count"], 2)
+                self.assertEqual(bundle["cube"]["overview"]["totalCalls"], 2)
+
+                detail_query = dict(common, detail=json.dumps({
+                    "startDate": today, "endDate": today,
+                    "startTime": "00:00", "endTime": "23:59",
+                    "statuses": ["Connected"],
+                }), offset="0", limit="25")
+                with urllib.request.urlopen(
+                    base + "/api/call-details?" + urllib.parse.urlencode(detail_query), timeout=10
+                ) as response:
+                    detail = json.loads(response.read())
+                self.assertEqual(detail["total"], 1)
+
+                request = urllib.request.Request(
+                    base + "/api/billing-report", method="POST",
+                    headers={"Content-Type": "application/json"},
+                    data=json.dumps({
+                        "params": common,
+                        "cfg": {"startDate": today, "endDate": today,
+                                "startTime": "00:00", "endTime": "23:59",
+                                "firstBlock": 6, "nextBlock": 1,
+                                "onlyConnected": True, "rate": 100,
+                                "roundStep": 0, "groupBy": "day"},
+                    }).encode(),
+                )
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    billing = json.loads(response.read())
+                self.assertEqual(billing["report"]["totals"]["billedCalls"], 1)
+                self.assertNotIn("detail", billing["report"])
+                request = urllib.request.Request(
+                    base + "/api/billing-detail", method="POST",
+                    headers={"Content-Type": "application/json"},
+                    data=json.dumps({
+                        "params": common,
+                        "cfg": {"startDate": today, "endDate": today,
+                                "startTime": "00:00", "endTime": "23:59",
+                                "firstBlock": 6, "nextBlock": 1,
+                                "onlyConnected": True, "rate": 100,
+                                "roundStep": 0, "groupBy": "day"},
+                        "offset": 0, "limit": 25,
+                    }).encode(),
+                )
+                with urllib.request.urlopen(request, timeout=10) as response:
+                    billing_detail = json.loads(response.read())
+                self.assertEqual(billing_detail["total"], 1)
+            finally:
+                server.shutdown()
+                server.server_close()
+                thread.join(2)
 
 
 class DashboardCoreModuleTests(unittest.TestCase):
@@ -591,6 +810,13 @@ class CubeRenderPipelineTests(unittest.TestCase):
         # trước đây tự set enriched -> worker rỗng -> cube 0 dòng
         self.assertIn("await applyLoadedRows(normalizeCallRecords(sample));", self.HTML)
 
+    def test_sqlite_reports_use_server_bundle_and_server_side_details(self):
+        for token in (
+            "/api/report-bundle", "loadServerReportBundle(", "serverBackedReport=true",
+            "/api/call-details", "/api/billing-report", "/api/billing-detail",
+        ):
+            self.assertIn(token, self.HTML)
+
 
 class IncrementalRenderTests(unittest.TestCase):
     """Milestone 4: vẽ từng biểu đồ có nhả luồng -> cửa sổ không treo cứng."""
@@ -671,6 +897,55 @@ class IncrementalRenderTests(unittest.TestCase):
 
 
 class ExportProgressTests(unittest.TestCase):
+    def test_direction_aware_export_splits_sources_without_direction_column(self):
+        class FakeClient:
+            def __init__(self):
+                self.calls = []
+
+            def export_csv(self, params):
+                outbound = str(params.get("outbound", ""))
+                self.calls.append(outbound)
+                header = "uuid,account_id,start_stamp,calltype\n"
+                if outbound == "1":
+                    return (header + "u-out,294,2026-09-23 10:00:00,Local\n").encode()
+                if outbound == "2":
+                    return (header + "u-in,294,2026-09-23 11:00:00,Local\n").encode()
+                return (header + "u-out,294,2026-09-23 10:00:00,Local\n"
+                        "u-in,294,2026-09-23 11:00:00,Local\n").encode()
+
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        handler.server = types.SimpleNamespace(profile_direction_modes={})
+        client = FakeClient()
+
+        first = handler.export_direction_aware("p", client, {"account_id": "294"})
+        second = handler.export_direction_aware("p", client, {"account_id": "294"})
+        rows = list(csv.DictReader(io.StringIO(first.decode("utf-8-sig"))))
+
+        self.assertEqual(client.calls, ["", "1", "2", "1", "2"])
+        self.assertEqual(handler.server.profile_direction_modes["p"], "split")
+        self.assertEqual({row["uuid"]: row["direction"] for row in rows}, {
+            "u-out": "Outbound", "u-in": "Inbound",
+        })
+        self.assertEqual(len(list(csv.DictReader(io.StringIO(second.decode("utf-8-sig"))))), 2)
+
+    def test_direction_aware_export_keeps_native_direction_in_one_request(self):
+        class FakeClient:
+            calls = 0
+
+            def export_csv(self, params):
+                self.calls += 1
+                return b"uuid,direction\nu1,Outbound\n"
+
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        handler.server = types.SimpleNamespace(profile_direction_modes={})
+        client = FakeClient()
+
+        data = handler.export_direction_aware("p", client, {})
+
+        self.assertEqual(client.calls, 1)
+        self.assertEqual(handler.server.profile_direction_modes["p"], "native")
+        self.assertIn(b"Outbound", data)
+
     def test_overlapping_force_requests_for_same_scope_are_coalesced(self):
         export_started = Event()
         second_reached_lock = Event()
@@ -704,7 +979,7 @@ class ExportProgressTests(unittest.TestCase):
                 FakeClient.calls += 1
                 export_started.set()
                 self.assert_released = release_export.wait(2)
-                return b"uuid,account_id,start_stamp\nu1,334,2026-09-23 10:00:00\n"
+                return b"uuid,account_id,start_stamp,direction\nu1,334,2026-09-23 10:00:00,Outbound\n"
 
         handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
         handler.server = types.SimpleNamespace(
@@ -821,7 +1096,8 @@ class ExportProgressTests(unittest.TestCase):
             base_url="https://example.com", username="user", password="secret",
         )
 
-        def fake_merge(client, params, account_ids, progress=None, names=None):
+        def fake_merge(client, params, account_ids, progress=None, names=None,
+                       exporter=None):
             exported_accounts.extend(account_ids)
             return b"uuid,account_id,start_stamp\nu1,1,2026-09-01 10:00:00\n"
 
@@ -1046,7 +1322,7 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertIn("new Set([...mptAccounts.map(item=>String(item.id)), ...loadedIds])", self.dashboard_html)
 
     def test_main_filter_shows_unapplied_changes(self):
-        for token in ("function markFilterDirty", "button.textContent='Xem'", "#applyFilter.dirty"):
+        for token in ("function markFilterDirty", "button.textContent='Xem từ DB'", "#applyFilter.dirty"):
             self.assertIn(token, self.dashboard_html)
 
     def test_unified_filter_owns_sync_and_report_update(self):

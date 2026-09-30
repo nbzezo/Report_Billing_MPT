@@ -14,3 +14,9 @@ data/
 calldata-*.csv
 # Bản backup thủ công: lịch sử git đã đảm nhiệm vai trò này
 *.backup-*.html
+
+# Công cụ/cache cục bộ
+.claude/
+.agents/
+.pytest_cache/
+logs/
