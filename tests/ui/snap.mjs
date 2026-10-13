@@ -70,10 +70,42 @@ try {
     await page.evaluate(() => document.getElementById('mptSourcePanel')?.close());
     await page.locator('#askDashboardToggle').click();
     await page.locator('#askDashboardPanel').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.activeElement?.id === 'askQuestionInput');
+    await page.waitForTimeout(220);
+    const desktopSheet = await page.evaluate(() => {
+      const panel = document.getElementById('askDashboardPanel').getBoundingClientRect();
+      const update = document.getElementById('updateReport').getBoundingClientRect();
+      const bodyPadding = parseFloat(getComputedStyle(document.querySelector('.adw-body')).paddingRight) || 0;
+      return { panelRight: panel.right, panelLeft: panel.left, updateRight: update.right, bodyPadding, viewport: innerWidth };
+    });
+    if (desktopSheet.bodyPadding < 350 || Math.abs(desktopSheet.panelRight - desktopSheet.viewport) > 1 || desktopSheet.updateRight > desktopSheet.panelLeft + 1)
+      throw new Error(`Side sheet desktop che nút Cập nhật: ${JSON.stringify(desktopSheet)}`);
     const assistantAudit = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
     axeSummary.assistant = assistantAudit.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
     if (!auditOnly) await page.screenshot({ path: path.join(out, `${theme}-assistant.png`) });
-    await page.locator('#askPanelClose').click();
+    await page.keyboard.press('Escape');
+    if (!(await page.locator('#askDashboardPanel').isHidden())) throw new Error('Side sheet không đóng bằng Escape.');
+    if (!(await page.locator('#askDashboardToggle').evaluate(element => element === document.activeElement))) throw new Error('Side sheet không trả focus về nút mở.');
+    if (theme === 'light') {
+      await page.setViewportSize({ width: 900, height: 768 });
+      await page.keyboard.press('Control+/');
+      await page.locator('#askDashboardPanel').waitFor({ state: 'visible' });
+      await page.waitForTimeout(220);
+      const narrowState = await page.evaluate(() => ({
+        open: document.body.classList.contains('ask-panel-open'),
+        bodyPadding: parseFloat(getComputedStyle(document.querySelector('.adw-body')).paddingRight) || 0,
+      }));
+      if (!narrowState.open || narrowState.bodyPadding > 1) throw new Error(`Side sheet 900px không ở chế độ overlay: ${JSON.stringify(narrowState)}`);
+      await page.keyboard.press('Escape');
+      await page.setViewportSize({ width: 1440, height: 900 });
+      const bubbleState = await page.locator('#askDashboardToggle').evaluate(element => {
+        const rect = element.getBoundingClientRect();
+        const headerBottom = document.querySelector('.adw-headerbar').getBoundingClientRect().bottom;
+        return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, headerBottom, width: innerWidth, height: innerHeight };
+      });
+      if (bubbleState.left < 0 || bubbleState.right > bubbleState.width || bubbleState.bottom > bubbleState.height || bubbleState.top < bubbleState.headerBottom + 8)
+        throw new Error(`Bong bóng AI vượt khung sau resize: ${JSON.stringify(bubbleState)}`);
+    }
     if (theme === 'light' && !auditOnly) {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();

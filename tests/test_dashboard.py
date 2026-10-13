@@ -1208,6 +1208,17 @@ class FrontendRegressionTests(unittest.TestCase):
             self.assertIn(token, self.dashboard_html)
         self.assertNotIn("ⓘ", self.dashboard_html)
 
+    def test_ai_assistant_uses_responsive_side_sheet(self):
+        for token in (
+            "--ask-sheet-w:clamp(360px,40vw,420px)",
+            "body.adw.ask-panel-open .adw-body",
+            "body.adw.ask-panel-open::before",
+            "document.body.classList.add('ask-panel-open')",
+            "event.ctrlKey && event.key==='/'",
+            "requestAnimationFrame(()=>document.getElementById('askQuestionInput')?.focus())",
+        ):
+            self.assertIn(token, self.dashboard_html)
+
     def test_kpi_summary_places_status_chips_on_a_full_width_row(self):
         self.assertIn(".kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(4", self.dashboard_html)
         self.assertIn("#kpi_conn{grid-column:1/-1;min-height:52px}", self.dashboard_html)

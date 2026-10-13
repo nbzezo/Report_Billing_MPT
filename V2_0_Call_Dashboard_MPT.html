@@ -10165,37 +10165,36 @@ function llmClamp(value, min, max){
 }
 
 function llmPositionAskPanel(){
-  const bubble = document.getElementById('askDashboardToggle');
   const panel = document.getElementById('askDashboardPanel');
-  if(!bubble || !panel || panel.hidden) return;
-  const gap = 12;
-  const margin = 10;
-  const bubbleRect = bubble.getBoundingClientRect();
-  const panelWidth = panel.offsetWidth;
-  const panelHeight = panel.offsetHeight;
-  const fitsRight = window.innerWidth - bubbleRect.right >= panelWidth + gap + margin;
-  let left = fitsRight ? bubbleRect.right + gap : bubbleRect.left - panelWidth - gap;
-  let top = bubbleRect.top + bubbleRect.height / 2 - panelHeight / 2;
-  left = llmClamp(left, margin, window.innerWidth - panelWidth - margin);
-  top = llmClamp(top, margin, window.innerHeight - panelHeight - margin);
-  panel.style.left = `${Math.round(left)}px`;
-  panel.style.top = `${Math.round(top)}px`;
+  if(!panel) return;
+  panel.style.removeProperty('left');
+  panel.style.removeProperty('top');
+}
+
+function llmBubbleBounds(){
+  const bubble=document.getElementById('askDashboardToggle');
+  const header=document.querySelector('.adw-headerbar');
+  const margin=8;
+  const minTop=Math.round((header?.getBoundingClientRect().bottom||0)+margin);
+  return {margin,minTop,width:bubble?.offsetWidth||54,height:bubble?.offsetHeight||54};
 }
 
 function llmSetBubblePosition(left, top, persist=false){
   const bubble = document.getElementById('askDashboardToggle');
   if(!bubble) return;
-  const margin = 8;
-  const width = bubble.offsetWidth;
-  const height = bubble.offsetHeight;
-  const x = llmClamp(left, margin, window.innerWidth - width - margin);
-  const y = llmClamp(top, margin, window.innerHeight - height - margin);
+  const {margin,minTop,width,height}=llmBubbleBounds();
+  const maxLeft=window.innerWidth-width-margin;
+  const maxTop=window.innerHeight-height-margin;
+  const x = llmClamp(left, margin, maxLeft);
+  const y = llmClamp(top, minTop, maxTop);
   bubble.style.left = `${Math.round(x)}px`;
   bubble.style.top = `${Math.round(y)}px`;
   bubble.style.right = 'auto';
   bubble.style.bottom = 'auto';
   if(persist){
-    try{ localStorage.setItem(LLM_BUBBLE_POSITION_KEY, JSON.stringify({left:x, top:y})); }catch(_){}
+    const xRatio=(x-margin)/Math.max(1,maxLeft-margin);
+    const yRatio=(y-minTop)/Math.max(1,maxTop-minTop);
+    try{ localStorage.setItem(LLM_BUBBLE_POSITION_KEY, JSON.stringify({xRatio,yRatio})); }catch(_){}
   }
   llmPositionAskPanel();
 }
@@ -10203,10 +10202,19 @@ function llmSetBubblePosition(left, top, persist=false){
 function llmRestoreBubblePosition(){
   try{
     const saved = JSON.parse(localStorage.getItem(LLM_BUBBLE_POSITION_KEY) || 'null');
-    if(saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)){
-      llmSetBubblePosition(saved.left, saved.top);
+    if(!saved) return false;
+    const {margin,minTop,width,height}=llmBubbleBounds();
+    const maxLeft=window.innerWidth-width-margin;
+    const maxTop=window.innerHeight-height-margin;
+    if(Number.isFinite(saved.xRatio) && Number.isFinite(saved.yRatio)){
+      llmSetBubblePosition(margin+saved.xRatio*Math.max(1,maxLeft-margin),minTop+saved.yRatio*Math.max(1,maxTop-minTop));
+      return true;
+    }else if(Number.isFinite(saved.left) && Number.isFinite(saved.top)){
+      llmSetBubblePosition(saved.left, saved.top, true);
+      return true;
     }
   }catch(_){}
+  return false;
 }
 
 function llmInitDraggableBubble(){
@@ -10245,6 +10253,7 @@ function llmInitDraggableBubble(){
   bubble.addEventListener('pointerup', finishDrag);
   bubble.addEventListener('pointercancel', finishDrag);
   window.addEventListener('resize', ()=>{
+    if(llmRestoreBubblePosition()) return;
     const rect = bubble.getBoundingClientRect();
     llmSetBubblePosition(rect.left, rect.top);
   });
@@ -10255,6 +10264,7 @@ function llmAskPanelOpen(){
   if(!panel) return;
   const wasHidden = panel.hidden;
   panel.hidden = false;
+  document.body.classList.add('ask-panel-open');
   if(wasHidden){
     const session = llmActiveSession();
     if(session.messages.length && Date.now() - (session.updated||0) > LLM_SESSION_IDLE_MS)
@@ -10265,16 +10275,19 @@ function llmAskPanelOpen(){
   const toggle = document.getElementById('askDashboardToggle');
   toggle?.setAttribute('aria-expanded','true');
   toggle?.setAttribute('aria-label','Đóng trợ lý AI; kéo để di chuyển');
+  requestAnimationFrame(()=>document.getElementById('askQuestionInput')?.focus());
 }
 function llmAskPanelClose(){
   const panel = document.getElementById('askDashboardPanel');
   if(!panel) return;
   panel.hidden = true;
+  document.body.classList.remove('ask-panel-open');
   llmHideCommandMenu();
   llmToggleSessionDrawer(false);
   const toggle = document.getElementById('askDashboardToggle');
   toggle?.setAttribute('aria-expanded','false');
   toggle?.setAttribute('aria-label','Mở trợ lý AI; kéo để di chuyển');
+  toggle?.focus();
 }
 function llmAskPanelToggle(){
   const panel = document.getElementById('askDashboardPanel');
@@ -11105,6 +11118,13 @@ function initLlmChrome(){
   });
   llmInitDraggableBubble();
   document.getElementById('askPanelClose')?.addEventListener('click', llmAskPanelClose);
+  document.addEventListener('keydown', event=>{
+    const panel=document.getElementById('askDashboardPanel');
+    if(event.key==='Escape' && panel && !panel.hidden){ event.preventDefault(); llmAskPanelClose(); return; }
+    const target=event.target;
+    const editing=target && (target.matches?.('input,textarea,select') || target.isContentEditable);
+    if(event.ctrlKey && event.key==='/' && !editing){ event.preventDefault(); llmAskPanelToggle(); }
+  });
   document.getElementById('askSummaryBtn')?.addEventListener('click', llmRunSummary);
   document.getElementById('askSendBtn')?.addEventListener('click', llmRunChat);
   document.getElementById('askQuestionInput')?.addEventListener('keydown', event=>{
