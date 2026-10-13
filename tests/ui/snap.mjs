@@ -15,6 +15,8 @@ function loadPlaywright() {
 const { chromium } = loadPlaywright();
 const tabs = ['overview', 'quality', 'time', 'advanced', 'billing', 'cid', 'settings'];
 const auditOnly = process.argv.includes('--audit-only');
+const themeArg = process.argv.find(value => value.startsWith('--theme='));
+const themes = themeArg ? [themeArg.split('=')[1]] : ['light', 'dark'];
 const out = path.join(here, process.argv.includes('--baseline') ? 'baseline' : 'out');
 await fs.mkdir(out, { recursive: true });
 await fs.access(path.join(here, 'fixtures', 'sample.csv')).catch(() => { throw new Error('Chạy node tests/ui/make-sample.mjs trước.'); });
@@ -24,7 +26,7 @@ let browser;
 try {
   const chrome = process.env.CHROME_PATH || 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
   browser = await chromium.launch({ headless: true, executablePath: chrome });
-  for (const theme of ['light', 'dark']) {
+  for (const theme of themes) {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, colorScheme: theme });
     const page = await context.newPage();
     const errors = [];
@@ -32,6 +34,22 @@ try {
     await page.goto(`http://127.0.0.1:${port}/?csv=/tests/ui/fixtures/sample.csv`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => ['8000', '8.000'].includes(document.querySelector('#kpi_total_text')?.textContent?.trim()), { timeout: 45000 });
     await page.waitForFunction(() => !document.querySelector('#reportLoading.show'), { timeout: 45000 });
+    const filterHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
+    if (filterHeight > 112) throw new Error(`Thanh lọc cao ${filterHeight}px ở 1440px.`);
+    await page.evaluate(() => { window.__snapRunUnifiedReport = window.runUnifiedReport; window.runUnifiedReport = () => markFilterDirty(false); });
+    await page.locator('#dateRangeButton').click();
+    await page.locator('#dateRangePopover').waitFor({ state: 'visible' });
+    await page.keyboard.press('Escape');
+    if (!(await page.locator('#dateRangePopover').isHidden())) throw new Error('Popover thời gian không đóng bằng Escape.');
+    if (!(await page.locator('#dateRangeButton').evaluate(element => element === document.activeElement))) throw new Error('Popover thời gian không trả focus.');
+    await page.locator('#moreFiltersButton').click();
+    await page.locator('#mainDirection').selectOption('1');
+    await page.locator('#applyMoreFilters').click();
+    const directionChip = page.locator('.chip-filter', { hasText: 'Hướng:' });
+    await directionChip.waitFor({ state: 'visible' });
+    await directionChip.locator('button').click();
+    if (!(await directionChip.isHidden())) throw new Error('Nút × không bỏ chip bộ lọc Hướng.');
+    await page.evaluate(() => { window.runUnifiedReport = window.__snapRunUnifiedReport; delete window.__snapRunUnifiedReport; });
     const axe = path.join(here, 'vendor', 'axe.min.js');
     await fs.access(axe);
     await page.addScriptTag({ path: axe });
@@ -76,9 +94,10 @@ try {
       const panel = document.getElementById('askDashboardPanel').getBoundingClientRect();
       const update = document.getElementById('updateReport').getBoundingClientRect();
       const bodyPadding = parseFloat(getComputedStyle(document.querySelector('.adw-body')).paddingRight) || 0;
-      return { panelRight: panel.right, panelLeft: panel.left, updateRight: update.right, bodyPadding, viewport: innerWidth };
+      return { panelRight: panel.right, panelLeft: panel.left, panelTop: panel.top, updateRight: update.right, updateBottom: update.bottom, bodyPadding, viewport: innerWidth };
     });
-    if (desktopSheet.bodyPadding < 350 || Math.abs(desktopSheet.panelRight - desktopSheet.viewport) > 1 || desktopSheet.updateRight > desktopSheet.panelLeft + 1)
+    const updateClear = desktopSheet.updateBottom <= desktopSheet.panelTop + 1 || desktopSheet.updateRight <= desktopSheet.panelLeft + 1;
+    if (desktopSheet.bodyPadding < 350 || Math.abs(desktopSheet.panelRight - desktopSheet.viewport) > 1 || !updateClear)
       throw new Error(`Side sheet desktop che nút Cập nhật: ${JSON.stringify(desktopSheet)}`);
     const assistantAudit = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
     axeSummary.assistant = assistantAudit.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
@@ -105,10 +124,14 @@ try {
       });
       if (bubbleState.left < 0 || bubbleState.right > bubbleState.width || bubbleState.bottom > bubbleState.height || bubbleState.top < bubbleState.headerBottom + 8)
         throw new Error(`Bong bóng AI vượt khung sau resize: ${JSON.stringify(bubbleState)}`);
+      if (bubbleState.width - bubbleState.right > 32 || bubbleState.height - bubbleState.bottom > 32)
+        throw new Error(`Bong bóng AI không trở lại góc dưới phải: ${JSON.stringify(bubbleState)}`);
     }
     if (theme === 'light' && !auditOnly) {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
+      const compactHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
+      if (compactHeight > 112) throw new Error(`Thanh lọc cao ${compactHeight}px ở 1024px.`);
       await page.screenshot({ path: path.join(out, 'light-overview-1024.png'), fullPage: true });
     }
     console.log(`${theme} axe theo màn hình: ${JSON.stringify(axeSummary)}`);

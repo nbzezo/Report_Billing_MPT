@@ -160,6 +160,8 @@ function updateRN_CF_KPIs(rows){
       </div>
     </div>
     <div class="hb-end">
+      <div id="dataFreshnessSummary" class="hb-freshness" role="status" aria-live="polite">Chưa có dữ liệu</div>
+      <button id="updateReport" type="button" class="primary-btn">Cập nhật</button>
       <button id="openMptSource" type="button" class="muted-btn"><span>Nguồn dữ liệu MPT</span></button>
       <div class="adw-menu-wrap">
         <button id="appMenuBtn" type="button" class="flat-btn icon-only" aria-haspopup="true" aria-expanded="false" aria-controls="appMenu" title="Menu chính"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
@@ -174,64 +176,49 @@ function updateRN_CF_KPIs(rows){
   </header>
 
   <div class="adw-filterbar">
-<div class="control-group filter-control"><div class="control-title">Bộ lọc chính</div>
-        <!-- Dòng 1 — phạm vi: kết nối · khoảng thời gian · chọn nhanh · tài khoản.
-             Dòng 2 — bộ lọc chi tiết + hành động (canh phải). -->
-        <div class="control-row filter-scope-row">
-          <label title="Kết nối MPT">Kết nối <select id="mainMptProfile"><option value="">-- Chọn kết nối --</option></select></label>
-          <span class="filter-sep" aria-hidden="true"></span>
-          <span class="filter-group">
-            <label>Từ <input id="startDate" type="date"/></label>
-            <input id="startTime" type="time" value="00:00" step="60" aria-label="Giờ từ"/>
-            <span class="filter-arrow" aria-hidden="true">→</span>
-            <label>Đến <input id="endDate" type="date"/></label>
-            <input id="endTime" type="time" value="23:59" step="60" aria-label="Đến giờ"/>
-          </span>
-          <span class="filter-group quick-range" role="group" aria-label="Chọn nhanh khoảng ngày">
-            <button id="qr_today">Hôm nay</button>
-            <button id="qr_7">7 ngày qua</button>
-            <button id="qr_this_month">Tháng này</button>
-            <button id="qr_last_month">Tháng trước</button>
-          </span>
-          <span class="filter-sep" aria-hidden="true"></span>
-          <label title="Tài khoản đang xem">Tài khoản
-            <span class="dropdown" id="accountDropdown">
-              <button type="button" id="accountDropdownBtn" class="muted-btn">All ▾</button>
-              <span id="accountCount" class="muted" style="margin-left:6px"></span>
-              <div id="accountDropdownList" class="dropdown-list" style="display:none">
-                <div class="controls-row">
-                  <button id="selectAllAccounts" type="button">Tất cả</button>
-                  <button id="clearAllAccounts" type="button">Bỏ chọn</button>
-                  <input id="accountSearch" type="text" placeholder="Tìm account..." style="margin-left:8px; flex:1;" />
-                </div>
-                <div id="accountListCheckboxes" style="max-height:260px; overflow:auto; margin-top:6px;"></div>
-                <div class="controls-row" style="justify-content:flex-end; margin-top:6px;">
-                  <button id="applyAccounts" type="button" class="primary-btn">Áp dụng</button>
-                </div>
-              </div>
-            </span>
-          </label>
-        </div>
-        <div class="control-row report-filter-row">
-          <label>Hướng gọi<select id="mainDirection"><option value="">Tất cả</option><option value="1">Outbound (Gọi ra)</option><option value="2">Inbound (Gọi vào)</option></select></label>
-          <label>Nhà mạng<select id="mainTelco"><option value="0">Tất cả</option><option>Viettel</option><option>Mobi</option><option>Vina</option><option>Vietnammobile</option><option>Gmobile</option><option>Itel</option><option>Reddi</option><option>Unknown</option></select></label>
-          <label title="Nguyên nhân kết thúc (hangup cause)">Nguyên nhân<select id="mainHangup"><option value="0">Tất cả</option><option>NORMAL_CLEARING</option><option>ORIGINATOR_CANCEL</option><option>USER_BUSY</option><option>NO_USER_RESPONSE</option><option>UNALLOCATED_NUMBER</option><option>CALL_REJECTED</option><option>NO_ANSWER</option><option>RECOVERY_ON_TIMER_EXPIRE</option><option>NORMAL_TEMPORARY_FAILURE</option><option>NORMAL_UNSPECIFIED</option><option>INCOMPATIBLE_DESTINATION</option><option>NO_ROUTE_DESTINATION</option><option>SUBSCRIBER_ABSENT</option><option>SERVICE_NOT_IMPLEMENTED</option><option>SERVICE_UNAVAILABLE</option><option>ALLOTTED_TIMEOUT</option><option>NETWORK_OUT_OF_ORDER</option><option>GATEWAY_DOWN</option><option>DESTINATION_OUT_OF_ORDER</option><option>PROTOCOL_ERROR</option><option>FACILITY_REJECTED</option><option>SWITCH_CONGESTION</option><option>MEDIA_TIMEOUT</option><option>VOICEMAIL</option><option>INVALID_NUMBER_FORMAT</option><option>UNKNOWN</option><option>NONE</option></select></label>
-          <label title="Loại cuộc gọi">Loại gọi<select id="mainCallType"><option value="">Tất cả</option><option value="2">Local</option><option value="3">External</option><option value="1">Unknown</option></select></label>
-          <span class="filter-sep" aria-hidden="true"></span>
-          <label title="Không bắt buộc">Số gọi<input id="mainCaller" inputmode="tel" placeholder="Tất cả"></label>
-          <label title="Không bắt buộc">Số nhận<input id="mainDestination" inputmode="tel" placeholder="Tất cả"></label>
-          <span class="filter-actions">
-            <button id="applyFilter" class="primary-btn" title="Chỉ đọc dữ liệu đã lưu trong DB, không tải từ MPT">Xem từ DB</button>
-            <button id="updateReport" type="button" title="Tải dữ liệu mới nhất từ MPT cho các ngày còn thiếu/chưa trọn vẹn rồi hiển thị">Đồng bộ MPT</button>
-          </span>
-        </div>
-        <div class="filter-status-line">
-        <span id="billingIndependentBadge" class="billing-independent-badge"><span>Tab Cước phí dùng khoảng thời gian riêng bên dưới.</span><button type="button" id="quickSyncBillingFromTop">Áp bộ lọc trên vào Cước phí</button></span>
-        <div id="mainFilterScope" class="filter-scope muted" role="status" aria-live="polite">Chọn kết nối và phạm vi, sau đó bấm “Xem từ DB” hoặc “Đồng bộ MPT”.</div>
-        <div id="databaseStatus" class="filter-scope muted" role="status" aria-live="polite">Cơ sở dữ liệu chưa có dữ liệu.</div>
-        <div id="rowCapNotice" class="filter-scope muted" role="status" aria-live="polite" hidden></div>
+    <div class="compact-filter-row">
+      <label class="compact-profile" title="Kết nối MPT"><span>Kết nối</span><select id="mainMptProfile"><option value="">-- Chọn kết nối --</option></select></label>
+      <div class="filter-popover-wrap">
+        <button type="button" id="dateRangeButton" class="filter-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="dateRangePopover">Thời gian</button>
+        <div id="dateRangePopover" class="filter-popover date-range-popover" role="dialog" aria-label="Chọn khoảng thời gian" hidden>
+          <div class="quick-range" role="group" aria-label="Chọn nhanh khoảng ngày">
+            <button id="qr_today" type="button">Hôm nay</button><button id="qr_yesterday" type="button">Hôm qua</button><button id="qr_7" type="button">7 ngày qua</button><button id="qr_this_month" type="button">Tháng này</button><button id="qr_last_month" type="button">Tháng trước</button>
+          </div>
+          <div class="date-range-grid">
+            <label>Từ ngày<input id="startDate" type="date"/></label><label>Giờ<input id="startTime" type="time" value="00:00" step="60"/></label>
+            <label>Đến ngày<input id="endDate" type="date"/></label><label>Giờ<input id="endTime" type="time" value="23:59" step="60"/></label>
+          </div>
+          <div class="filter-popover-actions"><button type="button" data-filter-close>Hủy</button><button type="button" id="applyDateRange" class="primary-btn">Áp dụng</button></div>
         </div>
       </div>
+      <label class="compact-account" title="Tài khoản đang xem"><span class="sr-only">Tài khoản</span>
+        <span class="dropdown" id="accountDropdown">
+          <button type="button" id="accountDropdownBtn" class="filter-trigger">Tài khoản: Tất cả</button><span id="accountCount" class="muted"></span>
+          <div id="accountDropdownList" class="dropdown-list" style="display:none">
+            <div class="controls-row"><button id="selectAllAccounts" type="button">Tất cả</button><button id="clearAllAccounts" type="button">Bỏ chọn</button><input id="accountSearch" type="text" placeholder="Tìm tài khoản…" /></div>
+            <div id="accountListCheckboxes" style="max-height:260px; overflow:auto; margin-top:6px;"></div>
+            <div class="controls-row account-dropdown-actions"><button id="applyAccounts" type="button" class="primary-btn">Áp dụng</button></div>
+          </div>
+        </span>
+      </label>
+      <div class="filter-popover-wrap">
+        <button type="button" id="moreFiltersButton" class="filter-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreFiltersPopover">Bộ lọc khác</button>
+        <div id="moreFiltersPopover" class="filter-popover more-filters-popover" role="dialog" aria-label="Bộ lọc khác" hidden>
+          <div class="more-filter-grid">
+            <label>Hướng gọi<select id="mainDirection"><option value="">Tất cả</option><option value="1">Gọi ra</option><option value="2">Gọi vào</option></select></label>
+            <label>Nhà mạng<select id="mainTelco"><option value="0">Tất cả</option><option>Viettel</option><option>Mobi</option><option>Vina</option><option>Vietnammobile</option><option>Gmobile</option><option>Itel</option><option>Reddi</option><option>Unknown</option></select></label>
+            <label>Nguyên nhân<select id="mainHangup"><option value="0">Tất cả</option><option>NORMAL_CLEARING</option><option>ORIGINATOR_CANCEL</option><option>USER_BUSY</option><option>NO_USER_RESPONSE</option><option>UNALLOCATED_NUMBER</option><option>CALL_REJECTED</option><option>NO_ANSWER</option><option>RECOVERY_ON_TIMER_EXPIRE</option><option>NORMAL_TEMPORARY_FAILURE</option><option>NORMAL_UNSPECIFIED</option><option>INCOMPATIBLE_DESTINATION</option><option>NO_ROUTE_DESTINATION</option><option>SUBSCRIBER_ABSENT</option><option>SERVICE_NOT_IMPLEMENTED</option><option>SERVICE_UNAVAILABLE</option><option>ALLOTTED_TIMEOUT</option><option>NETWORK_OUT_OF_ORDER</option><option>GATEWAY_DOWN</option><option>DESTINATION_OUT_OF_ORDER</option><option>PROTOCOL_ERROR</option><option>FACILITY_REJECTED</option><option>SWITCH_CONGESTION</option><option>MEDIA_TIMEOUT</option><option>VOICEMAIL</option><option>INVALID_NUMBER_FORMAT</option><option>UNKNOWN</option><option>NONE</option></select></label>
+            <label>Loại gọi<select id="mainCallType"><option value="">Tất cả</option><option value="2">Nội bộ</option><option value="3">Bên ngoài</option><option value="1">Không xác định</option></select></label>
+            <label>Số gọi<input id="mainCaller" inputmode="tel" placeholder="Tất cả"></label><label>Số nhận<input id="mainDestination" inputmode="tel" placeholder="Tất cả"></label>
+          </div>
+          <div class="filter-popover-actions"><button type="button" id="resetMoreFilters">Đặt lại</button><button type="button" id="applyMoreFilters" class="primary-btn">Áp dụng</button></div>
+        </div>
+      </div>
+      <button id="applyFilter" type="button" hidden>Áp dụng bộ lọc</button>
+    </div>
+    <div id="activeFilterRow" class="active-filter-row" hidden><span>Đang áp dụng:</span><div id="activeFilterChips" class="active-filter-chips"></div><button type="button" id="clearActiveFilters" class="flat-btn">Xóa tất cả</button></div>
+    <span id="billingIndependentBadge" class="billing-independent-badge"><span>Tab Cước phí dùng khoảng thời gian riêng.</span><button type="button" id="quickSyncBillingFromTop">Dùng khoảng trên</button></span>
+    <div class="filter-status-line sr-status"><div id="mainFilterScope" role="status" aria-live="polite"></div><div id="databaseStatus" role="status" aria-live="polite"></div><div id="rowCapNotice" role="status" aria-live="polite" hidden></div></div>
   </div>
 
   <div id="restoreBanner" class="adw-banner" hidden>
@@ -2069,7 +2056,8 @@ function markFilterDirty(dirty){
   const button=document.getElementById('applyFilter');
   if(!button) return;
   button.classList.toggle('dirty',!!dirty);
-  button.textContent='Xem từ DB';
+  document.querySelectorAll('#applyDateRange,#applyMoreFilters').forEach(item=>item.classList.toggle('dirty',!!dirty));
+  if(!dirty) renderActiveFilterChips?.();
 }
 function initFilterDirtyState(){
   ['startDate','endDate','startTime','endTime','mainCaller','mainDestination','mainDirection','mainTelco','mainHangup','mainCallType'].forEach(id=>{
@@ -3515,10 +3503,11 @@ function getAccountNameForId(id){
 }
 
 function summarizeSelected(ids){
-  if(!ids || ids.length===0) return 'All ▾';
+  const total=document.querySelectorAll('.acc-checkbox').length;
+  if(!ids || ids.length===0) return `Tài khoản: Tất cả${total?` (${total})`:''}`;
   const firstName = getAccountNameForId(ids[0]);
-  if(ids.length===1) return firstName + ' ▾';
-  return `${ids.length} tài khoản đã chọn ▾`;
+  if(ids.length===1) return `Tài khoản: ${firstName}`;
+  return `Tài khoản: ${ids.length} đã chọn`;
 }
 
 function selectedAccountsTitle(ids){
@@ -3580,7 +3569,7 @@ function refreshAccountFilter(selectedOverride){
   const countEl=document.getElementById('accountCount');
   const restored = getSelectedAccounts();
   if(btn){ btn.innerText = summarizeSelected(restored); btn.title=selectedAccountsTitle(restored); }
-  if(countEl) countEl.innerText = ids.length?('('+ids.length+')') : '';
+  if(countEl) countEl.innerText = '';
 }
 
 // dropdown UI behaviour
@@ -3597,7 +3586,7 @@ function refreshAccountFilter(selectedOverride){
   if(search){ search.addEventListener('input', ()=>{ const q = search.value.trim().toLowerCase(); Array.from(document.querySelectorAll('#accountListCheckboxes .acc-item')).forEach(item=>{ const text = item.textContent.trim().toLowerCase(); item.style.display = text.indexOf(q) === -1 ? 'none' : ''; }); }); }
   if(selectAllBtn){ selectAllBtn.addEventListener('click', ()=>{ Array.from(document.querySelectorAll('.acc-checkbox')).forEach(cb=>{ if(cb.parentElement.style.display!=='none') cb.checked=true; }); }); }
   if(clearAllBtn){ clearAllBtn.addEventListener('click', ()=>{ Array.from(document.querySelectorAll('.acc-checkbox')).forEach(cb=> cb.checked=false); }); }
-  if(applyBtn){ applyBtn.addEventListener('click', ()=>{ const sel = getSelectedAccounts(); activeReportAccountIds=sel.slice(); saveAccountFilterIds(sel); const btn=document.getElementById('accountDropdownBtn'); const countEl=document.getElementById('accountCount'); if(btn){ btn.innerText = summarizeSelected(sel); btn.title=selectedAccountsTitle(sel); } if(countEl) countEl.innerText = ''; document.getElementById('accountDropdownList').style.display='none'; markFilterDirty(true); }); }
+  if(applyBtn){ applyBtn.addEventListener('click', ()=>{ const sel = getSelectedAccounts(); activeReportAccountIds=sel.slice(); saveAccountFilterIds(sel); const btn=document.getElementById('accountDropdownBtn'); const countEl=document.getElementById('accountCount'); if(btn){ btn.innerText = summarizeSelected(sel); btn.title=selectedAccountsTitle(sel); } if(countEl) countEl.innerText = ''; document.getElementById('accountDropdownList').style.display='none'; markFilterDirty(true); document.getElementById('applyFilter')?.click(); }); }
 })();
 
 // ---------- Mapping panel events ----------
@@ -3648,8 +3637,10 @@ function setDateInputs(startISO, endISO){
 function isoDaysAgo(days){ const d = new Date(); d.setDate(d.getDate()-days); return localISODate(d); }
 (function setupQuickRanges(){
   const q1=document.getElementById('qr_today');
+  const q0=document.getElementById('qr_yesterday');
   const q7=document.getElementById('qr_7');
   if(q1) q1.addEventListener('click', ()=>{ const today=todayISO; setDateInputs(today,today); markFilterDirty(true); });
+  if(q0) q0.addEventListener('click', ()=>{ const yesterday=isoDaysAgo(1); setDateInputs(yesterday,yesterday); markFilterDirty(true); });
   if(q7) q7.addEventListener('click', ()=>{ const end=todayISO; const start=isoDaysAgo(6); setDateInputs(start,end); markFilterDirty(true); });
 })();
 
@@ -4271,6 +4262,7 @@ function showTab(tabName){
   updateCidGroupHeaders(tabName);
   updateAdvancedGroupHeaders(tabName);
   updateReportToggle(tabName);
+  requestAnimationFrame(adwSyncChromeHeight);
 
   const tabHint=document.querySelector('#tabsBar > .muted');
   if(tabName==='settings'){
@@ -10254,6 +10246,7 @@ function llmInitDraggableBubble(){
   bubble.addEventListener('pointercancel', finishDrag);
   window.addEventListener('resize', ()=>{
     if(llmRestoreBubblePosition()) return;
+    if(!bubble.style.left) return;
     const rect = bubble.getBoundingClientRect();
     llmSetBubblePosition(rect.left, rect.top);
   });
@@ -11156,6 +11149,94 @@ function initLlmChrome(){
   llmLoadStatus();
 }
 
+// Thanh lọc gọn: giữ nguyên toàn bộ id nghiệp vụ, chỉ thay lớp tương tác.
+const COMPACT_FILTERS=[
+  {id:'mainDirection',label:'Hướng',empty:''},
+  {id:'mainTelco',label:'Nhà mạng',empty:'0'},
+  {id:'mainHangup',label:'Nguyên nhân',empty:'0'},
+  {id:'mainCallType',label:'Loại gọi',empty:''},
+  {id:'mainCaller',label:'Số gọi',empty:''},
+  {id:'mainDestination',label:'Số nhận',empty:''},
+];
+let appliedCompactFilters={};
+
+function compactFilterValue(item){
+  const control=document.getElementById(item.id);
+  const value=String(control?.value||'').trim();
+  if(!value || value===item.empty) return null;
+  const text=control?.tagName==='SELECT' ? control.selectedOptions?.[0]?.textContent?.trim() : value;
+  return {value,text:text||value};
+}
+function updateCompactFilterSummary(){
+  const start=document.getElementById('startDate')?.value||'';
+  const end=document.getElementById('endDate')?.value||'';
+  const startTime=document.getElementById('startTime')?.value||'00:00';
+  const endTime=document.getElementById('endTime')?.value||'23:59';
+  const dateButton=document.getElementById('dateRangeButton');
+  if(dateButton){
+    const dates=start&&end ? `${UIFormat.dateShort(start)} – ${UIFormat.dateShort(end)}` : 'Chọn khoảng thời gian';
+    dateButton.textContent=(startTime==='00:00'&&endTime==='23:59') ? `${dates} · cả ngày` : `${dates} · ${startTime}–${endTime}`;
+  }
+  const count=COMPACT_FILTERS.reduce((sum,item)=>sum+(compactFilterValue(item)?1:0),0);
+  const more=document.getElementById('moreFiltersButton');
+  if(more) more.textContent=`Bộ lọc khác${count?` (${count})`:''}`;
+}
+function renderActiveFilterChips(){
+  appliedCompactFilters=Object.fromEntries(COMPACT_FILTERS.map(item=>[item.id,compactFilterValue(item)]));
+  const row=document.getElementById('activeFilterRow');
+  const host=document.getElementById('activeFilterChips');
+  if(!row||!host) return;
+  host.replaceChildren();
+  COMPACT_FILTERS.forEach(item=>{
+    const selected=appliedCompactFilters[item.id];
+    if(!selected) return;
+    const chip=document.createElement('span'); chip.className='chip-filter';
+    const text=document.createElement('span'); text.textContent=`${item.label}: ${selected.text}`;
+    const remove=document.createElement('button'); remove.type='button'; remove.textContent='×'; remove.setAttribute('aria-label',`Bỏ bộ lọc ${item.label}`);
+    remove.addEventListener('click',()=>{
+      const control=document.getElementById(item.id); if(control) control.value=item.empty;
+      updateCompactFilterSummary(); document.getElementById('applyFilter')?.click();
+    });
+    chip.append(text,remove); host.appendChild(chip);
+  });
+  row.hidden=!host.childElementCount;
+  updateCompactFilterSummary();
+}
+function initCompactFilters(){
+  const pairs=[['dateRangeButton','dateRangePopover'],['moreFiltersButton','moreFiltersPopover']];
+  let openPair=null;
+  const close=(restore=true)=>{
+    if(!openPair) return;
+    const [button,popover]=openPair; popover.hidden=true; button.setAttribute('aria-expanded','false'); openPair=null;
+    if(restore) button.focus();
+  };
+  pairs.forEach(([buttonId,popoverId])=>{
+    const button=document.getElementById(buttonId),popover=document.getElementById(popoverId);
+    button?.addEventListener('click',event=>{
+      event.stopPropagation();
+      if(openPair?.[1]===popover){ close(); return; }
+      close(false); popover.hidden=false; button.setAttribute('aria-expanded','true'); openPair=[button,popover];
+      requestAnimationFrame(()=>popover.querySelector('button,input,select')?.focus());
+    });
+    popover?.addEventListener('click',event=>event.stopPropagation());
+  });
+  document.addEventListener('click',()=>close(false));
+  document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&openPair){ event.preventDefault(); close(true); } });
+  document.querySelectorAll('[data-filter-close]').forEach(button=>button.addEventListener('click',()=>close(true)));
+  document.getElementById('applyDateRange')?.addEventListener('click',()=>{ updateCompactFilterSummary(); close(false); document.getElementById('applyFilter')?.click(); });
+  document.getElementById('applyMoreFilters')?.addEventListener('click',()=>{ updateCompactFilterSummary(); close(false); document.getElementById('applyFilter')?.click(); });
+  document.getElementById('resetMoreFilters')?.addEventListener('click',()=>{
+    COMPACT_FILTERS.forEach(item=>{ const control=document.getElementById(item.id); if(control) control.value=item.empty; });
+    markFilterDirty(true); updateCompactFilterSummary();
+  });
+  document.getElementById('clearActiveFilters')?.addEventListener('click',()=>{
+    COMPACT_FILTERS.forEach(item=>{ const control=document.getElementById(item.id); if(control) control.value=item.empty; });
+    updateCompactFilterSummary(); document.getElementById('applyFilter')?.click();
+  });
+  document.getElementById('applyFilter')?.addEventListener('click',()=>{ close(false); requestAnimationFrame(renderActiveFilterChips); });
+  updateCompactFilterSummary();
+}
+
 // Final bootstrap: all report functions above are now available.
 function initInfoPopover(){
   const popover=document.getElementById('uiInfoPopover');
@@ -11188,6 +11269,7 @@ function initInfoPopover(){
   });
 }
 initInfoPopover();
+initCompactFilters();
 initAdwChrome();
 initFilterDirtyState();
 loadMap();

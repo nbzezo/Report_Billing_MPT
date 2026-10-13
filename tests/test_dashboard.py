@@ -1345,16 +1345,16 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertIn("new Set([...mptAccounts.map(item=>String(item.id)), ...loadedIds])", self.dashboard_html)
 
     def test_main_filter_shows_unapplied_changes(self):
-        for token in ("function markFilterDirty", "button.textContent='Xem từ DB'", "#applyFilter.dirty"):
+        for token in ("function markFilterDirty", "#applyDateRange,#applyMoreFilters", ".dirty"):
             self.assertIn(token, self.dashboard_html)
 
     def test_unified_filter_owns_sync_and_report_update(self):
         for token in (
-            'id="mainMptProfile"', 'id="updateReport"', '>Cập nhật báo cáo</button>',
-            'id="applyFilter" class="primary-btn"', 'id="dataFreshnessDialog"',
+            'id="mainMptProfile"', 'id="updateReport"', '>Cập nhật</button>',
+            'id="applyFilter" type="button" hidden', 'id="dataFreshnessDialog"',
             "runUnifiedReport('view')", "runUnifiedReport('update')",
             "function showDataFreshness", "X-MPT-Last-Call", "parsed.searchParams.set('sync','none')",
-            'id="mainDirection"', 'Outbound (Gọi ra)', 'Inbound (Gọi vào)',
+            'id="mainDirection"', '>Gọi ra</option>', '>Gọi vào</option>',
             'id="mainHangup"', 'id="mainCallType"',
             "function runUnifiedReport(mode='view')", "{view:'none',update:'update',force:'force'}",
             "let reportRequestSeq=0", "datasetToken:requestId",

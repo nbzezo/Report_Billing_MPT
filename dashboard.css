@@ -476,6 +476,41 @@ body.adw .adw-filterbar .filter-scope{display:block;margin:0;font-size:12px;line
 body.adw .adw-filterbar .report-filter-row{align-items:center}
 body.adw .adw-filterbar .report-filter-row label{min-width:0}
 body.adw .adw-filterbar .filter-actions{flex:0 0 auto}
+body.adw .compact-filter-row{display:flex;align-items:center;gap:8px;min-height:44px}
+body.adw .compact-profile{display:flex;align-items:center;gap:7px;white-space:nowrap}
+body.adw .compact-profile select{width:180px;max-width:22vw}
+body.adw .compact-account{display:block}
+body.adw .filter-trigger{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;min-height:34px;background:var(--card-bg);white-space:nowrap}
+body.adw .filter-trigger::after{content:"⌄";color:var(--dim)}
+body.adw #dateRangeButton{min-width:270px}
+body.adw #accountDropdownBtn{min-width:190px;text-align:left}
+body.adw #accountCount{margin-left:4px}
+body.adw .filter-popover-wrap{position:relative}
+body.adw .filter-popover{position:absolute;z-index:120;top:calc(100% + 7px);left:0;width:min(480px,calc(100vw - 28px));box-sizing:border-box;padding:14px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--window-bg);box-shadow:var(--shadow-pop)}
+body.adw .filter-popover[hidden]{display:none}
+body.adw .filter-popover .quick-range{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+body.adw .date-range-grid{display:grid;grid-template-columns:minmax(155px,1fr) minmax(110px,.65fr);gap:10px}
+body.adw .date-range-grid label,body.adw .more-filter-grid label{display:grid;gap:5px;color:var(--dim)}
+body.adw .filter-popover-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--divider)}
+body.adw .more-filters-popover{right:0;left:auto;width:min(620px,calc(100vw - 28px))}
+body.adw .more-filter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+body.adw .active-filter-row{display:flex;align-items:center;gap:7px;min-height:34px;padding-top:5px;border-top:1px solid var(--divider);font-size:12px;color:var(--dim)}
+body.adw .active-filter-row[hidden]{display:none}
+body.adw .active-filter-chips{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+body.adw .chip-filter{display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:3px 8px;border:1px solid var(--border);border-radius:999px;background:var(--surface-2);color:var(--text);font-size:12px}
+body.adw .chip-filter button{min-width:18px;min-height:18px;padding:0;border:0;background:transparent;color:var(--dim);line-height:1}
+body.adw .sr-status{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+body.adw[data-active-tab="settings"] .adw-filterbar{display:none}
+@media(max-width:1100px){
+  body.adw .compact-filter-row{flex-wrap:wrap}
+  body.adw #dateRangeButton{min-width:230px}
+  body.adw .compact-profile select{max-width:none}
+}
+@media(max-width:700px){
+  body.adw .compact-filter-row>*{flex:1 1 100%}
+  body.adw .compact-profile select,body.adw #dateRangeButton,body.adw #accountDropdownBtn,body.adw #moreFiltersButton{width:100%;max-width:none}
+  body.adw .date-range-grid,body.adw .more-filter-grid{grid-template-columns:1fr}
+}
 body.adw #updateReport{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card-bg));font-weight:700}
 body.adw #updateReport:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 16%,var(--card-bg))}
 body.adw #applyFilter.dirty{animation:adwPulseDirty 1.8s infinite ease-in-out}
