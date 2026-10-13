@@ -1311,7 +1311,7 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertIn("prefers-color-scheme: dark", self.dashboard_html)
 
     def test_charts_follow_the_yaru_theme(self):
-        for token in ("YARU_COLORWAY", "function adwPlotTheme", "__adwThemed"):
+        for token in ("CHART_CATEGORY_COLORS_DARK", "function adwPlotTheme", "function plotLayout", "__adwThemed"):
             self.assertIn(token, self.dashboard_html)
 
     def test_plot_render_removes_stale_no_data_message(self):

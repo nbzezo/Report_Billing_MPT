@@ -2391,20 +2391,54 @@ function adwSyncChromeHeight(){
 
 // ---- Chủ đề biểu đồ theo Yaru ----
 // Màu phân loại không mang nghĩa tốt/xấu; màu trạng thái được gán riêng bên dưới.
-const CHART_CATEGORY_COLORS=['#2563eb','#7c3aed','#0f766e','#a16207','#0369a1','#9333ea','#0e7490','#475569','#57534e','#4f46e5'];
-const CHART_SEMANTIC={Fail:'#c0392b',NoAnswer:'#d97706',Connected:'#238636',Cancelled:'#7b8794',AnswerRate:'#2563eb',Volume:'#4e79a7',Trend:'#1d4ed8',Warning:'#d97706',Reference:'#64748b'};
-const YARU_COLORWAY=CHART_CATEGORY_COLORS;
+const CHART_CATEGORY_COLORS=['#C2410C','#1D4ED8','#0F766E','#A16207','#7E22CE','#BE185D','#4D7C0F','#57534E'];
+const CHART_CATEGORY_COLORS_DARK=['#FB923C','#60A5FA','#5EEAD4','#FBBF24','#C084FC','#F472B6','#A3E635','#D6D3D1'];
+const CHART_SEMANTIC={
+  get Fail(){return currentPlotColors().status.Fail},
+  get NoAnswer(){return currentPlotColors().status['No Answer']},
+  get Connected(){return currentPlotColors().status.Connected},
+  get Cancelled(){return currentPlotColors().status.Cancelled},
+  AnswerRate:'#1D4ED8',Volume:'#C2410C',Trend:'#0F766E',
+  get Warning(){return currentPlotColors().status['No Answer']},
+  Reference:'#57534E'
+};
+let plotColors=null;
+function currentPlotColors(){
+  if(plotColors && plotColors.dark===document.body.classList.contains('dark')) return plotColors;
+  const styles=getComputedStyle(document.body);
+  const token=(name,fallback)=>styles.getPropertyValue(name).trim()||fallback;
+  plotColors={dark:document.body.classList.contains('dark'),status:{
+    Connected:token('--st-connected','#2E7D32'),
+    'No Answer':token('--st-noanswer','#D97706'),
+    Cancelled:token('--st-cancelled','#8A877F'),
+    Fail:token('--st-fail','#B42318')
+  }};
+  return plotColors;
+}
 function adwPlotTheme(){
   const styles=getComputedStyle(document.body);
-  const text=styles.getPropertyValue('--text').trim()||'#241f31';
-  const grid=styles.getPropertyValue('--divider').trim()||'rgba(0,0,0,.08)';
+  const token=(name,fallback)=>styles.getPropertyValue(name).trim()||fallback;
+  const text=token('--text','#1C1B19'), surface=token('--surface','#FFFFFF');
+  const grid=token('--border','#E4E1DA');
   return {
     font:{family:"'Ubuntu Sans','Noto Sans VN',Ubuntu,system-ui,sans-serif",size:12,color:text},
-    paper_bgcolor:'rgba(0,0,0,0)',
-    plot_bgcolor:'rgba(0,0,0,0)',
-    colorway:YARU_COLORWAY,
-    gridcolor:grid
+    paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
+    colorway:document.body.classList.contains('dark')?CHART_CATEGORY_COLORS_DARK:CHART_CATEGORY_COLORS,
+    separators:',.',gridcolor:grid,
+    legend:{orientation:'h',x:0,y:1.02,yanchor:'bottom',font:{color:text,size:12}},
+    hoverlabel:{bgcolor:surface,bordercolor:grid,font:{color:text,size:12}},
+    title:{x:0,font:{size:16,color:text}},margin:{t:60,r:28,b:48,l:54}
   };
+}
+function plotLayout(overrides={}){
+  const theme=adwPlotTheme();
+  const next={...theme,...overrides};
+  for(const key of ['font','legend','hoverlabel','margin']) next[key]={...theme[key],...(overrides[key]||{})};
+  next.title={...theme.title,...(typeof overrides.title==='string'?{text:overrides.title}:overrides.title||{})};
+  for(const axis of ['xaxis','yaxis','xaxis2','yaxis2']) if(overrides[axis]){
+    next[axis]={gridcolor:theme.gridcolor,zerolinecolor:theme.gridcolor,linecolor:theme.gridcolor,automargin:true,...overrides[axis]};
+  }
+  return next;
 }
 // Bọc Plotly.react/newPlot để mọi biểu đồ dùng chung nền, phông và lưới của theme.
 (function themePlotly(){
@@ -2420,21 +2454,11 @@ function adwPlotTheme(){
       if(target){
         target.querySelectorAll(':scope > .no-data').forEach(node=>node.remove());
       }
-      const theme=adwPlotTheme();
       const next=Object.assign({},layout||{});
       const isHardWhite=v=>typeof v==='string' && /^#fff(fff)?$/i.test(v.trim());
       if(isHardWhite(next.paper_bgcolor)) delete next.paper_bgcolor;
       if(isHardWhite(next.plot_bgcolor)) delete next.plot_bgcolor;
-      next.font=Object.assign({},theme.font,next.font||{});
-      if(next.paper_bgcolor===undefined) next.paper_bgcolor=theme.paper_bgcolor;
-      if(next.plot_bgcolor===undefined) next.plot_bgcolor=theme.plot_bgcolor;
-      if(next.colorway===undefined) next.colorway=theme.colorway;
-      ['xaxis','yaxis','xaxis2','yaxis2'].forEach(axis=>{
-        if(!next[axis]) return;
-        next[axis]=Object.assign({gridcolor:theme.gridcolor,zerolinecolor:theme.gridcolor,linecolor:theme.gridcolor},next[axis]);
-      });
-      if(next.legend) next.legend=Object.assign({font:theme.font},next.legend);
-      return original.call(this,element,data,next,config);
+      return original.call(this,element,data,plotLayout(next),config);
     };
     wrapped.__adwThemed=true;
     Plotly[name]=wrapped;
@@ -2487,8 +2511,8 @@ function getSeriesColors(){
   const useCustom = (document.getElementById('useCustomColors')||{}).checked;
   const color = (id, fallback)=> useCustom ? ((document.getElementById(id)||{}).value || fallback) : fallback;
   return {
-    Fail:color('c_fail',CHART_SEMANTIC.Fail), NoAnswer:color('c_noans',CHART_SEMANTIC.NoAnswer),
-    Connected:color('c_conn',CHART_SEMANTIC.Connected), Cancelled:CHART_SEMANTIC.Cancelled,
+    Fail:color('c_fail',currentPlotColors().status.Fail), NoAnswer:color('c_noans',currentPlotColors().status['No Answer']),
+    Connected:color('c_conn',currentPlotColors().status.Connected), Cancelled:currentPlotColors().status.Cancelled,
     MinutesBar:color('c_minbar',CHART_SEMANTIC.Volume), MinutesLine:color('c_minline',CHART_SEMANTIC.Trend),
     AnswerRate:color('c_ansrate',CHART_SEMANTIC.AnswerRate), Palette:getColorScheme()
   };
