@@ -1447,7 +1447,7 @@ function computeAnswerRateByAccountPerDay(rows){
     // label
     const row = firstRowByAcc.get(acc);
     const label = (row && row.account_name && String(row.account_name).trim()) || acc;
-    return {name:String(label), x:dates, y};
+    return {acc, name:String(label), x:dates, y};
   });
   return {series};
 }

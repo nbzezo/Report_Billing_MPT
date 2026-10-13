@@ -320,6 +320,7 @@ if(!window.Plotly){
   body.pdf-export-mode .pdf-section-title{display:block;margin:18px 0 10px;padding:8px 10px;background:#eaf1fb;border-left:4px solid #2563eb;font-size:16px;font-weight:800;break-after:avoid}
   body.pdf-export-mode #reportGrid{display:block;margin:12px 0 0}
   body.pdf-export-mode .card[data-tab]{display:block!important;margin:0 0 14px}
+  body.pdf-export-mode #settings_panel{display:none!important}
   body.pdf-export-mode .chart-report-card > [id^="chart_"]{break-inside:avoid}
   body.pdf-export-mode .report-statistics{display:block}
   body.pdf-export-mode .table-card-details > summary::after{display:none}
@@ -642,6 +643,27 @@ body.adw .adw-navlist .tab-btn:hover{background:var(--hover)}
 body.adw .adw-navlist .tab-btn.active{background:var(--accent);color:var(--accent-fg);font-weight:700}
 body.adw .adw-navlist .tab-btn.active .tab-icon{opacity:1}
 body.adw .adw-sidebar-note{display:block;margin-top:auto;padding:10px 11px 2px;border-top:1px solid var(--divider);font-size:11px;color:var(--dim);line-height:1.45}
+body.adw #reportGrid>.settings-card{padding:0;border:0;background:transparent;box-shadow:none}
+body.adw .settings-header{margin-bottom:16px}
+body.adw .settings-title{margin:0;font-size:20px;line-height:1.2}
+body.adw .settings-intro{margin-top:5px;color:var(--dim);line-height:1.45}
+body.adw .settings-stack{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+body.adw .settings-section{min-width:0;padding:16px;border:1px solid var(--border);border-radius:var(--radius);background:var(--view-bg)}
+body.adw .settings-section:not(#settingsConnection):not(#settingsData){grid-column:1/-1}
+body.adw .settings-section>summary{cursor:pointer;font-size:15px;font-weight:700}
+body.adw .settings-section[open]>summary{margin-bottom:14px}
+body.adw .settings-section .adw-dialog-body{padding:0;overflow:visible}
+body.adw .settings-section .adw-dialog-footer{padding:12px 0 0;border:0;justify-content:flex-start}
+body.adw .settings-section #mappingPanel,body.adw .settings-section #panel_gateway_map{margin:0;padding:0;border:0;background:transparent;box-shadow:none}
+body.adw #settingsMapping .map-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+body.adw #settingsMapping .map-grid>.card{min-width:0}
+body.adw #settingsMapping .map-grid input{max-width:100%;box-sizing:border-box}
+body.adw .settings-section #mptConnectionManager{margin-top:12px}
+body.adw .settings-section #panel_gateway_map{display:block!important}
+body.adw .settings-section .kpi-setting{max-width:260px;margin:0 0 12px}
+body.adw .settings-section #exportPNG,body.adw .settings-section #exportPDF{display:none}
+@media(max-width:1450px){body.adw #settingsMapping .map-grid{grid-template-columns:1fr}}
+@media(max-width:1150px){body.adw .settings-stack{grid-template-columns:1fr}body.adw .settings-section{grid-column:1/-1}body.adw #settingsMapping .map-grid{grid-template-columns:1fr}}
 body.adw .adw-main{flex:1;min-width:0}
 body.adw .adw-clamp{width:min(1560px,100%);margin:0 auto;padding:18px 20px 40px;box-sizing:border-box}
 
@@ -649,6 +671,9 @@ body.adw .adw-clamp{width:min(1560px,100%);margin:0 auto;padding:18px 20px 40px;
 body.adw .card{background:var(--card-bg);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow-card);padding:14px}
 body.adw .kpi-shell{margin:0 0 12px;display:block}
 body.adw .kpi-shell>.card{padding:10px}
+/* Khối KPI tổng quan chỉ thuộc tab Tổng quan; các tab chi tiết dành toàn bộ
+   chiều cao cho báo cáo của tab đang chọn. Vẫn giữ khi xuất PDF toàn báo cáo. */
+body.adw:not(.pdf-export-mode)[data-active-tab]:not([data-active-tab="overview"]) .kpi-shell{display:none}
 body.adw .kpi-row{display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;align-items:stretch}
 body.adw .kpi-group{display:flex;flex-direction:column;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--view-bg);padding:10px}
 body.adw .kpi-group-title{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--dim);margin-bottom:8px}
@@ -695,6 +720,7 @@ body.adw .status-chip{border-radius:999px;font-weight:700;font-size:11.5px}
 /* ---------- Report grid ---------- */
 body.adw #reportGrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin:0;padding-bottom:24px;align-items:start}
 body.adw #reportGrid>.card[data-tab]{grid-column:span 6;min-width:0}
+body.adw #reportGrid>#settings_panel{grid-column:1/-1;width:100%;max-width:none;box-sizing:border-box}
 body.adw #reportGrid>.card.cid-tier-header{box-shadow:none;background:transparent;border:0;border-left:4px solid var(--cid-tier-color,var(--accent));border-radius:4px;padding:8px 14px;margin:6px 0 2px}
 body.adw #reportGrid>.card.cid-tier-header h3{font-size:14px;margin:0}
 body.adw #reportGrid>.card.cid-summary-panel{background:var(--hover,rgba(0,0,0,.03))}
@@ -1090,20 +1116,14 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
       </div>
     </div>
     <div class="hb-end">
-      <button id="openMptSource" type="button" class="muted-btn"><span>Quản lý kết nối</span></button>
+      <button id="openMptSource" type="button" class="muted-btn"><span>Nguồn dữ liệu MPT</span></button>
       <div class="adw-menu-wrap">
         <button id="appMenuBtn" type="button" class="flat-btn icon-only" aria-haspopup="true" aria-expanded="false" aria-controls="appMenu" title="Menu chính"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <div id="appMenu" class="adw-popover" role="menu" hidden>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="files">Tải file thủ công…</button>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="options">Tùy chọn phân tích &amp; màu sắc…</button>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="mapping">Gán tên cho Account…</button>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="llmconfig">Cấu hình LLM…</button>
+          <button type="button" class="adw-menu-item" role="menuitem" data-menu="settings">Cài đặt</button>
           <div class="adw-menu-sep"></div>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="png">Xuất PNG từng biểu đồ</button>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="pdf">Xuất PDF toàn báo cáo</button>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="reset">Đặt lại bố cục biểu đồ</button>
-          <div class="adw-menu-sep"></div>
-          <button type="button" class="adw-menu-item" role="menuitemcheckbox" data-menu="dark" aria-checked="false">Chế độ tối<span class="adw-switch" id="darkSwitch" aria-hidden="true"></span></button>
         </div>
       </div>
     </div>
@@ -1183,7 +1203,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
 
   <dialog id="mptSourcePanel" class="adw-dialog">
     <div class="adw-dialog-header">
-      <div class="adw-dialog-title">Quản lý kết nối MPT</div>
+      <div class="adw-dialog-title">Nguồn dữ liệu MPT</div>
       <button type="button" class="flat-btn icon-only adw-dialog-close" data-close-dialog aria-label="Đóng"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
     </div>
     <div class="adw-dialog-body">
@@ -1196,7 +1216,7 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
               <div id="mptProfileDetail" class="muted mpt-profile-detail">Đang tải danh sách kết nối…</div>
               <div class="mpt-compact-actions">
                 <button id="mptRefreshAccounts" type="button">Làm mới tài khoản</button>
-                <button id="mptOpenManager" type="button">Quản lý kết nối</button>
+                <button id="mptOpenManager" type="button">Cài đặt kết nối</button>
               </div>
             </section>
 
@@ -1468,13 +1488,13 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
           <label><input type="checkbox" id="useCustomColors"/> Dùng màu tùy chỉnh</label>
         </div>
       
-<div class="control-group tools-control"><div class="control-title">Công cụ</div><div class="control-row tool-row"><button id="exportPNG" class="icon-btn" title="Xuất từng biểu đồ thành PNG">↓ PNG</button><button id="exportPDF" class="icon-btn primary-btn" title="Xuất toàn bộ báo cáo thành PDF">↓ PDF</button><button id="resetLayout" class="icon-btn" title="Đưa bố cục biểu đồ về mặc định">↺ Reset</button><button id="toggleDark" class="toggle-btn" title="Bật/tắt nền tối">Dark</button><button id="toggleMapping" class="icon-btn" title="Gán tên hiển thị cho Account">Account</button></div><div class="control-row color-controls legend-row">
-          <label>Fail <input type="color" id="c_fail" value="#e15759" disabled/></label>
-          <label>NoAnswer <input type="color" id="c_noans" value="#f28e2b" disabled/></label>
-          <label>Connected <input type="color" id="c_conn" value="#4e79a7" disabled/></label>
-          <label>Minutes Bar <input type="color" id="c_minbar" value="#59a14f" disabled/></label>
-          <label>Minutes Line <input type="color" id="c_minline" value="#2f4f4f" disabled/></label>
-          <label>AnswerRate <input type="color" id="c_ansrate" value="#af7aa1" disabled/></label>
+<div class="control-group tools-control"><div class="control-title">Màu sắc &amp; giao diện</div><div class="control-row tool-row"><button id="exportPNG" class="icon-btn" title="Xuất từng biểu đồ thành PNG">↓ PNG</button><button id="exportPDF" class="icon-btn primary-btn" title="Xuất toàn bộ báo cáo thành PDF">↓ PDF</button><button id="resetLayout" class="icon-btn" title="Đưa bố cục biểu đồ về mặc định">↺ Reset</button><button id="toggleDark" class="toggle-btn" title="Bật/tắt nền tối">Dark</button></div><div class="control-row color-controls legend-row">
+          <label>Fail <input type="color" id="c_fail" value="#c0392b" disabled/></label>
+          <label>NoAnswer <input type="color" id="c_noans" value="#d97706" disabled/></label>
+          <label>Connected <input type="color" id="c_conn" value="#238636" disabled/></label>
+          <label>Minutes Bar <input type="color" id="c_minbar" value="#4e79a7" disabled/></label>
+          <label>Minutes Line <input type="color" id="c_minline" value="#1d4ed8" disabled/></label>
+          <label>AnswerRate <input type="color" id="c_ansrate" value="#2563eb" disabled/></label>
         </div>
       </div>
     </div>
@@ -1556,9 +1576,21 @@ body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);bord
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="advanced"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="2.3" y="3" width="11.4" height="10" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M2.3 6.6h11.4M6.4 6.6V13" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Dữ liệu &amp; Tài khoản</span></button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="billing"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="2" y="4.2" width="12" height="7.6" rx="1.6" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="1.9" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span>Cước phí</span></button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="cid"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.4 4.5h11.2M2.4 8h7.2M2.4 11.5h9.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="13" cy="11.5" r="1.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><span>Vòng đời CID</span></button>
+    <button class="tab-btn" role="tab" aria-selected="false" data-tab="settings"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.6 2.4h2.8l.4 1.5c.4.2.8.4 1.1.7l1.5-.5 1.4 2.4-1.1 1.1c.1.4.1.9 0 1.3l1.1 1.1-1.4 2.4-1.5-.5c-.3.3-.7.5-1.1.7l-.4 1.5H6.6l-.4-1.5c-.4-.2-.8-.4-1.1-.7l-1.5.5-1.4-2.4 1.1-1.1c-.1-.4-.1-.9 0-1.3L2.2 6.5l1.4-2.4 1.5.5c.3-.3.7-.5 1.1-.7z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8.2" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg><span>Cài đặt</span></button>
     <span class="muted adw-sidebar-note">Mẹo: kéo thả thẻ biểu đồ để sắp xếp, tự động lưu</span>
   </div>
 <div id="reportGrid" class="grid report-grid">
+    <section id="settings_panel" class="card settings-card full" data-tab="settings">
+      <div class="settings-header"><h2 class="settings-title">Cài đặt</h2><p class="settings-intro">Cấu hình kết nối, ánh xạ, phân tích, hiển thị và AI tại đây.</p></div>
+      <div class="settings-stack">
+        <details id="settingsConnection" class="settings-section" open><summary>Kết nối MPT</summary><label for="settingsMptProfile">Kết nối đã lưu</label><select id="settingsMptProfile" style="width:100%;max-width:480px"><option value="">-- Chọn kết nối --</option></select><div id="settingsConnectionStatus" class="muted" role="status" aria-live="polite"></div><div id="settingsConnectionContent"></div></details>
+        <details id="settingsData" class="settings-section"><summary>Dữ liệu &amp; bảo trì</summary><div id="settingsDataContent"></div></details>
+        <details id="settingsMapping" class="settings-section"><summary>Tên hiển thị Account</summary><div id="settingsMappingContent"></div></details>
+        <details id="settingsGateway" class="settings-section"><summary>Gateway ↔ Account</summary><div id="settingsGatewayContent"></div></details>
+        <details id="settingsAnalysis" class="settings-section"><summary>Phân tích &amp; hiển thị</summary><div id="settingsAnalysisContent"></div></details>
+        <details id="settingsAI" class="settings-section"><summary>Trợ lý AI</summary><div id="settingsAIContent"></div><div id="settingsAIActions"></div></details>
+      </div>
+    </section>
     <div id="chart_conn_donut" class="card small" data-tab="overview" draggable="true"></div>
     <div id="chart_stack_prefix_pct" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_answer_gauge" class="card small" data-tab="overview" draggable="true"></div>
@@ -2409,7 +2441,7 @@ function plotFailStreakDistribution(rows, colors){
     x: cfValues,
     type: 'histogram',
     nbinsx: 30,
-    marker:{ color: (colors && colors.Fail) ? colors.Fail : '#e15759' },
+    marker:{ color: (colors && colors.Fail) || CHART_SEMANTIC.Fail },
     hovertemplate: 'Streak %{x}<br>Số lần: %{y}<extra></extra>'
   }];
   const layout = {
@@ -2442,7 +2474,7 @@ function plotFailStreakTimeline(rows, colors){
   if(!entries.length) return showNoData(elId, 'Không có dữ liệu call_fail');
 
   const accSet = Array.from(new Set(entries.map(e=>e.acc))).sort();
-  const palette = (colors && colors.Palette) ? colors.Palette : ['#e15759','#f28e2b','#4e79a7','#59a14f'];
+  const palette = (colors && colors.Palette) ? colors.Palette : CHART_CATEGORY_COLORS;
   const traces = accSet.map((acc, i)=>{
     const pts = entries.filter(e=>e.acc===acc).sort((a,b)=>a.t-b.t);
     return {
@@ -2450,7 +2482,7 @@ function plotFailStreakTimeline(rows, colors){
       y: pts.map(p=>p.cf),
       type:'scatter', mode:'lines+markers',
       name: (typeof getAccountNameForId==='function') ? getAccountNameForId(acc) : acc,
-      line:{ width:2, color: palette[i % palette.length] },
+      line:{ width:2, color: categoryColor(acc, palette) },
       marker:{ size:5 },
       hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Max CF: %{y}<extra></extra>'
     };
@@ -2487,7 +2519,7 @@ function plotHangupHeatmap(rows){
   const data = [{
     z, x: telcos, y: causes,
     type: 'heatmap',
-    colorscale: 'Reds',
+    colorscale: 'Blues',
     hovertemplate: 'Telco: %{x}<br>Cause: %{y}<br>Số cuộc: %{z}<extra></extra>'
   }];
   const layout = {
@@ -2515,7 +2547,7 @@ function plotShortCallRate(rows, colors){
     type:'bar',
     text: pcts.map((p,i)=> `${p}% (n=${counts[i]})`),
     textposition:'outside',
-    marker:{ color: (colors && colors.NoAnswer) ? colors.NoAnswer : '#f28e2b' }
+    marker:{ color: CHART_SEMANTIC.Warning }
   }];
   Plotly.react(elId, data, {
     title: `Short Call Rate trong Connected (n=${total})`,
@@ -2550,7 +2582,7 @@ function plotShortCallByAccount(rows, colors){
     type:'bar', orientation:'h',
     text: arr.map(a=>`${a.pct}% (${a.short}/${a.total})`),
     textposition:'outside',
-    marker:{ color: (colors && colors.NoAnswer) ? colors.NoAnswer : '#f28e2b' }
+    marker:{ color: CHART_SEMANTIC.Warning }
   }];
   Plotly.react(elId, data, {
     title: `Short Call Rate theo Account (billsec < ${SHORT_THRESHOLD}s trong Connected)`,
@@ -2576,15 +2608,15 @@ function plotBillsecDurationGap(rows, colors){
 
   // Group by account
   const accMap = {};
-  pts.forEach(p=>{ if(!accMap[p.acc]) accMap[p.acc]={name:p.name, xs:[],ys:[],gaps:[]}; accMap[p.acc].xs.push(p.dur); accMap[p.acc].ys.push(p.bill); accMap[p.acc].gaps.push(p.gap); });
-  const palette = (colors && colors.Palette) ? colors.Palette : ['#4e79a7','#f28e2b','#e15759','#59a14f'];
+  pts.forEach(p=>{ if(!accMap[p.acc]) accMap[p.acc]={acc:p.acc,name:p.name, xs:[],ys:[],gaps:[]}; accMap[p.acc].xs.push(p.dur); accMap[p.acc].ys.push(p.bill); accMap[p.acc].gaps.push(p.gap); });
+  const palette = (colors && colors.Palette) ? colors.Palette : CHART_CATEGORY_COLORS;
   const traces = Object.keys(accMap).map((acc,i)=>{
     const d = accMap[acc];
     return {
       x: d.xs, y: d.ys,
       type:'scatter', mode:'markers',
       name: d.name,
-      marker:{ size:4, color: palette[i%palette.length], opacity:0.6 },
+      marker:{ size:4, color: categoryColor(d.acc, palette), opacity:0.6 },
       hovertemplate: `<b>${d.name}</b><br>Duration: %{x}s<br>Billsec: %{y}s<br>Gap: %{customdata}s<extra></extra>`,
       customdata: d.gaps
     };
@@ -2665,20 +2697,19 @@ function plotRetryRanking(analysis,config,colors){
     visible.push({name:`Khác (${rest.length} Account)`,retries,retryConnected:connected,retryASR:retries?+(connected*100/retries).toFixed(2):0});
   }
   if(!visible.length) return showNoData('chart_retry_pattern',`Không có Account đạt tối thiểu ${config.minSample} retry`);
-  const palette=(colors&&colors.Palette)||baseScheme('default');
   const names=visible.map(item=>item.name);
   const retries=visible.map(item=>item.retries);
   const asrs=visible.map(item=>item.retryASR);
   const traces=[
     {
       x:retries,y:names,type:'bar',orientation:'h',name:'Lượt retry',
-      marker:{color:palette[0]},text:retries.map(value=>value.toLocaleString('vi-VN')),textposition:'outside',
+      marker:{color:CHART_SEMANTIC.Warning},text:retries.map(value=>value.toLocaleString('vi-VN')),textposition:'outside',
       customdata:visible.map(item=>[item.retryConnected,item.retryASR]),
       hovertemplate:'<b>%{y}</b><br>Retry: %{x:,}<br>Connected: %{customdata[0]:,}<br>Retry ASR: %{customdata[1]:.2f}%<extra></extra>'
     },
     {
       x:asrs,y:names,type:'scatter',mode:'markers',name:'Retry ASR',
-      marker:{size:11,color:palette[2],symbol:'diamond',line:{color:'#fff',width:1}},
+      marker:{size:11,color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,symbol:'diamond',line:{color:'#fff',width:1}},
       xaxis:'x2',customdata:retries,
       hovertemplate:'<b>%{y}</b><br>Retry ASR: %{x:.2f}%<br>Cỡ mẫu: %{customdata:,}<extra></extra>'
     }
@@ -2702,8 +2733,8 @@ function plotRetryDelay(events,colors){
   const connected=active.map(label=>lookup.get(label).connected);
   const notConnected=active.map(label=>lookup.get(label).retries-lookup.get(label).connected);
   Plotly.react('chart_retry_delay',[
-    {x:active,y:connected,type:'bar',name:'Connected',marker:{color:(colors&&colors.Connected)||'#4e79a7'}},
-    {x:active,y:notConnected,type:'bar',name:'Chưa kết nối',marker:{color:(colors&&colors.NoAnswer)||'#f28e2b'}}
+    {x:active,y:connected,type:'bar',name:'Connected',marker:{color:(colors&&colors.Connected)||CHART_SEMANTIC.Connected}},
+    {x:active,y:notConnected,type:'bar',name:'Chưa kết nối',marker:{color:CHART_SEMANTIC.Warning}}
   ],{
     height:300,margin:{l:48,r:20,t:40,b:62},barmode:'stack',
     xaxis:{type:'category',automargin:true},yaxis:{title:'Retry',rangemode:'tozero'},
@@ -2719,8 +2750,8 @@ function plotRetryAttempts(events,colors){
   const totals=order.map(label=>lookup.get(label).retries);
   const asrs=order.map(label=>lookup.get(label).asr);
   Plotly.react('chart_retry_attempt',[
-    {x:order,y:totals,type:'bar',name:'Retry',marker:{color:(colors&&colors.MinutesBar)||'#59a14f'},text:totals.map(String),textposition:'outside'},
-    {x:order,y:asrs,type:'scatter',mode:'lines+markers',name:'ASR',yaxis:'y2',line:{color:(colors&&colors.AnswerRate)||'#af7aa1',width:2},marker:{size:8},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
+    {x:order,y:totals,type:'bar',name:'Retry',marker:{color:CHART_SEMANTIC.Warning},text:totals.map(String),textposition:'outside'},
+    {x:order,y:asrs,type:'scatter',mode:'lines+markers',name:'ASR',yaxis:'y2',line:{color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,width:2},marker:{size:8},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
   ],{
     height:300,margin:{l:48,r:52,t:40,b:48},
     yaxis:{title:'Retry',rangemode:'tozero'},yaxis2:{title:'ASR',overlaying:'y',side:'right',range:[0,100],ticksuffix:'%',showgrid:false},
@@ -2732,8 +2763,8 @@ function plotRetryTrend(events,colors){
   const rows=retryAggregate(events,event=>event.date).sort((a,b)=>a.key.localeCompare(b.key));
   if(!rows.length) return showNoData('chart_retry_trend','Không có dữ liệu');
   Plotly.react('chart_retry_trend',[
-    {x:rows.map(row=>row.key),y:rows.map(row=>row.retries),type:'bar',name:'Retry',marker:{color:(colors&&colors.MinutesBar)||'#59a14f'}},
-    {x:rows.map(row=>row.key),y:rows.map(row=>row.asr),type:'scatter',mode:'lines+markers',name:'ASR',yaxis:'y2',line:{color:(colors&&colors.AnswerRate)||'#af7aa1',width:2},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
+    {x:rows.map(row=>row.key),y:rows.map(row=>row.retries),type:'bar',name:'Retry',marker:{color:CHART_SEMANTIC.Warning}},
+    {x:rows.map(row=>row.key),y:rows.map(row=>row.asr),type:'scatter',mode:'lines+markers',name:'ASR',yaxis:'y2',line:{color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,width:2},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
   ],{
     height:300,margin:{l:48,r:52,t:40,b:58},
     xaxis:{type:'category',automargin:true},yaxis:{title:'Retry',rangemode:'tozero'},
@@ -2748,8 +2779,8 @@ function plotRetryDimension(events,dimension,colors){
   rows=dimension==='hour'?rows.sort((a,b)=>a.key.localeCompare(b.key)):rows.sort((a,b)=>b.retries-a.retries).slice(0,12);
   if(!rows.length) return showNoData('chart_retry_dimension','Không có dữ liệu');
   Plotly.react('chart_retry_dimension',[
-    {x:rows.map(row=>row.key),y:rows.map(row=>row.retries),type:'bar',name:'Retry',marker:{color:(colors&&colors.MinutesBar)||'#59a14f'}},
-    {x:rows.map(row=>row.key),y:rows.map(row=>row.asr),type:'scatter',mode:'markers',name:'ASR',yaxis:'y2',marker:{color:(colors&&colors.AnswerRate)||'#af7aa1',size:8,symbol:'diamond'},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
+    {x:rows.map(row=>row.key),y:rows.map(row=>row.retries),type:'bar',name:'Retry',marker:{color:CHART_SEMANTIC.Warning}},
+    {x:rows.map(row=>row.key),y:rows.map(row=>row.asr),type:'scatter',mode:'markers',name:'ASR',yaxis:'y2',marker:{color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,size:8,symbol:'diamond'},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
   ],{
     height:300,margin:{l:48,r:52,t:40,b:72},
     xaxis:{type:'category',automargin:true,tickangle:dimension==='hour'?-45:0},yaxis:{title:'Retry',rangemode:'tozero'},
@@ -2863,13 +2894,13 @@ function plotAccountRadar(rows, colors, topN=5){
   data.sort((a,b)=> b.total - a.total);
   const pick = data.slice(0, Math.max(3, topN)); // tối thiểu 3
 
-  const axes = ['ASR (%)','Tổng phút','Tổng cuộc','Fail (%)'];
+  const axes = ['ASR (%)','Tổng phút','Tổng cuộc','Ít Fail (đảo chiều)'];
 
   const scaled = {
     asr:     minMaxScale(pick, 'asr'),
     minutes: minMaxScale(pick, 'minutes'),
     total:   minMaxScale(pick, 'total'),
-    failPct: minMaxScale(pick, 'failPct')
+    failPct: pick.map(m=>Math.max(0,Math.min(100,100-Number(m.failPct||0))))
   };
 
   const traces = pick.map((m, i)=>({
@@ -2878,7 +2909,7 @@ function plotAccountRadar(rows, colors, topN=5){
     theta: [...axes, axes[0]],
     name: m.label,
     fill:'toself',
-    line:{width:2, color: (colors && colors.Palette ? colors.Palette[i % colors.Palette.length] : undefined)},
+    line:{width:2, color: categoryColor(m.acc, colors && colors.Palette)},
     hovertemplate:
       `<b>${m.label}</b><br>`+
       `ASR: ${m.asr.toFixed(2)}%<br>`+
@@ -3221,16 +3252,46 @@ function adwToggleDialog(id){
   if(dialog.open) dialog.close(); else dialog.showModal();
 }
 // Mở thẳng phần thêm/sửa kết nối, kể cả khi dialog nguồn đang đóng.
-function adwOpenConnectionManager(){
-  adwOpenDialog('mptSourcePanel');
-  const manager=document.getElementById('mptConnectionManager');
-  if(manager){
-    manager.open=true;
-    manager.scrollIntoView({behavior:'smooth',block:'nearest'});
+function showSettingsSection(id){
+  showTab('settings');
+  const section=document.getElementById(id);
+  if(section){
+    section.open=true;
+    requestAnimationFrame(()=>section.scrollIntoView({behavior:'smooth',block:'start'}));
   }
+}
+function adwOpenConnectionManager(){
+  showSettingsSection('settingsConnection');
+  const manager=document.getElementById('mptConnectionManager');
+  if(manager) manager.open=true;
+}
+function initSettingsPanel(){
+  const move=(source,target)=>{
+    const node=document.querySelector(source);
+    const host=document.getElementById(target);
+    if(node&&host) host.appendChild(node);
+  };
+  move('#mptConnectionManager','settingsConnectionContent');
+  move('#mappingDialog .adw-dialog-body','settingsMappingContent');
+  move('#optionsDialog .adw-dialog-body','settingsAnalysisContent');
+  move('#llmConfigDialog .adw-dialog-body','settingsAIContent');
+  document.querySelector('#llmConfigDialog .adw-dialog-footer [data-close-dialog]')?.remove();
+  move('#llmConfigDialog .adw-dialog-footer','settingsAIActions');
+  move('#filesDialog .adw-dialog-body','settingsDataContent');
+  move('#resetLayout','settingsDataContent');
+  ['mappingDialog','optionsDialog','llmConfigDialog','filesDialog'].forEach(id=>document.getElementById(id)?.remove());
+  const gateway=document.getElementById('panel_gateway_map');
+  if(gateway){
+    gateway.removeAttribute('data-tab');
+    gateway.removeAttribute('draggable');
+    document.getElementById('settingsGatewayContent')?.appendChild(gateway);
+  }
+  const threshold=document.getElementById('alertThreshold')?.closest('.kpi-setting');
+  if(threshold) document.getElementById('settingsAnalysisContent')?.prepend(threshold);
 }
 
 function initAdwChrome(){
+  initSettingsPanel();
   document.getElementById('openMptSource')?.addEventListener('click',()=>adwOpenDialog('mptSourcePanel'));
 
   document.querySelectorAll('[data-close-dialog]').forEach(button=>{
@@ -3257,29 +3318,15 @@ function initAdwChrome(){
   });
   document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&menu&&!menu.hidden) setMenu(false); });
 
-  // Mỗi mục menu bấm hộ nút gốc nên toàn bộ logic cũ giữ nguyên.
-  const proxy={png:'exportPNG',pdf:'exportPDF',reset:'resetLayout',dark:'toggleDark',mapping:'toggleMapping'};
+  const proxy={png:'exportPNG',pdf:'exportPDF'};
   menu?.querySelectorAll('.adw-menu-item').forEach(item=>{
     item.addEventListener('click',()=>{
       const action=item.dataset.menu;
-      if(action==='files') adwOpenDialog('filesDialog');
-      else if(action==='options') adwOpenDialog('optionsDialog');
-      else if(action==='llmconfig') adwOpenDialog('llmConfigDialog');
+      if(action==='settings') showTab('settings');
       else document.getElementById(proxy[action])?.click();
-      if(action!=='dark') setMenu(false);
+      setMenu(false);
     });
   });
-
-  // Công tắc trong menu bám theo trạng thái thật của body.dark.
-  const darkSwitch=document.getElementById('darkSwitch');
-  const darkItem=menu?.querySelector('[data-menu="dark"]');
-  const syncDark=()=>{
-    const on=document.body.classList.contains('dark');
-    darkSwitch?.classList.toggle('on',on);
-    darkItem?.setAttribute('aria-checked',on?'true':'false');
-  };
-  new MutationObserver(syncDark).observe(document.body,{attributes:true,attributeFilter:['class']});
-  syncDark();
 
   adwSyncChromeHeight();
   window.addEventListener('resize',adwSyncChromeHeight);
@@ -3303,7 +3350,10 @@ function adwSyncChromeHeight(){
 }
 
 // ---- Chủ đề biểu đồ theo Yaru ----
-const YARU_COLORWAY=['#E95420','#77216F','#0E8420','#2D74C4','#F99B11','#A2734C','#C7162B','#1C8CA8','#8A5AC7','#5E7A3E'];
+// Màu phân loại không mang nghĩa tốt/xấu; màu trạng thái được gán riêng bên dưới.
+const CHART_CATEGORY_COLORS=['#2563eb','#7c3aed','#0f766e','#a16207','#0369a1','#9333ea','#0e7490','#475569','#57534e','#4f46e5'];
+const CHART_SEMANTIC={Fail:'#c0392b',NoAnswer:'#d97706',Connected:'#238636',Cancelled:'#7b8794',AnswerRate:'#2563eb',Volume:'#4e79a7',Trend:'#1d4ed8',Warning:'#d97706',Reference:'#64748b'};
+const YARU_COLORWAY=CHART_CATEGORY_COLORS;
 function adwPlotTheme(){
   const styles=getComputedStyle(document.body);
   const text=styles.getPropertyValue('--text').trim()||'#241f31';
@@ -3387,13 +3437,34 @@ const __st = document.getElementById('startTime'); if(__st && !__st.value) __st.
 const __et = document.getElementById('endTime'); if(__et && !__et.value) __et.value = '23:59';
 
 function baseScheme(name){
-  if(name==='bright') return ['#e6194b','#3cb44b','#ffe119','#4363d8','#f58231','#911eb4','#46f0f0','#f032e6','#bcf60c','#fabebe'];
-  if(name==='pastel') return ['#ffd1dc','#c1f0f6','#ffe4b5','#d1ffd6','#f0e68c','#dda0dd','#afeeee','#ffb347','#98fb98','#deb887'];
-  if(name==='dark') return ['#1b1b1b','#2f4f4f','#4b0082','#800000','#2e8b57','#556b2f','#483d8b','#8b4513','#696969','#191970'];
-  return ['#e15759','#f28e2b','#4e79a7','#59a14f','#af7aa1','#9c755f','#bab0ac','#7f7f7f','#bcbd22','#17becf'];
+  if(name==='bright') return ['#1d4ed8','#6d28d9','#0d9488','#a16207','#0284c7','#a21caf','#0891b2','#475569','#854d0e','#4338ca'];
+  if(name==='pastel') return ['#557fc1','#8971bc','#4e9291','#ac8552','#5c9cb6','#a471a8','#6699a5','#79879c','#9b8373','#7774ad'];
+  if(name==='dark') return ['#1e40af','#5b21b6','#115e59','#854d0e','#075985','#86198f','#155e75','#334155','#57534e','#3730a3'];
+  return CHART_CATEGORY_COLORS;
 }
 function getColorScheme(){ const scheme=document.getElementById('colorScheme').value; return baseScheme(scheme); }
-function getSeriesColors(){ const scheme = getColorScheme(); const useCustom = (document.getElementById('useCustomColors')||{}).checked; const custom = { Fail: (document.getElementById('c_fail')||{}).value || '#e15759', NoAnswer: (document.getElementById('c_noans')||{}).value || '#f28e2b', Connected: (document.getElementById('c_conn')||{}).value || '#4e79a7', MinutesBar: (document.getElementById('c_minbar')||{}).value || '#59a14f', MinutesLine: (document.getElementById('c_minline')||{}).value || '#2f4f4f', AnswerRate: (document.getElementById('c_ansrate')||{}).value || '#af7aa1' }; return { Fail: useCustom ? custom.Fail : (scheme[0]||'#e15759'), NoAnswer: useCustom ? custom.NoAnswer : (scheme[1]||'#f28e2b'), Connected: useCustom ? custom.Connected : (scheme[2]||'#4e79a7'), MinutesBar: useCustom ? custom.MinutesBar : (scheme[3]||'#59a14f'), MinutesLine: useCustom ? custom.MinutesLine : (scheme[4]||'#2f4f4f'), AnswerRate: useCustom ? custom.AnswerRate : (scheme[5]||'#af7aa1'), Cancelled: '#9aa5b1', Palette: scheme }; }
+function getSeriesColors(){
+  const useCustom = (document.getElementById('useCustomColors')||{}).checked;
+  const color = (id, fallback)=> useCustom ? ((document.getElementById(id)||{}).value || fallback) : fallback;
+  return {
+    Fail:color('c_fail',CHART_SEMANTIC.Fail), NoAnswer:color('c_noans',CHART_SEMANTIC.NoAnswer),
+    Connected:color('c_conn',CHART_SEMANTIC.Connected), Cancelled:CHART_SEMANTIC.Cancelled,
+    MinutesBar:color('c_minbar',CHART_SEMANTIC.Volume), MinutesLine:color('c_minline',CHART_SEMANTIC.Trend),
+    AnswerRate:color('c_ansrate',CHART_SEMANTIC.AnswerRate), Palette:getColorScheme()
+  };
+}
+function categoryColor(label, palette=getColorScheme()){
+  const key=String(label||'');
+  const telco=key.trim().toLowerCase();
+  const telcoIndex=/viettel/.test(telco) ? 0
+    : /mobifone|mobi\b/.test(telco) ? 1
+    : /vinaphone|vina\b/.test(telco) ? 2
+    : /vietnamobile/.test(telco) ? 3 : -1;
+  if(telcoIndex>=0) return palette[telcoIndex%palette.length];
+  let hash=0;
+  for(let i=0;i<key.length;i++) hash=(Math.imul(hash,31)+key.charCodeAt(i))|0;
+  return palette[(hash>>>0)%palette.length];
+}
 
 function syncCustomColorControls(enabled){
   ['c_fail','c_noans','c_conn','c_minbar','c_minline','c_ansrate'].forEach(id=>{
@@ -3521,11 +3592,11 @@ function readJSONFile(file, cb){ const fr=new FileReader(); fr.onload = ()=>{ tr
 /** Màu của từng nhóm theo bảng màu đang chọn. */
 function connTypeColor(ct, colors){
   colors = colors || {};
-  if(ct==='Fail')      return colors.Fail || '#e15759';
-  if(ct==='No Answer') return colors.NoAnswer || '#f28e2b';
-  if(ct==='Cancelled') return colors.Cancelled || '#9aa5b1';
-  if(ct==='Connected') return colors.Connected || '#4e79a7';
-  return '#bab0ac';
+  if(ct==='Fail')      return colors.Fail || CHART_SEMANTIC.Fail;
+  if(ct==='No Answer') return colors.NoAnswer || CHART_SEMANTIC.NoAnswer;
+  if(ct==='Cancelled') return colors.Cancelled || CHART_SEMANTIC.Cancelled;
+  if(ct==='Connected') return colors.Connected || CHART_SEMANTIC.Connected;
+  return CHART_SEMANTIC.Reference;
 }
 // emptyConnCounts -> dashboard-core.js
 // computeCallCounts -> dashboard-core.js
@@ -3897,8 +3968,8 @@ function plotASRByTime(rows, colors){
   const yRange=[Math.max(0,Math.floor((rawMin-yPadding)*2)/2),Math.min(100,Math.ceil((rawMax+yPadding)*2)/2)];
   const asrExtra=labels.map((_,i)=>`Connected: ${connected[i]} • No Answer: ${noAnswer[i]} • Mẫu ASR: ${denominators[i]}`);
   const connectExtra=labels.map((_,i)=>`Connected: ${connected[i]} • Tổng cuộc gọi: ${totalCalls[i]}`);
-  const asrColor=(colors&&colors.AnswerRate)||'#9a6f56';
-  const connectColor=(colors&&colors.Connected)||'#4779ad';
+  const asrColor=(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate;
+  const connectColor=(colors&&colors.Connected)||CHART_SEMANTIC.Connected;
   const onePeriod=mode==='day' && labels.length===1;
   const darkMode=document.body.classList.contains('dark');
   const chartText=darkMode?'#e5e7eb':'#334155';
@@ -3928,12 +3999,12 @@ function plotASRByTime(rows, colors){
   if(Number.isFinite(avgConnect)) shapes.push({type:'line',xref:'paper',x0:0,x1:1,y0:avgConnect,y1:avgConnect,line:{color:connectColor,width:1,dash:'dot'},opacity:.42});
   if(mode==='hour') shapes.unshift({type:'rect',xref:'x',yref:'paper',x0:'08:00',x1:'18:00',y0:0,y1:1,fillcolor:'rgba(71,121,173,.055)',line:{width:0},layer:'below'});
   const asrTarget = (typeof getAlertThreshold==='function') ? getAlertThreshold() : null;
-  if(Number.isFinite(asrTarget)) shapes.push({type:'line',xref:'paper',x0:0,x1:1,y0:asrTarget,y1:asrTarget,line:{color:'#dc2626',width:1.5,dash:'dash'},opacity:.65});
+  if(Number.isFinite(asrTarget)) shapes.push({type:'line',xref:'paper',x0:0,x1:1,y0:asrTarget,y1:asrTarget,line:{color:CHART_SEMANTIC.Reference,width:1.5,dash:'dash'},opacity:.65});
   const lastIndex=Math.max(rates.length-1,0);
   const annotations=[];
   if(Number.isFinite(rates[lastIndex])) annotations.push({x:labels[lastIndex],y:rates[lastIndex],text:`ASR ${rates[lastIndex].toFixed(1)}%`,showarrow:false,xanchor:'left',xshift:10,yshift:10,font:{size:11,color:asrColor},bgcolor:annotationBg});
   if(Number.isFinite(connectRates[lastIndex])) annotations.push({x:labels[lastIndex],y:connectRates[lastIndex],text:`Kết nối ${connectRates[lastIndex].toFixed(1)}%`,showarrow:false,xanchor:'left',xshift:10,yshift:-11,font:{size:11,color:connectColor},bgcolor:annotationBg});
-  if(Number.isFinite(asrTarget)) annotations.push({xref:'paper',yref:'y',x:1,y:asrTarget,text:`Mục tiêu ${asrTarget}%`,showarrow:false,xanchor:'right',xshift:-4,yshift:2,font:{size:10,color:'#dc2626'},bgcolor:annotationBg});
+  if(Number.isFinite(asrTarget)) annotations.push({xref:'paper',yref:'y',x:1,y:asrTarget,text:`Mục tiêu ${asrTarget}%`,showarrow:false,xanchor:'right',xshift:-4,yshift:2,font:{size:10,color:CHART_SEMANTIC.Reference},bgcolor:annotationBg});
   const layout={
     height:390,margin:{l:62,r:115,t:34,b:58},
     xaxis:{title:mode==='hour'?'Giờ trong ngày':'Ngày',type:'category',automargin:true},
@@ -4021,7 +4092,7 @@ function plotCallerParticipationHeatmap(rows, colors){
   if(!agg.labels.length) return showNoData(elId, 'Không có dữ liệu caller_id_number theo thời gian');
   const z = agg.telcos.map(telco=>agg.series[telco]);
   const maxValue = Math.max(0, ...z.flat());
-  const heatColor = (colors && colors.AnswerRate) || '#af7aa1';
+  const heatColor = CHART_SEMANTIC.Volume;
   const emptyColor = document.body.classList.contains('dark') ? 'rgba(148,163,184,.18)' : '#f8fafc';
   const text = z.map(row=>row.map(value=>String(value)));
   const showText = agg.labels.length <= 48;
@@ -4068,6 +4139,7 @@ function plotDestTelcoShare(rows, colors){
     labels: agg.data.map(x=>x.tel),
     values: agg.data.map(x=>x.count),
     type:'pie',
+    marker:{colors:agg.data.map(x=>categoryColor(x.tel,colors&&colors.Palette))},
     textinfo:'label+percent',
     hoverinfo:'label+value+percent'
   }];
@@ -4146,7 +4218,7 @@ function plotDurationShareByPrefix(rows, colors){
 
   const minutes = dataArr.map(d=> +(d.sec/60).toFixed(1));
   const pcts    = dataArr.map(d=> +(d.sec/totalSec*100).toFixed(1));
-  const pal = (colors && Array.isArray(colors.Palette) && colors.Palette.length) ? colors.Palette : ['#4e79a7'];
+  const pal = (colors && Array.isArray(colors.Palette) && colors.Palette.length) ? colors.Palette : CHART_CATEGORY_COLORS;
 
   const data=[{
     x: minutes,
@@ -4158,7 +4230,7 @@ function plotDurationShareByPrefix(rows, colors){
     cliponaxis:false,
     customdata: dataArr.map((d,i)=> [pcts[i], d.con, +(d.sec/d.con).toFixed(1)]),
     hovertemplate:'<b>%{y}</b><br>Thời lượng: %{x} phút (%{customdata[0]}%)<br>Số cuộc Connected: %{customdata[1]}<br>TB/cuộc: %{customdata[2]}s<extra></extra>',
-    marker:{color: dataArr.map((d,i)=> pal[i % pal.length])}
+    marker:{color: dataArr.map(d=> categoryColor(d.prefix, pal))}
   }];
 
   const layout={
@@ -4211,7 +4283,7 @@ function plotAvgDurationVsConnectRate(rows, colors){
         'Số cuộc: '+d.total+'<extra></extra>',
       marker:{
         size: Math.max(6, Math.sqrt(d.total)),
-        color: palette[i % palette.length],
+        color: categoryColor(d.prefix, palette),
         line: {width: 0.5}
       }
     });
@@ -4445,9 +4517,6 @@ function refreshAccountFilter(selectedOverride){
 })();
 
 // ---------- Mapping panel events ----------
-function toggleMappingPanel(){ adwToggleDialog('mappingDialog'); }
-
-document.getElementById('toggleMapping').addEventListener('click', toggleMappingPanel);
 
 document.getElementById('addOrUpdateMap').addEventListener('click', ()=>{ const id = document.getElementById('mapAccId').value.trim(); const name = document.getElementById('mapAccName').value.trim(); if(!id || !name) return toast('Nhập đầy đủ Account ID và Tên hiển thị', true); setMap(id, name); toast('Đã lưu & áp dụng mapping: '+id+' → '+name); });
 
@@ -4507,7 +4576,7 @@ function plotTimeHeatmap(rows){
   if(!rows || !rows.length) return showNoData('chart_time_heatmap','Không có dữ liệu');
   const z = cubeVal('timeHeatmap', ()=>computeTimeHeatmap(rows));
   const data=[{
-    z, type:'heatmap', x:Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')),
+    z, type:'heatmap', colorscale:'Blues', x:Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')),
     y:['CN','T2','T3','T4','T5','T6','T7'],
     hoverongaps:false
   }];
@@ -4877,9 +4946,7 @@ const REPORT_LAYOUT={
     // báo cáo rủi ro tự động (engine + AI, tuỳ chọn)
     'panel_cid_risk_engine',
     // hàng đợi hành động và so sánh
-    'table_cid_action_queue','table_cid_comparison',
-    // cấu hình / đồng bộ (làm một lần) — để cuối
-    'panel_gateway_map'
+    'table_cid_action_queue','table_cid_comparison'
   ]},
   billing:{ primary:99, order:[
     'panel_billing_config','panel_billing_kpi',
@@ -4986,8 +5053,7 @@ const CID_TIER_GROUPS=[
   { id:'cidGroupAvail', icon:'🔵', label:'Hiện trạng / hồi phục', color:'#3584e4', anchor:'panel_cid_coverage', cards:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','table_cid_mttr_telco','chart_cid_mttr','table_cid_reblock','table_cid_duty'] },
   { id:'cidGroupLoss',  icon:'🟠', label:'Áp lực / mất mát', color:'#E95420', anchor:'chart_cid_pressure', cards:['chart_cid_pressure','chart_cid_inventory_trend','table_cid_bursts','panel_cid_waste','panel_cid_loss'] },
   { id:'cidGroupRisk',  icon:'🟣', label:'Rủi ro & chỉ báo sớm', color:'#9141ac', anchor:'chart_cid_load_risk', cards:['chart_cid_load_risk','panel_cid_signals','table_cid_signals_account','panel_cid_precursors','panel_cid_risk_engine'] },
-  { id:'cidGroupAction',icon:'🔴', label:'Hành động ưu tiên', color:'#c0392b', anchor:'table_cid_action_queue', cards:['table_cid_action_queue','table_cid_comparison'] },
-  { id:'cidGroupCfg',   icon:'⚙️', label:'Cấu hình / đồng bộ', color:'#616161', anchor:'panel_gateway_map', cards:['panel_gateway_map'] }
+  { id:'cidGroupAction',icon:'🔴', label:'Hành động ưu tiên', color:'#c0392b', anchor:'table_cid_action_queue', cards:['table_cid_action_queue','table_cid_comparison'] }
 ];
 function createCidExtras(){
   if(document.getElementById('panel_cid_summary')) return; // idempotent
@@ -5121,9 +5187,15 @@ function showTab(tabName){
   updateAdvancedGroupHeaders(tabName);
   updateReportToggle(tabName);
 
+  const tabHint=document.querySelector('#tabsBar > .muted');
+  if(tabName==='settings'){
+    if(tabHint) tabHint.textContent='Cấu hình dùng lâu dài của dashboard';
+    renderGatewayMapPanel();
+    return;
+  }
+
   const tabCards=Array.from(document.querySelectorAll(`#reportGrid > .card[data-tab="${tabName}"]:not(.report-more-toggle):not(.cid-tier-header):not(.cid-summary-panel)`));
   const visibleCount=tabCards.filter(card=>card.style.display!=='none').length;
-  const tabHint=document.querySelector('#tabsBar > .muted');
   if(tabHint){
     tabHint.textContent=visibleCount<tabCards.length
       ? `Đang hiển thị ${visibleCount}/${tabCards.length} báo cáo • Các báo cáo còn lại ở nút “Hiển thị tất cả”`
@@ -5890,7 +5962,7 @@ function plotBillingByPeriod(res, cfg, metric, colors, forecast){
   const traces = [{
     type:'bar', x, y,
     name: fcBars ? 'Thực tế' : metric.label,
-    marker:{color: colors.MinutesBar},
+    marker:{color: CHART_SEMANTIC.Volume},
     text: showLabels ? y.map(v=> metric.short(v)) : null,
     texttemplate: showLabels ? '%{text}' : undefined,
     textposition: showLabels ? 'outside' : 'none',
@@ -5901,10 +5973,10 @@ function plotBillingByPeriod(res, cfg, metric, colors, forecast){
     traces.push({
       type:'bar', x: fcBars.map(b=>b.date), y: fcBars.map(b=>b.mid),
       name:'Dự đoán',
-      marker:{color: colors.MinutesBar, opacity:0.35, line:{color: colors.MinutesBar, width:1}},
+      marker:{color: CHART_SEMANTIC.Volume, opacity:0.35, line:{color: CHART_SEMANTIC.Volume, width:1}},
       error_y:{type:'data', symmetric:false,
         array: fcBars.map(b=>Math.max(0, b.high-b.mid)), arrayminus: fcBars.map(b=>Math.max(0, b.mid-b.low)),
-        color: colors.MinutesBar, thickness:1, width:3},
+        color: CHART_SEMANTIC.Volume, thickness:1, width:3},
       customdata: fcBars.map(b=>[metric.fmt(b.low), metric.fmt(b.high), b.note]),
       text: showLabels ? fcBars.map(b=> metric.short(b.mid)) : null,
       texttemplate: showLabels ? '%{text}' : undefined,
@@ -5937,7 +6009,7 @@ function plotBillingByTelco(res, cfg, metric, colors){
     labels: rows.map(r=>r.key),
     values: rows.map(r=> metric.get(r)),
     type:'pie',
-    marker: colors.Palette ? {colors: colors.Palette} : undefined,
+    marker:{colors:rows.map(r=>categoryColor(r.key,colors&&colors.Palette))},
     textinfo:'label+percent',
     hoverinfo:'label+value+percent'
   }], {
@@ -6359,7 +6431,7 @@ function plotCidAvailability(){
   const data = keys.map(t=>{
     const d = downsampleSeriesMin(series[t].times, series[t].availablePct, 800);
     return {
-      type:'scatter', mode:'lines', name:t, line:{ shape:'hv', width:2 },
+      type:'scatter', mode:'lines', name:t, line:{ shape:'hv', width:2, color:categoryColor(t) },
       x: d.x.map(ms=> new Date(ms)), y: d.y,
       hovertemplate:'%{x}<br>'+t+': %{y:.1f}% khả dụng<extra></extra>'
     };
@@ -6490,7 +6562,7 @@ function plotCidPressure(){
   if(!pr.days.length) return showNoData(id, 'Không có lượt khoá nào');
   const telcos = Object.keys(pr.byTelco);
   const data = telcos.map(t=>({
-    type:'bar', name:t, x:pr.days, y:pr.byTelco[t],
+    type:'bar', name:t, x:pr.days, y:pr.byTelco[t], marker:{color:categoryColor(t)},
     hovertemplate:'%{x}<br>'+t+': %{y} lượt<extra></extra>'
   }));
   data.push({
@@ -6599,15 +6671,15 @@ function plotCidLoadRisk(){
   const labels = all.buckets.map(x=> x.label);
   const data = [
     { type:'bar', name:'Tất cả CID', x:labels, y:all.buckets.map(x=> x.blockRate),
-      marker:{ color:'#9ec1e8' },
+      marker:{ color:'#4e79a7' },
       hovertemplate:'%{x} cuộc/ngày<br>%{y:.1f}% bị khoá<extra>tất cả</extra>' },
     { type:'bar', name:'Chỉ CID từng bị khoá', x:labels, y:elig.buckets.map(x=> x.blockRate),
-      marker:{ color:'#c0392b' },
+      marker:{ color:'#7c3aed' },
       hovertemplate:'%{x} cuộc/ngày<br>%{y:.1f}% bị khoá<extra>cùng loại</extra>' }
   ];
   Plotly.react(id, data, {
     title:'Tải mỗi CID/ngày vs rủi ro bị khoá trong '+all.horizonHours+'h'
-      + '<br><span style="font-size:11px">Cột xanh dốc lên là ẢO GIÁC do thành phần mẫu — so cùng loại (đỏ) thì quan hệ biến mất</span>',
+      + '<br><span style="font-size:11px">Cột xanh dốc lên là ẢO GIÁC do thành phần mẫu — so cùng loại (tím) thì quan hệ biến mất</span>',
     barmode:'group', height:440,
     yaxis:{ title:'% bị khoá trong 24h', rangemode:'tozero' },
     xaxis:{ title:'Số cuộc gọi mỗi ngày' },
@@ -6814,7 +6886,7 @@ function plotCidRecoverySurvival(){
   const traces=result.series.map((s,index)=>({
     type:'scatter',mode:'lines+markers',name:s.name,
     x:result.thresholdsHours,y:s.unrecoveredPct,
-    line:{width:index===0?4:2,dash:index===0?'solid':'dot'},
+    line:{width:index===0?4:2,dash:index===0?'solid':'dot',color:categoryColor(s.name)},
     hovertemplate:s.name+'<br>Sau %{x}h: %{y:.1f}% chưa hồi phục<extra></extra>'
   }));
   Plotly.react(id,traces,{
@@ -7219,6 +7291,7 @@ function loadGridOrder(){
   let dragEl = null;
   Array.from(grid.querySelectorAll(':scope > .card[data-tab]')).forEach(card=>{
     card.setAttribute('draggable','false');
+    if(card.id==='settings_panel') return;
     if(card.classList.contains('report-more-toggle') || card.querySelector(':scope > .card-drag-handle')) return;
     const handle=document.createElement('button');
     handle.type='button';
@@ -7327,7 +7400,7 @@ function plotCompareTimeline(rows, colors){
   const palette = colors.Palette;
   const traces = series.map((s,i)=>({
     x:s.x, y:s.y, type:'scatter', mode:'lines+markers', name:s.name,
-    line:{width:2, color: palette[i % palette.length]}
+    line:{width:2, color: categoryColor(s.acc||s.name, palette)}
   }));
   const layout = {
     title:'So sánh nhiều account theo timeline (ASR hợp lệ theo ngày)',
@@ -7431,9 +7504,9 @@ function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
     mode:'lines',
     // CCU là hàm bậc thang: giá trị giữ nguyên tới mốc thay đổi kế tiếp.
     // Nội suy tuyến tính sẽ vẽ ra những đoạn dốc không hề tồn tại.
-    line:{color: colors.Connected || '#4e79a7', width:2, shape:'hv'},
+    line:{color: CHART_SEMANTIC.Volume, width:2, shape:'hv'},
     fill:'tozeroy',
-    fillcolor: (colors.Connected || '#4e79a7')+'22',
+    fillcolor: CHART_SEMANTIC.Volume+'22',
     hovertemplate:'%{x|%d/%m/%Y %H:%M:%S}<br>Concurrent: %{y}<extra></extra>'
   }];
   const notes=[CCU_SCOPE_LABEL[res.scope],
@@ -7501,7 +7574,7 @@ function plotConcurrentByTelco(rows, colors, mode='percent'){
       stackgroup:'one',
       groupnorm: (mode==='percent') ? 'percent' : undefined,
       name: tel,
-      line:{width:1.6, shape:'hv', color: palette[i % palette.length]},
+      line:{width:1.6, shape:'hv', color: categoryColor(tel, palette)},
       hovertemplate: '<b>%{fullData.name}</b><br>%{x|%Y-%m-%d %H:%M:%S}'
         + '<br>Đồng thời: %{customdata[0]}'
         + '<br>Tỷ trọng: %{customdata[1]:.1f}%<extra></extra>'
@@ -7542,8 +7615,8 @@ function plotCcuByTelco(rows, colors){
   const peakVals = stats.map(s=> s.peak);
   const useFilter = meta.filterSpanSec != null;
   const avgVals = stats.map(s=> +( (useFilter ? s.avgFilter : s.avgObserved) || 0).toFixed(2));
-  const peakColor = (colors && colors.MinutesBar) || '#59a14f';
-  const avgColor = (colors && colors.Connected) || '#4e79a7';
+  const peakColor = '#315f91';
+  const avgColor = '#8baecd';
   const avgName = useFilter ? 'CCU TB (khoảng lọc)' : 'CCU TB (khoảng có dữ liệu)';
   const data = [
     {
@@ -7644,7 +7717,8 @@ function plotGoldenHoursRate(rows){
   if(!rows || !rows.length) return showNoData('chart_golden_hours_rate','Không có dữ liệu');
   const {zRate, zTot, zCon} = cubeVal('goldenHours', ()=>computeGoldenHours(rows));
   const data=[{
-    z: zRate, type:'heatmap',
+    z: zRate,
+    type:'heatmap', colorscale:'YlGn', zmin:0, zmax:100,
     x: Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')),
     y: ['CN','T2','T3','T4','T5','T6','T7'],
     hoverongaps:false,
@@ -7716,7 +7790,7 @@ function plotCallFunnel(rows, minCompletedBillsec=30){
   const lossConnect=total-connected,lossCompleted=connected-completed;
   const data=[{
     type:'funnel',y:stages,x:values,text:stageText,textinfo:'text',
-    marker:{color:['#315f91','#5e8fbd','#9bbbd8']},
+    marker:{color:['#64748b',CHART_SEMANTIC.Connected,'#166534']},
     connector:{line:{color:'#cbd5e1',width:1},fillcolor:'rgba(203,213,225,.48)'},
     customdata:values.map((value,i)=>[fmt(value),previousRates[i],totalRates[i]]),
     hovertemplate:'%{y}<br>Số cuộc: %{customdata[0]}<br>Tỷ lệ từ bước trước: %{customdata[1]:.1f}%<br>Tỷ lệ trên tổng Attempt: %{customdata[2]:.1f}%<extra></extra>'
@@ -7751,7 +7825,7 @@ function plotLineHealthTrend(rows, colors, topN=6){
     const map={};
     stats.filter(s=>s.prefix===p).forEach(s=>{ map[s.date]=s; });
     const y = dates.map(d=> map[d] ? +(100*map[d].con/map[d].tot).toFixed(2) : null);
-    return {type:'scatter', mode:'lines+markers', name:p, x:dates, y};
+    return {type:'scatter', mode:'lines+markers', name:p, x:dates, y, line:{color:categoryColor(p)}};
   });
   Plotly.react('chart_line_health_trend', traces, {
     title:`Sức khỏe đầu số — Connect rate theo ngày (Top ${prefixes.length} theo volume)`,
@@ -7854,7 +7928,7 @@ function plotAgentPerformance(rows, colors, topN=10){
   }, {
     x: xAsr, y, type:'scatter', mode:'markers', name:'ASR hợp lệ',
     xaxis:'x2',
-    marker:{size:9, color:'#af7aa1', symbol:'diamond', line:{color:'#fff',width:1}},
+    marker:{size:9, color:CHART_SEMANTIC.AnswerRate, symbol:'diamond', line:{color:'#fff',width:1}},
     customdata: data.map(a=>[a.con, a.noans]),
     hovertemplate:'%{y}<br>ASR hợp lệ: %{x:.2f}%<br>Connected: %{customdata[0]:,.0f} • No Answer: %{customdata[1]:,.0f}<extra></extra>'
   }], {
@@ -8043,7 +8117,7 @@ function plotGatewayCallDistribution(rows, colors){
     y:data.map(item=>item.gateway),
     x:data.map(item=>item.total),
     customdata,
-    marker:{color:data.map((_,index)=>palette[index%palette.length])},
+    marker:{color:data.map(item=>categoryColor(item.gateway,palette))},
     text:data.map(item=>item.total.toLocaleString('vi-VN')),
     textposition:'auto',
     hovertemplate:'Gateway: %{y}<br>Số cuộc gọi: %{x:,}<br>Tỷ trọng: %{customdata[0]:.2f}%<br>Số account: %{customdata[1]:,}<br>Connected: %{customdata[2]:,}<br>Fail: %{customdata[3]:,}<extra></extra>',
@@ -8143,8 +8217,7 @@ function plotGatewayHangupCausePie(rows){
     .sort((a,b)=> data.filter(r=>r.hangup_cause===b).reduce((s,r)=>s+r.total,0)
       - data.filter(r=>r.hangup_cause===a).reduce((s,r)=>s+r.total,0));
   const lookup = new Map(data.map(r=>[r.gateway+'\u0000'+r.hangup_cause,r]));
-  const palette=['#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f','#edc949','#af7aa1','#ff9da7','#9c755f','#bab0ab','#2563eb','#16a34a','#dc2626','#9333ea','#0891b2'];
-  const causeColors = new Map(causes.map((cause,i)=>[cause,palette[i%palette.length]]));
+  const causeColors = new Map(causes.map(cause=>[cause,categoryColor(cause)]));
   // Dùng một thanh ngang cho mỗi Gateway: chiều cao tăng theo số Gateway,
   // nên nhãn không bị co nhỏ như mô hình nhiều donut trong cùng một canvas.
   // Không gộp nguyên nhân nhỏ; mỗi hangup_cause luôn là một trace riêng.
@@ -8190,7 +8263,7 @@ function plotGatewayFailTimeline(rows, colors){
   const x = tl.buckets.map(b=> new Date(b));
   const traces = tl.series.map(s=>({
     x, y: s.failPct, name: s.gateway, type:'scatter', mode:'lines+markers',
-    connectgaps:false, marker:{size:5},
+    connectgaps:false, marker:{size:5}, line:{color:categoryColor(s.gateway)},
     customdata: s.total,
     hovertemplate: s.gateway + '<br>%{x|%d/%m %H:%M}<br>Fail: %{y:.2f}%<br>Cuộc: %{customdata}<extra></extra>'
   }));
@@ -8251,7 +8324,7 @@ function plotCallbackDistribution(rows, colors){
   Plotly.react('chart_callback_dist', [{
     // histfunc 'sum' trên (giá trị, số lượng) = histogram trên từng giá trị như trước.
     x: hist.map(h=>h[0]), y: hist.map(h=>h[1]), type:'histogram', histfunc:'sum',
-    marker:{color: (colors && colors.MinutesBar) ? colors.MinutesBar : undefined},
+    marker:{color: CHART_SEMANTIC.Volume},
     hovertemplate:'Attempt trước khi connect: %{x}<br>Số lượng: %{y}<extra></extra>'
   }], {
     title:'Phân phối: số lần gọi trước khi connect (lần đầu)',
@@ -9543,9 +9616,15 @@ let mptPendingAccountIds=[];
 
 function mptSetStatus(kind,text){
   const status=mptEl('mptSourceStatus');
-  if(!status) return;
-  status.className='mpt-source-status'+(kind?' '+kind:'');
-  status.textContent=text;
+  if(status){
+    status.className='mpt-source-status'+(kind?' '+kind:'');
+    status.textContent=text;
+  }
+  const settingsStatus=mptEl('settingsConnectionStatus');
+  if(settingsStatus){
+    settingsStatus.className='mpt-source-status'+(kind?' '+kind:'');
+    settingsStatus.textContent=text;
+  }
 }
 
 async function mptApiError(response){
@@ -9575,18 +9654,22 @@ function mptUpdateAccountSelectionSummary(){
 function mptRenderProfiles(){
   const select=mptEl('mptProfile');
   const mainSelect=mptEl('mainMptProfile');
+  const settingsSelect=mptEl('settingsMptProfile');
   if(!select&&!mainSelect) return;
   if(select) select.innerHTML='<option value="">-- Chọn domain/user --</option>';
   if(mainSelect) mainSelect.innerHTML='<option value="">-- Chọn kết nối --</option>';
+  if(settingsSelect) settingsSelect.innerHTML='<option value="">-- Chọn kết nối --</option>';
   mptProfiles.forEach(profile=>{
     const option=document.createElement('option');
     option.value=profile.id;
     option.textContent=profile.name+(profile.credentialAvailable===false?' — cần nhập lại mật khẩu':'');
     if(select) select.appendChild(option);
     if(mainSelect) mainSelect.appendChild(option.cloneNode(true));
+    if(settingsSelect) settingsSelect.appendChild(option.cloneNode(true));
   });
   if(select) select.value=mptActiveProfileId;
   if(mainSelect) mainSelect.value=mptActiveProfileId;
+  if(settingsSelect) settingsSelect.value=mptActiveProfileId;
 }
 
 function mptFillProfileFields(profile){
@@ -9919,6 +10002,7 @@ function initMptSourcePanel(){
   if(!mptEl('mptSourcePanel')) return;
   mptRestoreScope();
   mptEl('mptProfile').addEventListener('change',event=>mptSelectProfile(event.target.value,true).catch(error=>mptAccountLoadFailed(error)));
+  mptEl('settingsMptProfile')?.addEventListener('change',event=>mptSelectProfile(event.target.value,true).catch(error=>mptAccountLoadFailed(error)));
   mptEl('mainMptProfile')?.addEventListener('change',event=>{
     mptSelectProfile(event.target.value,true).then(()=>markFilterDirty(true)).catch(error=>mptAccountLoadFailed(error));
   });
@@ -9933,7 +10017,7 @@ function initMptSourcePanel(){
   mptEl('mptThisMonth').addEventListener('click',()=>{ const start=new Date(); start.setDate(1); mptEl('mptFromDay').value=mptLocalDate(start); mptEl('mptToDay').value=mptLocalDate(); });
   mptEl('mptResetScope').addEventListener('click',mptResetScope);
   mptEl('mptRunReport').addEventListener('click',mptRunReport);
-  mptEl('mptNewProfile').addEventListener('click',()=>{ mptActiveProfileId=''; mptEl('mptProfile').value=''; mptAccounts=[]; mptRenderAccounts(); mptFillProfileFields(null); mptSetStatus('','Nhập thông tin, kiểm tra rồi lưu kết nối mới.'); mptEl('mptDomain').focus(); });
+  mptEl('mptNewProfile').addEventListener('click',()=>{ mptActiveProfileId=''; mptRenderProfiles(); mptAccounts=[]; mptRenderAccounts(); mptFillProfileFields(null); mptSetStatus('','Nhập thông tin, kiểm tra rồi lưu kết nối mới.'); mptEl('mptDomain').focus(); });
   mptEl('mptTestConnection').addEventListener('click',async()=>{
     mptSetStatus('','Đang kiểm tra đăng nhập và tải tài khoản…');
     try{
@@ -10683,9 +10767,9 @@ function plotDirectionSplit(rows, colors){
   const labels = Object.keys(counts).filter(k=> counts[k]>0);
   const values = labels.map(k=> counts[k]);
   if(!values.length) return showNoData(elId, 'Không có dữ liệu chiều cuộc gọi (direction)');
-  const palette = ['#4e79a7','#59a14f','#9aa5b1'];
+  const directionColors = {Inbound:'#2563eb',Outbound:'#7c3aed',Unknown:CHART_SEMANTIC.Cancelled};
   const data=[{type:'pie', labels, values, hole:0.45, textinfo:'label+percent',
-    marker:{colors: labels.map((_,i)=> palette[i])},
+    marker:{colors: labels.map(label=>directionColors[label])},
     hovertemplate:'%{label}<br>%{value} cuộc (%{percent})<extra></extra>'}];
   Plotly.react(elId, data, {title:'Chiều cuộc gọi (Inbound / Outbound)', height:360}, {responsive:true});
 }
@@ -10697,7 +10781,7 @@ function plotMosHistogram(rows, colors){
   if(!vals.length) return showNoData(elId, 'Không có cột MOS trong dữ liệu');
   Plotly.react(elId, [{
     x: vals, type:'histogram', nbinsx: 30,
-    marker:{color: (colors && colors.AnswerRate) || '#af7aa1'},
+    marker:{color: CHART_SEMANTIC.Volume},
     hovertemplate:'MOS=%{x}<br>Số cuộc: %{y}<extra></extra>'
   }], {
     title:'Phân phối MOS (Mean Opinion Score)',
@@ -10733,7 +10817,7 @@ function plotQualityByTelco(rows, colors){
     x: vals, y: labels, type:'bar', orientation:'h',
     text: arr.map((x,i)=> x.avgQ!=null ? `${vals[i].toFixed(1)}% (Quality)` : `MOS ${x.avgMos.toFixed(2)}`),
     textposition:'outside', cliponaxis:false,
-    marker:{color: (colors && colors.Connected) || '#4e79a7'},
+    marker:{color: CHART_SEMANTIC.Volume},
     hovertemplate:'%{y}<br>Chất lượng TB: %{x:.1f}<extra></extra>'
   }], {
     title:'Chất lượng thoại trung bình theo Telco',
@@ -10751,7 +10835,7 @@ function plotMosVsPacketLoss(rows, colors){
   if(!pts.length) return showNoData(elId, 'Không có dữ liệu MOS & Jitter Loss Rate');
   Plotly.react(elId, [{
     x: pts.map(p=>p.loss), y: pts.map(p=>p.mos), type:'scatter', mode:'markers',
-    marker:{color: (colors && colors.NoAnswer) || '#f28e2b', size:5, opacity:0.6},
+    marker:{color: CHART_SEMANTIC.Volume, size:5, opacity:0.6},
     hovertemplate:'Loss: %{x}%<br>MOS: %{y}<extra></extra>'
   }], {
     title:'Tương quan MOS vs Jitter Loss Rate',
@@ -10777,7 +10861,7 @@ function plotAnswerDelayByTelco(rows, colors){
   const pct = (arr,p)=>{ if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const i=Math.min(arr.length-1, Math.max(0, Math.ceil(p*arr.length)-1)); return s[i]; };
   const tels = Object.keys(map).filter(t=> map[t].length>0).sort();
   if(!tels.length) return showNoData(elId, 'Không có cuộc gọi Connected để tính thời gian đổ chuông');
-  const palette = ['#4e79a7','#f28e2b','#e15759'];
+  const palette = ['#8baecd','#4e79a7','#315f91'];
   const traces = [50,90,95].map((p,i)=>({
     x: tels.map(t=> pct(map[t], p/100)),
     y: tels,
@@ -10825,7 +10909,7 @@ function plotBillingByPrefix(res, cfg, metric, colors){
     texttemplate: showLabels ? '%{text}' : undefined,
     textposition: showLabels ? 'outside' : 'none',
     cliponaxis:false,
-    marker:{color: (colors && colors.MinutesBar) || '#59a14f'},
+    marker:{color: CHART_SEMANTIC.Volume},
     hovertemplate:`%{x}<br>${metricObj.label}: %{y:,.2f} ${metricObj.unit}<extra></extra>`
   }], {
     title:`${metricObj.label} theo đầu số gọi ra (prefix caller)`,

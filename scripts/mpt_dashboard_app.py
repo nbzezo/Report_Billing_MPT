@@ -151,6 +151,33 @@ def _profile_windows_alive(marker):
         return True  # lỗi poll -> coi như còn sống, không tắt server nhầm
 
 
+def _kill_profile_windows(marker):
+    """Terminate browser processes that belong exclusively to this app profile.
+
+    Edge/Chrome may keep the ``--app`` process alive after its last window is
+    closed (for background services or a shared browser process). The profile
+    marker scopes the cleanup to this portable app and leaves the user's normal
+    browser windows untouched.
+    """
+    if not sys.platform.startswith("win"):
+        return
+    ps = (
+        "$m=$env:MPT_EDGE_MARKER;"
+        "Get-CimInstance Win32_Process -Filter \"name='msedge.exe' or name='chrome.exe'\""
+        " -ErrorAction SilentlyContinue |"
+        " Where-Object { $_.CommandLine -and $_.CommandLine.Contains($m) } |"
+        " ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+    )
+    try:
+        _run_hidden(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
+            capture_output=True, timeout=15,
+            env=dict(os.environ, MPT_EDGE_MARKER=marker),
+        )
+    except Exception:
+        pass
+
+
 def main():
     guard = _single_instance_guard()  # noqa: F841 (kept alive for process lifetime)
     root = app_root()
@@ -171,6 +198,12 @@ def main():
     def shutdown():
         try:
             server.shutdown()
+        except Exception:
+            pass
+        try:
+            # server.shutdown() only stops serve_forever(). server_close() also
+            # terminates the long-lived analytics worker and closes the socket.
+            server.server_close()
         except Exception:
             pass
 
@@ -227,6 +260,10 @@ def main():
                 time.sleep(8)
                 misses = 0 if _profile_windows_alive(marker) else misses + 1
     finally:
+        # The app window can disappear while Edge keeps the profile process in
+        # the background. Clean it up before returning from the launcher so the
+        # portable app really exits instead of leaving a hidden process behind.
+        _kill_profile_windows(marker)
         shutdown()
         del guard
 

@@ -19,6 +19,17 @@ test('classifyCall theo thứ tự ưu tiên nghiệp vụ', () => {
   assert.equal(core.classifyCall({ hangup_cause: 'NORMAL_CLEARING', billsec: 0, duration: 0 }), 'Fail');
 });
 
+test('chuỗi ASR theo Account giữ ID ổn định khi gán màu biểu đồ', () => {
+  const rows = [
+    { date:'2026-10-12', account_id:'351', account_name:'VCLASS BOT', connType:'Connected' },
+    { date:'2026-10-12', account_id:'548', account_name:'Sales', connType:'No Answer' }
+  ];
+  const series = core.computeAnswerRateByAccountPerDay(rows).series;
+  assert.deepEqual(series.map(({acc,name})=>({acc,name})), [
+    {acc:'351',name:'VCLASS BOT'}, {acc:'548',name:'Sales'}
+  ]);
+});
+
 test('normalizeCallRecord — mẫu cũ snake_case', () => {
   const rec = core.normalizeCallRecord({
     account_id: '548', caller_id_number: '0916', destination_number: '84288',
