@@ -57,9 +57,23 @@ try {
     const infoButton = page.locator('.info-btn').first();
     await infoButton.click();
     if (await page.locator('#uiInfoPopover').isHidden()) throw new Error('Popover công thức không mở.');
+    const popoverAudit = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
+    axeSummary.popover = popoverAudit.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
     await page.keyboard.press('Escape');
     if (!(await page.locator('#uiInfoPopover').isHidden())) throw new Error('Popover công thức không đóng bằng Escape.');
     if (!(await infoButton.evaluate(element => element === document.activeElement))) throw new Error('Popover không trả focus về nút kích hoạt.');
+    await page.locator('#openMptSource').click();
+    await page.locator('#mptSourcePanel[open]').waitFor();
+    const dialogAudit = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
+    axeSummary.dialog = dialogAudit.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+    if (!auditOnly) await page.screenshot({ path: path.join(out, `${theme}-dialog.png`) });
+    await page.evaluate(() => document.getElementById('mptSourcePanel')?.close());
+    await page.locator('#askDashboardToggle').click();
+    await page.locator('#askDashboardPanel').waitFor({ state: 'visible' });
+    const assistantAudit = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
+    axeSummary.assistant = assistantAudit.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+    if (!auditOnly) await page.screenshot({ path: path.join(out, `${theme}-assistant.png`) });
+    await page.locator('#askPanelClose').click();
     if (theme === 'light' && !auditOnly) {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();

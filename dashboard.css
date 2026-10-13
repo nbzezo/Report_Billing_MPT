@@ -838,7 +838,7 @@ body.adw .loading-title{font-size:16px;font-weight:700}
 body.adw .loading-detail{color:var(--dim)}
 body.adw #toastHost{right:auto;left:50%;transform:translateX(-50%);bottom:22px;align-items:center}
 body.adw .toast{background:#3d3846;color:#fff;border-radius:999px;padding:10px 18px;font-size:13px;box-shadow:var(--shadow-pop)}
-body.adw.dark .toast{background:#f6f5f4;color:#241f31}
+body.adw.dark .toast{background:var(--surface-2);color:var(--text);border:1px solid var(--border)}
 body.adw .filter-scope{margin-top:0;font-size:12px}
 body.adw .filter-scope.warn{border-radius:var(--radius);border-color:rgba(229,165,10,.55);background:rgba(229,165,10,.14);color:var(--text)}
 body.adw .filter-scope.warn button{background:var(--card-bg);color:var(--text);border-color:var(--border)}

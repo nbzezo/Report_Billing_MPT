@@ -469,7 +469,7 @@ function updateRN_CF_KPIs(rows){
           <button id="loadSample">Dữ liệu mẫu</button>
         </div>
         <div class="control-row">
-          <span class="muted" style="font-size:11px" title="Mẫu cũ: account_id, caller_id_number, destination_number, ani, direction, start_stamp, answer_stamp, end_stamp, duration, billsec, hangup_cause, uuid, telco, calltype&#10;Mẫu mới: Account, Caller, Destination, Ani, Call type, Start time, Answer time, End time, Duration, Billsec, Telco, Hangup Cause, Status Code, MOS, Quality (%), Jitter…, Packet Count, RTCP…&#10;Hai định dạng có thể trộn lẫn trong cùng một lần tải.">Hỗ trợ cả mẫu cũ (snake_case) và mẫu mới (Title Case) ⓘ</span>
+          <span class="muted" style="font-size:12px">Hỗ trợ cả mẫu cũ (snake_case) và mẫu mới (Title Case) <button type="button" class="info-btn" aria-label="Giải thích: Định dạng file được hỗ trợ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Mẫu cũ: account_id, caller_id_number, destination_number, ani, direction, start_stamp, answer_stamp, end_stamp, duration, billsec, hangup_cause, uuid, telco, calltype. Mẫu mới: Account, Caller, Destination, Ani, Call type, Start time, Answer time, End time, Duration, Billsec, Telco, Hangup Cause, Status Code, MOS, Quality (%), Jitter, Packet Count, RTCP. Hai định dạng có thể trộn lẫn trong cùng một lần tải.">?</button></span>
         </div>
         <div class="control-row">
           <progress id="uploadProgress" value="0" max="100" style="width:180px;"></progress>

@@ -1206,6 +1206,7 @@ class FrontendRegressionTests(unittest.TestCase):
             "aria-current",
         ):
             self.assertIn(token, self.dashboard_html)
+        self.assertNotIn("ⓘ", self.dashboard_html)
 
     def test_kpi_summary_places_status_chips_on_a_full_width_row(self):
         self.assertIn(".kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(4", self.dashboard_html)
