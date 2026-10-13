@@ -10,6 +10,15 @@ const require = createRequire(import.meta.url);
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const core = require(path.join(ROOT, 'dashboard-core.js'));
 
+test('UI_LABELS bao phủ mọi trạng thái cuộc gọi', () => {
+  assert.equal(Object.isFrozen(core.UI_LABELS), true);
+  for (const value of ['Connected', 'No Answer', 'Cancelled', 'Fail', 'Unknown']) {
+    assert.ok(core.statusLabel(value).trim(), value);
+  }
+  assert.equal(core.statusLabel('No Answer'), 'Không nghe');
+  assert.equal(core.statusLabel('Unknown'), 'Không rõ');
+});
+
 test('classifyCall theo thứ tự ưu tiên nghiệp vụ', () => {
   assert.equal(core.classifyCall({ hangup_cause: 'NO_ROUTE_DESTINATION', billsec: 5 }), 'Fail'); // Fail cause đè cả billsec
   assert.equal(core.classifyCall({ hangup_cause: 'NORMAL_CLEARING', billsec: 30 }), 'Connected');

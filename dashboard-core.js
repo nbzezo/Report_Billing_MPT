@@ -11,6 +11,31 @@
    ========================================================================== */
 (function (root) {
 
+// Nhãn giao diện tập trung; giá trị nghiệp vụ (ví dụ connType) giữ nguyên.
+const UI_LABELS = Object.freeze({
+  status: Object.freeze({
+    connected: 'Kết nối', noAnswer: 'Không nghe', cancelled: 'Hủy',
+    fail: 'Lỗi', unknown: 'Không rõ'
+  }),
+  kpi: Object.freeze({
+    totalCalls: 'Tổng cuộc', connectRate: 'Tỷ lệ kết nối',
+    validAsr: 'ASR hợp lệ', totalMinutes: 'Tổng phút gọi',
+    connectExcludingFail: 'Tỷ lệ kết nối (trừ cuộc lỗi)',
+    averageBillsec: 'Thời lượng tính cước TB',
+    longestFailRun: 'Chuỗi lỗi dài nhất',
+    medianRandomNumber: 'Trung vị số ngẫu nhiên (RN)',
+    repeatedDestinations: 'Số đích lặp'
+  }),
+  group: Object.freeze({ accountSummary: 'Tổng hợp theo tài khoản' }),
+  action: Object.freeze({ update: 'Cập nhật', savedOnly: 'Chỉ xem dữ liệu đã lưu', forceReload: 'Tải lại toàn bộ từ MPT' }),
+  toast: Object.freeze({ loaded: (calls, accounts) => `Đã tải ${calls} cuộc gọi của ${accounts} tài khoản` })
+});
+function statusLabel(connType) {
+  return ({ Connected: UI_LABELS.status.connected, 'No Answer': UI_LABELS.status.noAnswer,
+    Cancelled: UI_LABELS.status.cancelled, Fail: UI_LABELS.status.fail,
+    Unknown: UI_LABELS.status.unknown })[connType] || UI_LABELS.status.unknown;
+}
+
 // ---------- Ngày giờ local ----------
 function localISODate(d = new Date()) {
   const y = d.getFullYear();
@@ -3574,6 +3599,7 @@ function computeCidDimensionComparison(timeline, rows, dimension){
 // + module.exports cho Node test.
 // ==========================================================================
 const __exports = {
+  UI_LABELS, statusLabel,
   localISODate, localISODateTime,
   retryTimestamp, retryDelayBucket,
   mapPrefix,
