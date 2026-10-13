@@ -2949,9 +2949,18 @@ function plotStackPrefixPct(prefixAgg, colors){
   Plotly.react('chart_stack_prefix_pct', traces, layout, {responsive:true});
 }
 
-function plotAnswerGauge(pct, colors){ if(isNaN(pct)) return showNoData('chart_answer_gauge','Không có dữ liệu'); const data=[{type:'indicator',mode:'gauge+number',value:pct,gauge:{axis:{range:[0,100]},bar:{color:colors.AnswerRate}},title:{text:'ASR hợp lệ (%)'}}]; const layout={height:360}; Plotly.react('chart_answer_gauge',data,layout,{responsive:true}); }
+function plotAnswerGauge(pct, colors){
+  if(isNaN(pct)) return showNoData('chart_answer_gauge','Không có dữ liệu');
+  const target=Number(document.getElementById('alertThreshold')?.value)||40;
+  const status=currentPlotColors().status;
+  const bar=pct<target?status.Fail:pct<target+10?status['No Answer']:status.Connected;
+  const data=[{type:'indicator',mode:'gauge+number',value:pct,
+    gauge:{axis:{range:[0,100]},bar:{color:bar},threshold:{line:{color:status.Fail,width:3},value:target}},
+    title:{text:'ASR hợp lệ (%)'}}];
+  Plotly.react('chart_answer_gauge',data,{height:360},{responsive:true});
+}
 
-function plotMinutesDay(obj, colors){ if(!obj || !obj.dates || obj.dates.length===0) return showNoData('chart_minutes_day','Không có dữ liệu'); const data=[{x:obj.dates,y:obj.minutes,type:'bar',text:obj.minutes.map(m=>m+' phút'),textposition:'inside',insidetextanchor:'middle',name:'Phút gọi',marker:{color:colors.MinutesBar}}, {x:obj.dates,y:obj.minutes,type:'scatter',mode:'lines+markers',name:'Xu hướng',line:{color:colors.MinutesLine}}]; const layout={title:'Tổng phút gọi theo ngày',height:360,xaxis:{title:'Ngày',type:'category',automargin:true},yaxis:{title:'Phút'}}; Plotly.react('chart_minutes_day',data,layout,{responsive:true}); }
+function plotMinutesDay(obj, colors){ if(!obj || !obj.dates || obj.dates.length===0) return showNoData('chart_minutes_day','Không có dữ liệu'); const data=[{x:obj.dates.map(UIFormat.dateShort),y:obj.minutes,type:'bar',name:'Phút gọi',marker:{color:colors.MinutesBar}}, {x:obj.dates.map(UIFormat.dateShort),y:obj.minutes,type:'scatter',mode:'lines+markers',name:'Xu hướng',line:{color:colors.MinutesLine}}]; const layout={title:'Tổng phút gọi theo ngày',height:360,xaxis:{title:'Ngày',type:'category',automargin:true},yaxis:{title:'Phút'}}; Plotly.react('chart_minutes_day',data,layout,{responsive:true}); }
 
 function plotASRByTime(rows, colors){
   const elId='chart_asr_time';
@@ -3384,19 +3393,19 @@ function plotTelcoConnStacked(rows, colors){
     x: tel,
     y: dataArr.map(d=> d.total>0 ? +((d.counts[ct]||0)/d.total*100).toFixed(2) : 0),
     type:'bar',
-    name: ct,
-    hovertemplate: 'Telco: %{x}<br>'+ct+': %{y:.2f}% (%{customdata[0]}/%{customdata[1]})<extra></extra>',
+    name: statusLabel(ct),
+    hovertemplate: 'Nhà mạng: %{x}<br>'+statusLabel(ct)+': %{y:.2f}% (%{customdata[0]}/%{customdata[1]})<extra></extra>',
     customdata: dataArr.map(d=> [d.counts[ct]||0, d.total]),
     marker:{ color: connTypeColor(ct, colors) }
   }));
 
   const layout = {
-    title:'Tỷ lệ '+shown.join(' / ')+' theo Telco (Stacked %)',
+    title:'Trạng thái cuộc gọi theo nhà mạng (%)',
     barmode:'stack',
     height: Math.max(380, tel.length * 28 + 120),
-    xaxis:{title:'Telco'},
+    xaxis:{title:'Nhà mạng'},
     yaxis:{title:'Tỷ lệ (%)', range:[0,100]},
-    legend:{orientation:'h', y:-0.2}
+    legend:{orientation:'h',x:0,y:1.02,yanchor:'bottom'}
   };
 
   Plotly.react(elId, traces, layout, {responsive:true});
@@ -3690,17 +3699,18 @@ function plotMinutesByAccount(rows, colors, topN=10){
     y: labels,
     type:'bar',
     orientation:'h',
-    text: values.map(v=> v+' phút'),
+    text: values.map(UIFormat.minutes),
     textposition:'outside',
+    cliponaxis:false,
     marker:{color: colors.MinutesBar, line:{width:1.2}}
   }];
   const layout={
     bargap:0.35,
     title:`Tổng số phút gọi theo Account — Top ${_topN>0?_topN:'All'} (cao nhất ở trên)`,
     height: Math.max(220, labels.length*32),
-    margin:{l:170, r:30, t:64, b:56},
-    xaxis:{title:'Phút'},
-    yaxis:{automargin:true, type:'category', tickfont:{size:11}, categoryorder:'array', categoryarray: labels, autorange:'reversed'}
+    margin:{l:170, r:75, t:64, b:56},
+    xaxis:{title:'Phút',range:[0,Math.max(...values)*1.18]},
+    yaxis:{automargin:true, type:'category', tickfont:{size:12}, categoryorder:'array', categoryarray: labels, autorange:'reversed'}
   };
   Plotly.react('chart_minutes_account', data, layout, {responsive:true});
 }
