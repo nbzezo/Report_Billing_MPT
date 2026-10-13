@@ -47,6 +47,7 @@ Remove-Item -Recurse -Force $runtimePreserve -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $root 'V2_0_Call_Dashboard_MPT.html') $appDir
 Copy-Item (Join-Path $root 'mpt_filter.html')             $appDir
 Copy-Item (Join-Path $root 'dashboard-core.js')           $appDir
+Copy-Item (Join-Path $root 'dashboard.css')               $appDir
 Copy-Item (Join-Path $root 'dashboard-csv-worker.js')     $appDir
 Copy-Item (Join-Path $root 'analytics-worker.js')         $appDir
 Copy-Item (Join-Path $root 'vendor')                      $appDir -Recurse -Force

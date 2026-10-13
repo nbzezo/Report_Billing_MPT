@@ -378,6 +378,7 @@ class ServerSafetyTests(unittest.TestCase):
         dashboard = "V2_0_Call_Dashboard_MPT.html"
         self.assertTrue(SERVER.is_allowed_static_path(f"/{dashboard}", dashboard))
         self.assertTrue(SERVER.is_allowed_static_path("/dashboard-core.js", dashboard))
+        self.assertTrue(SERVER.is_allowed_static_path("/dashboard.css", dashboard))
         self.assertTrue(SERVER.is_allowed_static_path("/dashboard-csv-worker.js", dashboard))
         for path in ("/config/profiles.json", "/logs/server.log", "/README.md", "/backup.html", "/.git/config"):
             self.assertFalse(SERVER.is_allowed_static_path(path, dashboard), path)
@@ -1177,7 +1178,10 @@ class FrontendRegressionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.filter_html = (ROOT / "mpt_filter.html").read_text(encoding="utf-8")
-        cls.dashboard_html = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+        cls.dashboard_html = (
+            (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+            + (ROOT / "dashboard.css").read_text(encoding="utf-8")
+        )
         cls.server_source = SERVER_PATH.read_text(encoding="utf-8")
 
     def test_filter_uses_local_date_instead_of_utc_date(self):
@@ -1275,7 +1279,7 @@ class FrontendRegressionTests(unittest.TestCase):
 
     def test_yaru_shell_replaces_the_old_control_panel(self):
         for token in (
-            'id="yaruLayer"',
+            '<link rel="stylesheet" href="/dashboard.css">',
             'class="adw-headerbar"',
             'class="adw-filterbar"',
             'id="adwSidebar"',
@@ -1748,7 +1752,8 @@ class CidPerAccountAndPerfTests(unittest.TestCase):
 
 
 class GatewayHangupCauseChartTests(unittest.TestCase):
-    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+    HTML = ((ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+            + (ROOT / "dashboard.css").read_text(encoding="utf-8"))
 
     def test_bieu_do_phan_bo_so_cuoc_goi_theo_gateway(self):
         self.assertIn('id="chart_gateway_call_distribution"', self.HTML)
