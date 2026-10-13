@@ -29,7 +29,8 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(`http://127.0.0.1:${port}/?csv=/tests/ui/fixtures/sample.csv`, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => !document.querySelector('#reportLoading.show'), { timeout: 45000 }).catch(() => {});
+    await page.waitForFunction(() => ['8000', '8.000'].includes(document.querySelector('#kpi_total_text')?.textContent?.trim()), { timeout: 45000 });
+    await page.waitForFunction(() => !document.querySelector('#reportLoading.show'), { timeout: 45000 });
     for (const tab of tabs) {
       await page.locator(`#tabsBar .tab-btn[data-tab="${tab}"]`).click();
       await page.waitForTimeout(180);

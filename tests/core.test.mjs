@@ -19,6 +19,31 @@ test('UI_LABELS bao phủ mọi trạng thái cuộc gọi', () => {
   assert.equal(core.statusLabel('Unknown'), 'Không rõ');
 });
 
+test('UIFormat thống nhất số, thời lượng, tiền và ngày theo vi-VN', () => {
+  const f = core.UIFormat;
+  assert.equal(f.int(8000), '8.000');
+  assert.equal(f.dec(200.64), '200,6');
+  assert.equal(f.pct(46.51), '46,5%');
+  assert.equal(f.pctFromRatio(.4651), '46,5%');
+  assert.equal(f.pp(-.8), '−0,8 điểm');
+  assert.equal(f.seconds(45), '45 giây');
+  assert.equal(f.seconds(200), '3 phút 20 giây');
+  assert.equal(f.seconds(7500), '2 giờ 05 phút');
+  assert.equal(f.minutesLong(12424), '12.424 phút (≈ 207 giờ)');
+  assert.equal(f.vnd(1250000), '1.250.000 đ');
+  assert.equal(f.compact(12400), '12,4 N');
+  assert.equal(f.compact(1200000), '1,2 Tr');
+  assert.equal(f.date('2026-10-01'), '01/10/2026');
+  assert.equal(f.dateShort('2026-10-01'), '01/10');
+  assert.equal(f.dateTime('2026-10-01 13:05:00'), '01/10/2026 13:05');
+  for (const method of ['int', 'dec', 'pct', 'pctFromRatio', 'pp', 'seconds', 'minutes', 'minutesLong', 'vnd', 'compact']) {
+    assert.equal(f[method](null), '—', method);
+    assert.equal(f[method](NaN), '—', method);
+  }
+  assert.equal(f.date('2026-02-30'), '—');
+  assert.equal(f.int(-12000000), '−12.000.000'.replace('−', '-'));
+});
+
 test('classifyCall theo thứ tự ưu tiên nghiệp vụ', () => {
   assert.equal(core.classifyCall({ hangup_cause: 'NO_ROUTE_DESTINATION', billsec: 5 }), 'Fail'); // Fail cause đè cả billsec
   assert.equal(core.classifyCall({ hangup_cause: 'NORMAL_CLEARING', billsec: 30 }), 'Connected');

@@ -36,6 +36,57 @@ function statusLabel(connType) {
     Unknown: UI_LABELS.status.unknown })[connType] || UI_LABELS.status.unknown;
 }
 
+// Định dạng đầu ra cho UI. Hàm pct nhận số phần trăm (46.5), pctFromRatio nhận tỷ lệ (0.465).
+const __uiNumberFormatters = new Map();
+function __uiNumber(digits, minimum = digits) {
+  const key = `${minimum}:${digits}`;
+  if (!__uiNumberFormatters.has(key)) __uiNumberFormatters.set(key,
+    new Intl.NumberFormat('vi-VN', { minimumFractionDigits: minimum, maximumFractionDigits: digits }));
+  return __uiNumberFormatters.get(key);
+}
+function __uiFinite(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+function __uiDateParts(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}))?/);
+  if (!match) return null;
+  const [, year, month, day, hour = '00', minute = '00'] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  if (date.getFullYear() !== Number(year) || date.getMonth() !== Number(month) - 1 || date.getDate() !== Number(day) || Number(hour) > 23 || Number(minute) > 59) return null;
+  return { year, month, day, hour, minute };
+}
+const UIFormat = Object.freeze({
+  int(value) { const n = __uiFinite(value); return n === null ? '—' : __uiNumber(0).format(n); },
+  dec(value, digits = 1) { const n = __uiFinite(value); return n === null ? '—' : __uiNumber(Math.max(0, Math.min(6, digits))).format(n); },
+  pct(value, digits = 1) { const n = __uiFinite(value); return n === null ? '—' : `${UIFormat.dec(n, digits)}%`; },
+  pctFromRatio(value, digits = 1) { const n = __uiFinite(value); return n === null ? '—' : UIFormat.pct(n * 100, digits); },
+  pp(value, digits = 1) { const n = __uiFinite(value); return n === null ? '—' : `${n >= 0 ? '+' : '−'}${UIFormat.dec(Math.abs(n), digits)} điểm`; },
+  seconds(value) {
+    const n = __uiFinite(value);
+    if (n === null) return '—';
+    const seconds = Math.round(Math.abs(n)), sign = n < 0 ? '−' : '';
+    if (seconds < 60) return `${sign}${UIFormat.int(seconds)} giây`;
+    if (seconds < 3600) return `${sign}${UIFormat.int(Math.floor(seconds / 60))} phút ${UIFormat.int(seconds % 60)} giây`;
+    return `${sign}${UIFormat.int(Math.floor(seconds / 3600))} giờ ${String(Math.floor(seconds % 3600 / 60)).padStart(2, '0')} phút`;
+  },
+  minutes(value) { const n = __uiFinite(value); return n === null ? '—' : `${UIFormat.int(n)} phút`; },
+  minutesLong(value) { const n = __uiFinite(value); return n === null ? '—' : `${UIFormat.minutes(n)}${Math.abs(n) >= 600 ? ` (≈ ${UIFormat.int(n / 60)} giờ)` : ''}`; },
+  vnd(value) { const n = __uiFinite(value); return n === null ? '—' : `${UIFormat.int(n)} đ`; },
+  compact(value) {
+    const n = __uiFinite(value);
+    if (n === null) return '—';
+    if (Math.abs(n) >= 1e9) return `${UIFormat.dec(n / 1e9)} Tỷ`;
+    if (Math.abs(n) >= 1e6) return `${UIFormat.dec(n / 1e6)} Tr`;
+    if (Math.abs(n) >= 1e3) return `${UIFormat.dec(n / 1e3)} N`;
+    return UIFormat.int(n);
+  },
+  date(value) { const p = __uiDateParts(value); return p ? `${p.day}/${p.month}/${p.year}` : '—'; },
+  dateShort(value) { const p = __uiDateParts(value); return p ? `${p.day}/${p.month}` : '—'; },
+  dateTime(value) { const p = __uiDateParts(value); return p ? `${p.day}/${p.month}/${p.year} ${p.hour}:${p.minute}` : '—'; }
+});
+
 // ---------- Ngày giờ local ----------
 function localISODate(d = new Date()) {
   const y = d.getFullYear();
@@ -3599,7 +3650,7 @@ function computeCidDimensionComparison(timeline, rows, dimension){
 // + module.exports cho Node test.
 // ==========================================================================
 const __exports = {
-  UI_LABELS, statusLabel,
+  UI_LABELS, statusLabel, UIFormat,
   localISODate, localISODateTime,
   retryTimestamp, retryDelayBucket,
   mapPrefix,

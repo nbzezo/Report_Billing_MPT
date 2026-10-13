@@ -5429,15 +5429,15 @@ function renderDataTablePage(){
 // ===== Tab renderers (lazy) =====
 function renderCommon(filtered, ov, colors){
   const kpiTotalEl = document.getElementById('kpi_total_text');
-  if(kpiTotalEl) kpiTotalEl.innerText = String(ov.totalCalls||0);
+  if(kpiTotalEl) kpiTotalEl.innerText = UIFormat.int(ov.totalCalls||0);
 
   const kpiConnEl = document.getElementById('kpi_conn_text');
   if(kpiConnEl){
     const counts = ov.counts || {};
-    const chips = [`<button type="button" class="status-chip fail drilldown-trigger" data-drill-status="Fail" data-drill-title="Chi tiết Fail">Fail ${counts.Fail||0} · ${ov.pct.Fail}%</button>`,
-      `<button type="button" class="status-chip noans drilldown-trigger" data-drill-status="No Answer" data-drill-title="Chi tiết No Answer">NoAnswer ${counts['No Answer']||0} · ${ov.pct.NoAnswer}%</button>`];
-    if((counts.Cancelled||0) > 0) chips.push(`<button type="button" class="status-chip canc drilldown-trigger" data-drill-status="Cancelled" data-drill-title="Chi tiết Huỷ">Huỷ ${counts.Cancelled||0} · ${ov.pct.Cancelled}%</button>`);
-    chips.push(`<button type="button" class="status-chip conn drilldown-trigger" data-drill-status="Connected" data-drill-title="Chi tiết Connected">Connected ${counts.Connected||0} · ${ov.pct.Connected}%</button>`);
+    const chips = [`<button type="button" class="status-chip fail drilldown-trigger" data-drill-status="Fail" data-drill-title="Chi tiết Lỗi">${statusLabel('Fail')} ${UIFormat.int(counts.Fail||0)} · ${UIFormat.pct(ov.pct.Fail)}</button>`,
+      `<button type="button" class="status-chip noans drilldown-trigger" data-drill-status="No Answer" data-drill-title="Chi tiết Không nghe">${statusLabel('No Answer')} ${UIFormat.int(counts['No Answer']||0)} · ${UIFormat.pct(ov.pct.NoAnswer)}</button>`];
+    if((counts.Cancelled||0) > 0) chips.push(`<button type="button" class="status-chip canc drilldown-trigger" data-drill-status="Cancelled" data-drill-title="Chi tiết Hủy">${statusLabel('Cancelled')} ${UIFormat.int(counts.Cancelled||0)} · ${UIFormat.pct(ov.pct.Cancelled)}</button>`);
+    chips.push(`<button type="button" class="status-chip conn drilldown-trigger" data-drill-status="Connected" data-drill-title="Chi tiết Kết nối">${statusLabel('Connected')} ${UIFormat.int(counts.Connected||0)} · ${UIFormat.pct(ov.pct.Connected)}</button>`);
     kpiConnEl.innerHTML = chips.join('');
     const bar = document.getElementById('kpi_conn_bar');
     const total = ov.totalCalls || 0;
@@ -5446,32 +5446,32 @@ function renderCommon(filtered, ov, colors){
   }
 
   const kpiConnectRateEl = document.getElementById('kpi_connect_rate_text');
-  if(kpiConnectRateEl) kpiConnectRateEl.innerText = (ov.connectRate||0) + '%';
+  if(kpiConnectRateEl) kpiConnectRateEl.innerText = UIFormat.pct(ov.connectRate||0);
 
   const kpiAnsEl = document.getElementById('kpi_answer_text');
-  if(kpiAnsEl) kpiAnsEl.innerText = ov.answerRate + '%';
+  if(kpiAnsEl) kpiAnsEl.innerText = UIFormat.pct(ov.answerRate);
 
   const kpiConnectExclFailEl = document.getElementById('kpi_connect_excl_fail_text');
-  if(kpiConnectExclFailEl) kpiConnectExclFailEl.innerText = (ov.connectRateExcludingFail||0) + '%';
+  if(kpiConnectExclFailEl) kpiConnectExclFailEl.innerText = UIFormat.pct(ov.connectRateExcludingFail||0);
 
   const kpiMinEl = document.getElementById('kpi_minutes_text');
-  if(kpiMinEl) kpiMinEl.innerText = ov.totalMinutes + ' phút';
+  if(kpiMinEl) kpiMinEl.innerText = UIFormat.minutesLong(ov.totalMinutes);
 
   const kpiAvgBillsecEl = document.getElementById('kpi_avg_billsec_text');
-  if(kpiAvgBillsecEl) kpiAvgBillsecEl.innerText = ((ov.billsecMetrics||{}).avgBillsecConnected||0) + 's';
+  if(kpiAvgBillsecEl) kpiAvgBillsecEl.innerText = UIFormat.dec((ov.billsecMetrics||{}).avgBillsecConnected||0) + ' giây';
 
   const kpiDupDestEl = document.getElementById('kpi_dup_dest_text');
-  if(kpiDupDestEl) kpiDupDestEl.innerText = ((ov.destinationQuality||{}).repeatedDestinationRate||0) + '%';
+  if(kpiDupDestEl) kpiDupDestEl.innerText = UIFormat.pct((ov.destinationQuality||{}).repeatedDestinationRate||0);
 
   const kpiInvalidDestEl = document.getElementById('kpi_invalid_dest_text');
-  if(kpiInvalidDestEl) kpiInvalidDestEl.innerText = ((ov.destinationQuality||{}).invalidDestinationRate||0) + '%';
+  if(kpiInvalidDestEl) kpiInvalidDestEl.innerText = UIFormat.pct((ov.destinationQuality||{}).invalidDestinationRate||0);
 
   // Peak KPI — dùng chung động cơ CCU với biểu đồ và bảng telco (kết quả cached
   // theo mảng rows nên không tính lại).
   try{
     const cc = cubeVal('concurrency.all', ()=>computeConcurrencyAll(filtered));
     const k = document.getElementById('kpi_peak_text');
-    if(k) k.innerText = String(cc.systemPeak||0);
+    if(k) k.innerText = UIFormat.int(cc.systemPeak||0);
   }catch(e){ console.warn('Peak KPI error', e); }
 
   updateKPIAlerts(ov.answerRate);
@@ -5630,9 +5630,8 @@ function renderTableTab(filtered){
    nhân đơn giá/phút. Cuộc chưa kết nối (billsec = 0) mặc định không tính cước.
    ========================================================================== */
 const BILLING_CFG_KEY = 'billing-config-v1';
-const vndFmt = new Intl.NumberFormat('vi-VN');
-function fmtVND(v){ return vndFmt.format(Math.round((Number(v)||0)*100)/100); }
-function fmtInt(v){ return vndFmt.format(Math.round(Number(v)||0)); }
+function fmtVND(v){ return UIFormat.dec(v, 2); }
+function fmtInt(v){ return UIFormat.int(v); }
 
 /**
  * Số giây được tính cước của 1 cuộc gọi theo cấu hình block.
@@ -5671,14 +5670,7 @@ const BILL_METRICS = {
 };
 
 /** Rút gọn số lớn cho nhãn trên cột (8.349.175 -> 8,35 tr). */
-function fmtCompact(v){
-  const n = Number(v)||0;
-  const a = Math.abs(n);
-  if(a >= 1e9) return (n/1e9).toLocaleString('vi-VN',{maximumFractionDigits:2}) + ' tỷ';
-  if(a >= 1e6) return (n/1e6).toLocaleString('vi-VN',{maximumFractionDigits:2}) + ' tr';
-  if(a >= 1e4) return (n/1e3).toLocaleString('vi-VN',{maximumFractionDigits:1}) + 'k';
-  return fmtInt(n);
-}
+function fmtCompact(v){ return UIFormat.compact(v); }
 
 function saveBillingConfig(){
   try{
@@ -8617,8 +8609,7 @@ function setLoadedRowCap(shown, total){
 }
 
 function formatVnDate(iso){
-  const parts=String(iso||'').split('-');
-  return parts.length===3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : String(iso||'');
+  return UIFormat.date(iso);
 }
 
 function updateFilterScopeNotice(start,end){
@@ -8630,7 +8621,7 @@ function updateFilterScopeNotice(start,end){
     return;
   }
   const {min,max,rows}=loadedDataRange;
-  const scopeText=`Dữ liệu đã tải: ${formatVnDate(min)} → ${formatVnDate(max)} · ${Number(rows||0).toLocaleString('vi-VN')} dòng`;
+  const scopeText=`Dữ liệu đã tải: ${formatVnDate(min)} → ${formatVnDate(max)} · ${UIFormat.int(rows||0)} dòng`;
   const outside = end<min || start>max;
   const partial = !outside && (start<min || end>max);
   if(!outside&&!partial){
@@ -9855,9 +9846,7 @@ function unifiedReportDataUrl(mode='view'){
 }
 
 function formatVnDateTime(value){
-  if(!value) return '—';
-  const parsed=new Date(String(value).replace(' ','T'));
-  return Number.isNaN(parsed.getTime()) ? String(value) : parsed.toLocaleString('vi-VN');
+  return UIFormat.dateTime(value);
 }
 
 // Popup sau khi bấm "Xem": DB đang có dữ liệu của bộ lọc này tới thời điểm nào.
@@ -9870,7 +9859,7 @@ function showDataFreshness(meta,rows){
   const today=mptLocalDate();
   const items=[
     ['Phạm vi',`${formatVnDate(from)} → ${formatVnDate(to)}`,false],
-    ['Số cuộc gọi trong DB',Number(rows||0).toLocaleString('vi-VN'),!rows],
+    ['Số cuộc gọi trong DB',UIFormat.int(rows||0),!rows],
     ['Cuộc gọi cuối cùng',meta.lastCall?formatVnDateTime(meta.lastCall):'Chưa có',!meta.lastCall],
     ['Cập nhật từ MPT lúc',meta.syncedAt?formatVnDateTime(meta.syncedAt):'Chưa từng',!meta.syncedAt],
   ];
