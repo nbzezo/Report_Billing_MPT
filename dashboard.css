@@ -426,6 +426,9 @@ body.adw .hb-title{font-size:14px;font-weight:700;line-height:1.2}
 body.adw .hb-subtitle{font-size:12px;color:var(--dim);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46vw}
 body.adw .hb-end{margin-left:auto;display:flex;align-items:center;gap:6px}
 body.adw .hb-primary{display:inline-flex;align-items:center;gap:7px}
+body.adw .hb-freshness{max-width:310px;min-height:30px;padding:4px 8px;color:var(--dim);font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.adw .hb-freshness.warn{color:var(--st-noanswer-fg);background:var(--st-noanswer-bg);border-color:var(--st-noanswer)}
+body.adw #headerCancelUpdate{min-height:30px;padding:4px 8px}
 
 /* ---------- Buttons ---------- */
 body.adw button{font:inherit;font-weight:600;font-size:13px;min-height:34px;padding:6px 13px;
@@ -511,8 +514,8 @@ body.adw[data-active-tab="settings"] .adw-filterbar{display:none}
   body.adw .compact-profile select,body.adw #dateRangeButton,body.adw #accountDropdownBtn,body.adw #moreFiltersButton{width:100%;max-width:none}
   body.adw .date-range-grid,body.adw .more-filter-grid{grid-template-columns:1fr}
 }
-body.adw #updateReport{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card-bg));font-weight:700}
-body.adw #updateReport:hover:not(:disabled){background:color-mix(in srgb,var(--accent) 16%,var(--card-bg))}
+body.adw #updateReport{border-color:var(--accent);color:var(--accent-fg);background:var(--accent);font-weight:700}
+body.adw #updateReport:hover:not(:disabled){background:var(--accent-hover)}
 body.adw #applyFilter.dirty{animation:adwPulseDirty 1.8s infinite ease-in-out}
 @keyframes adwPulseDirty{0%,100%{box-shadow:0 0 0 2px rgba(233,84,32,.28)}50%{box-shadow:0 0 0 5px rgba(233,84,32,.46)}}
 body.adw[data-active-tab="billing"] .adw-filterbar .filter-scope-row,
@@ -1064,7 +1067,7 @@ body.adw .btn-ghost{background:transparent;border-color:transparent;color:var(--
 body.adw .btn-danger{background:var(--st-fail-bg);color:var(--st-fail-fg);border-color:var(--st-fail)}
 body.adw .btn-icon{min-width:32px;min-height:32px;padding:4px}
 body.adw .primary-btn:hover:not(:disabled){background:var(--accent-hover)}
-body.adw #updateReport{border-color:var(--accent);color:var(--accent-text)}
+body.adw #updateReport{border-color:var(--accent);background:var(--accent);color:var(--accent-fg)}
 body.adw .status-chip.fail{background:var(--st-fail-bg);color:var(--st-fail-fg);border-color:var(--st-fail)}
 body.adw .status-chip.noans{background:var(--st-noanswer-bg);color:var(--st-noanswer-fg);border-color:var(--st-noanswer)}
 body.adw .status-chip.canc{background:var(--st-cancelled-bg);color:var(--st-cancelled-fg);border-color:var(--st-cancelled)}

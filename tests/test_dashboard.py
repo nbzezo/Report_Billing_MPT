@@ -1367,6 +1367,19 @@ class FrontendRegressionTests(unittest.TestCase):
         worker = (ROOT / "dashboard-csv-worker.js").read_text(encoding="utf-8")
         self.assertIn("token < state.datasetToken", worker)
 
+    def test_header_exposes_freshness_and_single_update_action(self):
+        for token in (
+            'id="dataFreshnessSummary"',
+            'id="headerCancelUpdate"',
+            'data-menu="view-db"',
+            'data-menu="force-update"',
+            "function updateDataFreshnessSummary",
+            "Thiếu ${missing.length} ngày · bấm Cập nhật",
+            "update.textContent=`Đang cập nhật… ${done}/${progress.total}`",
+            "runUnifiedReport('force')",
+        ):
+            self.assertIn(token, self.dashboard_html)
+
     def test_report_url_restores_direction_and_account_scope(self):
         # Mở lại URL đã lọc phải đồng bộ control với chính dataset đó. Nếu không,
         # đổi Hướng gọi ở lần kế tiếp sẽ âm thầm gửi account_id=0 (tất cả).

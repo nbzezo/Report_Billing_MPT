@@ -160,13 +160,16 @@ function updateRN_CF_KPIs(rows){
       </div>
     </div>
     <div class="hb-end">
-      <div id="dataFreshnessSummary" class="hb-freshness" role="status" aria-live="polite">Chưa có dữ liệu</div>
+      <button id="dataFreshnessSummary" type="button" class="flat-btn hb-freshness" aria-haspopup="dialog">Chưa có dữ liệu</button>
       <button id="updateReport" type="button" class="primary-btn">Cập nhật</button>
+      <button id="headerCancelUpdate" type="button" class="flat-btn" hidden>Hủy</button>
       <button id="openMptSource" type="button" class="muted-btn"><span>Nguồn dữ liệu MPT</span></button>
       <div class="adw-menu-wrap">
         <button id="appMenuBtn" type="button" class="flat-btn icon-only" aria-haspopup="true" aria-expanded="false" aria-controls="appMenu" title="Menu chính"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <div id="appMenu" class="adw-popover" role="menu" hidden>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="settings">Cài đặt</button>
+          <button type="button" class="adw-menu-item" role="menuitem" data-menu="view-db">Chỉ xem dữ liệu đã lưu</button>
+          <button type="button" class="adw-menu-item" role="menuitem" data-menu="force-update">Tải lại toàn bộ từ MPT</button>
           <div class="adw-menu-sep"></div>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="png">Xuất PNG từng biểu đồ</button>
           <button type="button" class="adw-menu-item" role="menuitem" data-menu="pdf">Xuất PDF toàn báo cáo</button>
@@ -2362,6 +2365,11 @@ function initAdwChrome(){
     item.addEventListener('click',()=>{
       const action=item.dataset.menu;
       if(action==='settings') showTab('settings');
+      else if(action==='view-db') runUnifiedReport('view');
+      else if(action==='force-update'){
+        const from=mptEl('startDate')?.value||'—',to=mptEl('endDate')?.value||'—';
+        if(confirm(`Tải lại toàn bộ dữ liệu từ MPT cho ${from} đến ${to}? Thao tác này có thể mất nhiều thời gian.`)) runUnifiedReport('force');
+      }
       else document.getElementById(proxy[action])?.click();
       setMenu(false);
     });
@@ -7889,6 +7897,10 @@ document.getElementById('dataFreshnessUpdate')?.addEventListener('click', ()=>{
   adwCloseDialog('dataFreshnessDialog');
   runUnifiedReport('update');
 });
+document.getElementById('dataFreshnessSummary')?.addEventListener('click', ()=>{
+  if(lastReportMeta) showDataFreshness(lastReportMeta,loadedDataRange?loadedDataRange.rows:0);
+  else toast('Chưa có chi tiết độ mới dữ liệu.');
+});
 
 document.getElementById('exportCSV').addEventListener('click', ()=> exportCSV(lastFiltered.length?lastFiltered:enriched));
 document.getElementById('downloadFilteredJSON').addEventListener('click', ()=> downloadJSON(lastFiltered.length ? lastFiltered : enriched));
@@ -8049,6 +8061,7 @@ function reportSyncMode(dataUrl){
 function setReportActionsBusy(busy,syncMode='auto'){
   const view=document.getElementById('applyFilter');
   const update=document.getElementById('updateReport');
+  const cancel=document.getElementById('headerCancelUpdate');
   const reading=syncMode==='none';
   if(view){
     view.disabled=!!busy;
@@ -8056,8 +8069,9 @@ function setReportActionsBusy(busy,syncMode='auto'){
   }
   if(update){
     update.disabled=!!busy;
-    update.textContent=busy&&!reading?'Đang cập nhật…':'Đồng bộ MPT';
+    update.textContent=busy&&!reading?'Đang cập nhật…':'Cập nhật';
   }
+  if(cancel) cancel.hidden=!busy;
 }
 
 function setReportLoading(show, detail='Đang kiểm tra dữ liệu đã lưu…', failed=false){
@@ -8133,6 +8147,8 @@ function startReportProgressPolling(jobId,total){
       const done=Math.min(Number(progress.done||0)+1,progress.total);
       const name=progress.current?` — ${progress.current}`:'';
       setReportLoadingDetail(`Đang tải tài khoản ${done}/${progress.total}${name}`);
+      const update=document.getElementById('updateReport');
+      if(update) update.textContent=`Đang cập nhật… ${done}/${progress.total}`;
     }catch(_){}
   },1500);
 }
@@ -8475,7 +8491,7 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
     refreshAccountFilter(requestScope&&Array.isArray(requestScope.accountIds)?requestScope.accountIds:undefined);
     initBillingFilters(true);
     const accountCount=loadedAccountIds?loadedAccountIds.length:new Set(enriched.map(r=>String(r.account_id||'Unknown'))).size;
-    const stat=`Đã tải cube ${total.toLocaleString('vi-VN')} dòng; preview ${enriched.length.toLocaleString('vi-VN')} dòng / ${accountCount} tài khoản | ${meta.cache||'DB'}.`;
+    const stat=`Đã tải ${UIFormat.int(total)} cuộc gọi của ${accountCount} tài khoản.`;
     const statusEl=document.getElementById('uploadStatus'); if(statusEl) statusEl.innerText=stat;
     updateMptLoadedSummary(dataUrl,total,accountCount);
     adwHideRestoreBanner();
@@ -8613,7 +8629,7 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     const cacheState = res.headers.get('X-MPT-Cache');
     const cacheText = cacheState ? ` | MPT cache: ${cacheState}` : '';
     const capText = total>enriched.length ? ` | chi tiết theo dòng: ${enriched.length.toLocaleString('vi-VN')}/${total.toLocaleString('vi-VN')}` : '';
-    const stat = `Auto loaded ${total} records / ${sourceAccountCount} account(s) (removed ${removedDup} duplicate uuid)${cacheText}${capText}.`;
+    const stat = `Đã tải ${UIFormat.int(total)} cuộc gọi của ${sourceAccountCount} tài khoản.`;
     const statusEl = document.getElementById('uploadStatus');
     if(statusEl) statusEl.innerText = stat;
     try{ updateMptLoadedSummary(dataUrl,total,sourceAccountCount); }catch(e){ console.warn('updateMptLoadedSummary', e); }
@@ -8658,6 +8674,7 @@ async function loadDataFromUrlParam(){
 }
 
 document.getElementById('cancelReportLoad')?.addEventListener('click',()=>reportAbortController?.abort());
+document.getElementById('headerCancelUpdate')?.addEventListener('click',()=>reportAbortController?.abort());
 document.getElementById('closeReportLoad')?.addEventListener('click',dismissReportLoading);
 document.getElementById('retryReportLoad')?.addEventListener('click',()=>lastReportDataUrl ? loadReportDataUrl(lastReportDataUrl) : loadDataFromUrlParam());
 
@@ -8895,6 +8912,7 @@ function updateMptLoadedSummary(dataUrl,rowCount,accountCount){
   }catch(_){}
   summary.textContent=`Đã tải ${Number(rowCount).toLocaleString('vi-VN')} dòng · ${accountCount} tài khoản${range?' · '+range:''}`;
   mptSetStatus('ready',summary.textContent);
+  updateDataFreshnessSummary(lastReportMeta,rowCount);
 }
 
 function mptBuildDataUrl(){
@@ -8936,6 +8954,31 @@ function formatVnDateTime(value){
   return UIFormat.dateTime(value);
 }
 
+function relativeFreshness(value){
+  const stamp=Date.parse(value||'');
+  if(!Number.isFinite(stamp)) return '';
+  const minutes=Math.max(0,Math.round((Date.now()-stamp)/60000));
+  if(minutes<1) return 'vừa xong';
+  if(minutes<60) return `${minutes} phút trước`;
+  const hours=Math.round(minutes/60);
+  if(hours<24) return `${hours} giờ trước`;
+  return UIFormat.dateTime(value);
+}
+function updateDataFreshnessSummary(meta,rows){
+  const target=document.getElementById('dataFreshnessSummary');
+  if(!target) return;
+  const missing=meta?.missingDays||[];
+  target.classList.toggle('warn',missing.length>0);
+  if(missing.length){ target.textContent=`Thiếu ${missing.length} ngày · bấm Cập nhật`; return; }
+  if(!meta){ target.textContent=rows?`Dữ liệu từ tệp · ${UIFormat.int(rows)} dòng`:'Chưa có dữ liệu'; return; }
+  if(!meta.lastCall){ target.textContent='Chưa có dữ liệu'; return; }
+  const callDate=String(meta.lastCall).slice(0,10);
+  const callTime=String(meta.lastCall).slice(11,16);
+  const latest=callDate===mptLocalDate() ? `Dữ liệu đến ${callTime||'—'} hôm nay` : `Dữ liệu đến ${formatVnDateTime(meta.lastCall)}`;
+  const synced=relativeFreshness(meta.syncedAt);
+  target.textContent=synced?`${latest} · cập nhật ${synced}`:latest;
+}
+
 // Popup sau khi bấm "Xem": DB đang có dữ liệu của bộ lọc này tới thời điểm nào.
 function showDataFreshness(meta,rows){
   const list=mptEl('dataFreshnessList');
@@ -8956,9 +8999,9 @@ function showDataFreshness(meta,rows){
     const dd=document.createElement('dd'); dd.textContent=value; if(warn) dd.className='warn';
     return [dt,dd];
   }));
-  if(!rows&&!meta.syncedAt) hint.textContent='DB chưa có dữ liệu cho bộ lọc này. Bấm “Cập nhật báo cáo” để tải từ MPT.';
-  else if(missing.length) hint.textContent=`Còn ${missing.length} ngày chưa tải từ MPT nên số liệu chưa đủ. Bấm “Cập nhật báo cáo” để tải bổ sung.`;
-  else if(to>=today) hint.textContent='Khoảng lọc có ngày hôm nay: dữ liệu chỉ tới thời điểm cập nhật ở trên. Bấm “Cập nhật báo cáo” để lấy cuộc gọi mới nhất.';
+  if(!rows&&!meta.syncedAt) hint.textContent='DB chưa có dữ liệu cho bộ lọc này. Bấm “Cập nhật” để tải từ MPT.';
+  else if(missing.length) hint.textContent=`Còn ${missing.length} ngày chưa tải từ MPT nên số liệu chưa đủ. Bấm “Cập nhật” để tải bổ sung.`;
+  else if(to>=today) hint.textContent='Khoảng lọc có ngày hôm nay: dữ liệu chỉ tới thời điểm cập nhật ở trên. Bấm “Cập nhật” để lấy cuộc gọi mới nhất.';
   else hint.textContent='Dữ liệu của bộ lọc này đã đủ trong DB.';
   adwOpenDialog('dataFreshnessDialog');
 }
@@ -9022,7 +9065,7 @@ async function runUnifiedReport(mode='view'){
   if(success){
     markFilterDirty(false);
     await updateDatabaseStatus();
-    if(mode==='view') showDataFreshness(lastReportMeta,loadedDataRange?loadedDataRange.rows:0);
+    updateDataFreshnessSummary(lastReportMeta,loadedDataRange?loadedDataRange.rows:0);
   }
   return success;
 }

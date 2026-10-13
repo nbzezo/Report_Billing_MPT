@@ -34,6 +34,8 @@ try {
     await page.goto(`http://127.0.0.1:${port}/?csv=/tests/ui/fixtures/sample.csv`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => ['8000', '8.000'].includes(document.querySelector('#kpi_total_text')?.textContent?.trim()), { timeout: 45000 });
     await page.waitForFunction(() => !document.querySelector('#reportLoading.show'), { timeout: 45000 });
+    if ((await page.locator('#updateReport').textContent()).trim() !== 'Cập nhật') throw new Error('Header chưa dùng một hành động Cập nhật duy nhất.');
+    if (!/Dữ liệu từ tệp/.test(await page.locator('#dataFreshnessSummary').textContent())) throw new Error('Header chưa hiển thị độ mới dữ liệu.');
     const filterHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
     if (filterHeight > 112) throw new Error(`Thanh lọc cao ${filterHeight}px ở 1440px.`);
     await page.evaluate(() => { window.__snapRunUnifiedReport = window.runUnifiedReport; window.runUnifiedReport = () => markFilterDirty(false); });
