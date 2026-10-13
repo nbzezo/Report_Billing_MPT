@@ -1037,5 +1037,8 @@ body.adw .chip-status[data-status="Cancelled"]{background:var(--st-cancelled-bg)
 body.adw .chip-status[data-status="Fail"]{background:var(--st-fail-bg);color:var(--st-fail-fg)}
 body.adw .card{background:var(--surface);border-color:var(--border)}
 body.adw .empty-state{text-align:center;padding:var(--sp-8);color:var(--text-2)}
+body.adw .loading-error{margin-top:var(--sp-3);color:var(--st-fail-fg);background:var(--st-fail-bg);padding:var(--sp-3);border-radius:var(--r-md)}
+body.adw .loading-error-details{margin-top:var(--sp-2);color:var(--text-2)}
+body.adw .loading-error-details pre{max-height:140px;overflow:auto;white-space:pre-wrap;font-size:var(--fs-xs)}
 body.adw .skeleton{background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2));background-size:200% 100%;animation:adw-skeleton 1.4s infinite}
 @keyframes adw-skeleton{to{background-position:-200% 0}}

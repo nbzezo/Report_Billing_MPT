@@ -143,6 +143,8 @@ function updateRN_CF_KPIs(rows){
       <div class="loading-spinner" aria-hidden="true"></div>
       <div id="reportLoadingTitle" class="loading-title">Đang tải dữ liệu cuộc gọi</div>
       <div id="reportLoadingDetail" class="loading-detail" aria-live="polite">Đang kiểm tra dữ liệu đã lưu…</div>
+      <div id="reportLoadingError" class="loading-error" role="alert" hidden></div>
+      <details id="reportLoadingErrorDetails" class="loading-error-details" hidden><summary>Chi tiết</summary><pre id="reportLoadingErrorTechnical"></pre></details>
       <div class="loading-actions"><button id="cancelReportLoad" type="button">Hủy</button><button id="closeReportLoad" type="button" style="display:none">Đóng</button><button id="retryReportLoad" type="button" class="primary-btn" style="display:none">Thử lại</button></div>
       <div class="loading-hint muted">Nhấn Esc để đóng cửa sổ này.</div>
     </div>
@@ -4590,10 +4592,10 @@ function yieldFrame(){
 async function renderSteps(steps){
   const total = steps.length;
   const overlay = document.getElementById('reportLoading');
-  const showProgress = overlay && overlay.classList.contains('show') && typeof setReportLoadingDetail==='function';
   for(let i=0;i<total;i++){
     try{ steps[i](); }catch(e){ console.warn('render step', i, e); }
-    if(showProgress) setReportLoadingDetail(`Đang vẽ biểu đồ ${Math.min(i+1,total)}/${total}…`);
+    if(overlay?.classList.contains('show') && !reportLoadingFailed())
+      setReportLoadingDetail(`Đang vẽ biểu đồ ${Math.min(i+1,total)}/${total}…`);
     await yieldFrame();
   }
 }
@@ -8050,12 +8052,20 @@ function setReportActionsBusy(busy,syncMode='auto'){
 function setReportLoading(show, detail='Đang kiểm tra dữ liệu đã lưu…', failed=false){
   const overlay=document.getElementById('reportLoading');
   const detailEl=document.getElementById('reportLoadingDetail');
+  const titleEl=document.getElementById('reportLoadingTitle');
+  const errorEl=document.getElementById('reportLoadingError');
+  const technicalEl=document.getElementById('reportLoadingErrorTechnical');
+  const errorDetails=document.getElementById('reportLoadingErrorDetails');
   const cancel=document.getElementById('cancelReportLoad');
   const close=document.getElementById('closeReportLoad');
   const retry=document.getElementById('retryReportLoad');
   if(!overlay) return;
   overlay.classList.toggle('show',show);
-  if(detailEl) detailEl.textContent=detail;
+  if(titleEl) titleEl.textContent=failed?'Không tải được báo cáo':'Đang tải dữ liệu cuộc gọi';
+  if(detailEl) detailEl.textContent=failed?'Hãy kiểm tra dữ liệu rồi thử lại.':detail;
+  if(errorEl){ errorEl.hidden=!failed; errorEl.textContent=failed?detail:''; }
+  if(technicalEl) technicalEl.textContent=failed?detail:'';
+  if(errorDetails){ errorDetails.hidden=!failed; errorDetails.open=false; }
   reportLoadingBaseDetail=detail;
   if(cancel) cancel.style.display=failed?'none':'';
   if(close) close.style.display=failed?'':'none';
@@ -8780,7 +8790,9 @@ async function mptFetchAccounts(refresh=false){
     ? await fetch('/api/accounts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({profile_id:mptActiveProfileId})})
     : await fetch('/api/accounts?profile_id='+encodeURIComponent(mptActiveProfileId)+'&cached=1');
   if(!response.ok) throw new Error(await mptApiError(response));
-  mptAccounts=await response.json();
+  const accounts=await response.json();
+  mptAccounts=Array.isArray(accounts)?accounts:[];
+  if(!Array.isArray(accounts)) toast('Danh sách tài khoản không đúng định dạng. Bạn vẫn có thể xem dữ liệu đã lưu.',true);
   mptAccounts.forEach(item=>{ if(item&&item.id) accountNameMap[String(item.id)]=item.name||String(item.id); });
   mptRenderAccounts();
   mptSetStatus('ready',`Đã sẵn sàng với ${mptAccounts.length} tài khoản từ ${profile?.name||'kết nối đã chọn'}.`);
