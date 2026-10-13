@@ -20,3 +20,5 @@ calldata-*.csv
 .agents/
 .pytest_cache/
 logs/
+tests/ui/out/
+tests/ui/node_modules/
