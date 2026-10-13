@@ -1197,7 +1197,14 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertEqual(self.dashboard_html.count(bootstrap), 1)
 
     def test_loading_and_accessibility_hooks_exist(self):
-        for token in ("reportLoading", "cancelReportLoad", 'role="tablist"', 'aria-live="polite"'):
+        for token in (
+            "reportLoading",
+            "cancelReportLoad",
+            'aria-live="polite"',
+            'class="skip-link"',
+            'id="uiInfoPopover"',
+            "aria-current",
+        ):
             self.assertIn(token, self.dashboard_html)
 
     def test_kpi_summary_places_status_chips_on_a_full_width_row(self):

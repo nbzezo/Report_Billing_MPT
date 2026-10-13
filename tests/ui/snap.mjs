@@ -14,6 +14,7 @@ function loadPlaywright() {
 }
 const { chromium } = loadPlaywright();
 const tabs = ['overview', 'quality', 'time', 'advanced', 'billing', 'cid', 'settings'];
+const auditOnly = process.argv.includes('--audit-only');
 const out = path.join(here, process.argv.includes('--baseline') ? 'baseline' : 'out');
 await fs.mkdir(out, { recursive: true });
 await fs.access(path.join(here, 'fixtures', 'sample.csv')).catch(() => { throw new Error('Chạy node tests/ui/make-sample.mjs trước.'); });
@@ -31,27 +32,40 @@ try {
     await page.goto(`http://127.0.0.1:${port}/?csv=/tests/ui/fixtures/sample.csv`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => ['8000', '8.000'].includes(document.querySelector('#kpi_total_text')?.textContent?.trim()), { timeout: 45000 });
     await page.waitForFunction(() => !document.querySelector('#reportLoading.show'), { timeout: 45000 });
+    const axe = path.join(here, 'vendor', 'axe.min.js');
+    await fs.access(axe);
+    await page.addScriptTag({ path: axe });
+    const axeSummary = {};
     for (const tab of tabs) {
       await page.locator(`#tabsBar .tab-btn[data-tab="${tab}"]`).click();
-      await page.waitForTimeout(180);
-      await page.screenshot({ path: path.join(out, `${theme}-${tab}.png`) });
-      await page.screenshot({ path: path.join(out, `${theme}-${tab}-full.png`), fullPage: true });
+      await page.waitForTimeout(auditOnly ? 80 : 180);
+      const activeState = await page.locator(`#tabsBar .tab-btn[data-tab="${tab}"]`).getAttribute('aria-current');
+      if (activeState !== 'page') throw new Error(`Sidebar chưa đánh dấu màn hình ${tab} đang mở.`);
+      if (!auditOnly) {
+        await page.screenshot({ path: path.join(out, `${theme}-${tab}.png`) });
+        await page.screenshot({ path: path.join(out, `${theme}-${tab}-full.png`), fullPage: true });
+      }
+      const result = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
+      axeSummary[tab] = result.violations.map(item => ({
+        id: item.id,
+        impact: item.impact || 'unknown',
+        nodes: item.nodes.length,
+        targets: item.nodes.slice(0, 3).map(node => node.target.join(' ')),
+      }));
     }
-    if (theme === 'light') {
+    await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
+    const infoButton = page.locator('.info-btn').first();
+    await infoButton.click();
+    if (await page.locator('#uiInfoPopover').isHidden()) throw new Error('Popover công thức không mở.');
+    await page.keyboard.press('Escape');
+    if (!(await page.locator('#uiInfoPopover').isHidden())) throw new Error('Popover công thức không đóng bằng Escape.');
+    if (!(await infoButton.evaluate(element => element === document.activeElement))) throw new Error('Popover không trả focus về nút kích hoạt.');
+    if (theme === 'light' && !auditOnly) {
       await page.setViewportSize({ width: 1024, height: 768 });
       await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
       await page.screenshot({ path: path.join(out, 'light-overview-1024.png'), fullPage: true });
     }
-    try {
-      const axe = path.join(here, 'vendor', 'axe.min.js');
-      await fs.access(axe);
-      await page.addScriptTag({ path: axe });
-      const result = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
-      const counts = result.violations.reduce((acc, item) => { acc[item.impact] = (acc[item.impact] || 0) + 1; return acc; }, {});
-      console.log(`${theme} axe: ${JSON.stringify(counts)}; ${result.violations.map(v => `${v.id}: ${v.nodes.length} vị trí`).join(', ')}`);
-    } catch (error) {
-      console.warn(`${theme} axe chưa chạy: ${error.message}`);
-    }
+    console.log(`${theme} axe theo màn hình: ${JSON.stringify(axeSummary)}`);
     if (errors.length) console.warn(`${theme} page errors: ${errors.slice(0, 5).join(' | ')}`);
     await context.close();
   }

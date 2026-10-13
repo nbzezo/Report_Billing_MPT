@@ -138,6 +138,8 @@ function updateRN_CF_KPIs(rows){
 
 </head>
 <body>
+  <a class="skip-link" href="#adwMain">Bỏ qua đến nội dung</a>
+  <div id="uiInfoPopover" class="popover" role="tooltip" hidden></div>
   <div id="reportLoading" class="loading-overlay" role="dialog" aria-modal="true" aria-labelledby="reportLoadingTitle" aria-describedby="reportLoadingDetail">
     <div class="loading-dialog">
       <div class="loading-spinner" aria-hidden="true"></div>
@@ -583,9 +585,9 @@ function updateRN_CF_KPIs(rows){
           <div class="kpi-group-title">Tổng quan cuộc gọi</div>
           <div class="kpi-group-grid">
             <div class="kpi compact" id="kpi_total"><div class="kpi-value" id="kpi_total_text">—</div><div class="muted">Tổng cuộc</div></div>
-            <div class="kpi compact tone-green" id="kpi_connect_rate"><div class="kpi-value" id="kpi_connect_rate_text">—</div><div class="muted">Tỷ lệ kết nối / tổng lượt gọi <span class="formula-info" tabindex="0" data-tooltip="Connected / Tổng cuộc, bao gồm cả Fail, Huỷ và Unknown.">ⓘ</span></div></div>
-            <div class="kpi compact tone-green" id="kpi_answer"><div class="kpi-value" id="kpi_answer_text">—</div><div class="muted">ASR hợp lệ <span class="formula-info" tabindex="0" data-tooltip="Connected / (Connected + No Answer). Chỉ tính các cuộc hợp lệ để đo khả năng trả lời.">ⓘ</span></div></div>
-            <div class="kpi compact tone-green" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="muted">Kết nối loại Fail <span class="formula-info" tabindex="0" data-tooltip="Connected / (Tổng cuộc − Fail). Chỉ loại đúng nhóm Fail khỏi mẫu số.">ⓘ</span></div></div>
+            <div class="kpi compact tone-green" id="kpi_connect_rate"><div class="kpi-value" id="kpi_connect_rate_text">—</div><div class="muted">Tỷ lệ kết nối / tổng lượt gọi <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / Tổng cuộc, bao gồm cả cuộc lỗi và hủy.">?</button></div></div>
+            <div class="kpi compact tone-green" id="kpi_answer"><div class="kpi-value" id="kpi_answer_text">—</div><div class="muted">ASR hợp lệ <button type="button" class="info-btn" aria-label="Giải thích: ASR hợp lệ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Kết nối + Không nghe). Chỉ tính các cuộc hợp lệ để đo khả năng trả lời.">?</button></div></div>
+            <div class="kpi compact tone-green" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="muted">Kết nối loại Fail <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi). Chỉ loại nhóm Lỗi khỏi mẫu số.">?</button></div></div>
             <div class="kpi compact kpi-status" id="kpi_conn"><div class="kpi-status-head"><span class="muted">Phân bổ trạng thái</span><div class="kpi-status-bar" id="kpi_conn_bar" aria-hidden="true"></div></div><div class="kpi-value status-chips" id="kpi_conn_text">—</div></div>
           </div>
         </div>
@@ -593,9 +595,9 @@ function updateRN_CF_KPIs(rows){
           <div class="kpi-group-title">Năng lực / vận hành</div>
           <div class="kpi-group-grid">
             <div class="kpi compact" id="kpi_minutes"><div class="kpi-value" id="kpi_minutes_text">—</div><div class="muted">Tổng phút gọi</div></div>
-            <div class="kpi compact" id="kpi_peak"><div class="kpi-value" id="kpi_peak_text">—</div><div class="muted">Đồng thời cao nhất <span class="formula-info" tabindex="0" data-tooltip="Số cuộc đồng thời lớn nhất trong khoảng thời gian lọc.">ⓘ</span></div></div>
-            <div class="kpi compact" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="muted">Billsec trung bình <span class="formula-info" tabindex="0" data-tooltip="Tổng billsec của cuộc Connected chia cho số cuộc Connected.">ⓘ</span></div></div>
-            <div class="kpi compact kpi-setting"><div class="kpi-value"><input id="alertThreshold" type="number" min="0" max="100" step="1" value="40" aria-describedby="alertThresholdLabel"><span class="kpi-unit">%</span></div><div class="muted"><label for="alertThreshold" id="alertThresholdLabel">Ngưỡng cảnh báo ASR</label> <span class="formula-info" tabindex="0" data-tooltip="ASR hợp lệ thấp hơn ngưỡng này sẽ được tô cảnh báo. Giá trị được lưu trên máy.">ⓘ</span></div></div>
+            <div class="kpi compact" id="kpi_peak"><div class="kpi-value" id="kpi_peak_text">—</div><div class="muted">Đồng thời cao nhất <button type="button" class="info-btn" aria-label="Giải thích: Đồng thời cao nhất" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Số cuộc đồng thời lớn nhất trong khoảng thời gian lọc.">?</button></div></div>
+            <div class="kpi compact" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="muted">Billsec trung bình <button type="button" class="info-btn" aria-label="Giải thích: Thời lượng tính cước trung bình" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Tổng billsec của cuộc Kết nối chia cho số cuộc Kết nối.">?</button></div></div>
+            <div class="kpi compact kpi-setting"><div class="kpi-value"><input id="alertThreshold" type="number" min="0" max="100" step="1" value="40" aria-describedby="alertThresholdLabel"><span class="kpi-unit">%</span></div><div class="muted"><label for="alertThreshold" id="alertThresholdLabel">Ngưỡng cảnh báo ASR</label> <button type="button" class="info-btn" aria-label="Giải thích: Ngưỡng cảnh báo ASR" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="ASR hợp lệ thấp hơn ngưỡng này sẽ được tô cảnh báo. Giá trị được lưu trên máy.">?</button></div></div>
           </div>
         </div>
         <div class="kpi-group">
@@ -611,7 +613,7 @@ function updateRN_CF_KPIs(rows){
     </div>
   </div>
 
-  <div id="tabsBar" class="adw-navlist" role="tablist" aria-label="Nhóm báo cáo">
+  <div id="tabsBar" class="adw-navlist" aria-label="Nhóm báo cáo">
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="overview"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 9l6-6 6 6M4 8v5h8V8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tổng quan</span></button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="quality"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.5 12a5.5 5.5 0 1 1 11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8 12L11 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Chất lượng</span></button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="time"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="5.7" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Vận hành</span></button>
@@ -1201,7 +1203,7 @@ function updateRN_CF_KPIs(rows){
     <div id="table_billing_by_period" class="card full" data-tab="billing" draggable="true">
       <h3 style="margin:0 0 6px 0">Cước theo kỳ</h3>
       <div class="muted">Giây thực tế vs giây sau làm tròn block, phút quy đổi và thành tiền.</div>
-      <div style="overflow:auto;max-height:420px;margin-top:6px">
+      <div tabindex="0" aria-label="Bảng cước theo kỳ, có thể cuộn" style="overflow:auto;max-height:420px;margin-top:6px">
         <table id="billingPeriodTable" style="width:100%;border-collapse:collapse;font-size:12px">
           <thead><tr>
             <th style="text-align:left;border:1px solid #eee;padding:6px">Kỳ</th>
@@ -2256,7 +2258,14 @@ function initAdwShell(){
   const sidebar=document.getElementById('adwSidebar');
   const clamp=document.getElementById('adwClamp');
   const tabs=document.getElementById('tabsBar');
-  if(sidebar&&tabs) sidebar.appendChild(tabs);
+  if(sidebar&&tabs){
+    tabs.removeAttribute('role');
+    tabs.querySelectorAll('.tab-btn').forEach(button=>{
+      button.removeAttribute('role');
+      button.removeAttribute('aria-selected');
+    });
+    sidebar.appendChild(tabs);
+  }
   if(clamp){
     const kpi=document.querySelector('.kpi-shell');
     const grid=document.getElementById('reportGrid');
@@ -4251,7 +4260,7 @@ function showTab(tabName){
   document.querySelectorAll('.tab-btn').forEach(b=>{
     const active=b.dataset.tab===tabName;
     b.classList.toggle('active',active);
-    b.setAttribute('aria-selected',active?'true':'false');
+    if(active) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');
     b.tabIndex=active?0:-1;
   });
   document.querySelectorAll('.card[data-tab]').forEach(card=>{
@@ -11128,6 +11137,37 @@ function initLlmChrome(){
 }
 
 // Final bootstrap: all report functions above are now available.
+function initInfoPopover(){
+  const popover=document.getElementById('uiInfoPopover');
+  let trigger=null;
+  const close=(returnFocus=true)=>{
+    if(!trigger) return;
+    trigger.setAttribute('aria-expanded','false');
+    popover.hidden=true;
+    if(returnFocus) trigger.focus();
+    trigger=null;
+  };
+  document.addEventListener('click',event=>{
+    const button=event.target.closest('.info-btn');
+    if(button){
+      if(trigger===button){ close(); return; }
+      close(false); trigger=button;
+      popover.textContent=button.dataset.tooltip||'';
+      popover.hidden=false;
+      button.setAttribute('aria-expanded','true');
+      const rect=button.getBoundingClientRect();
+      const width=popover.offsetWidth;
+      popover.style.left=`${Math.min(window.innerWidth-width-8,Math.max(8,rect.left-width/2+rect.width/2))}px`;
+      popover.style.top=`${rect.bottom+8}px`;
+      return;
+    }
+    if(trigger&&!popover.contains(event.target)) close(false);
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&trigger){ event.preventDefault(); close(); }
+  });
+}
+initInfoPopover();
 initAdwChrome();
 initFilterDirtyState();
 loadMap();

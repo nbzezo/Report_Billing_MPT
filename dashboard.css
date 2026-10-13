@@ -163,6 +163,9 @@
   body.dark .asr-time-subtitle,body.dark .asr-time-kpi-label{color:#94a3b8}
   body.dark .asr-time-kpi{background:#111827;border-color:#334155}
   body.dark .asr-time-kpi-value{color:#f8fafc}
+  body.dark .asr-time-kpi-delta{color:#cbd5e1}
+  body.dark .asr-time-kpi-delta.up{color:#86efac}
+  body.dark .asr-time-kpi-delta.down{color:#fca5a5}
   .retry-report-card{padding:0;overflow:hidden}
   .retry-header{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:16px 16px 0}
   .retry-title{font-size:16px;font-weight:850;color:#27364d}
@@ -478,9 +481,9 @@ body.adw #updateReport:hover:not(:disabled){background:color-mix(in srgb,var(--a
 body.adw #applyFilter.dirty{animation:adwPulseDirty 1.8s infinite ease-in-out}
 @keyframes adwPulseDirty{0%,100%{box-shadow:0 0 0 2px rgba(233,84,32,.28)}50%{box-shadow:0 0 0 5px rgba(233,84,32,.46)}}
 body.adw[data-active-tab="billing"] .adw-filterbar .filter-scope-row,
-body.adw[data-active-tab="billing"] .adw-filterbar .report-filter-row{opacity:.55;transition:opacity .18s ease}
+body.adw[data-active-tab="billing"] .adw-filterbar .report-filter-row{background:color-mix(in srgb,var(--view-bg) 55%,transparent);transition:background .18s ease}
 body.adw[data-active-tab="billing"] .adw-filterbar:hover .filter-scope-row,
-body.adw[data-active-tab="billing"] .adw-filterbar:hover .report-filter-row{opacity:1}
+body.adw[data-active-tab="billing"] .adw-filterbar:hover .report-filter-row{background:transparent}
 body.adw .billing-independent-badge{display:none;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;background:rgba(229,165,10,.16);color:var(--text);font-size:12px;font-weight:600}
 body.adw .billing-independent-badge button{min-height:24px;padding:2px 8px;font-size:12px}
 body.adw[data-active-tab="billing"] .billing-independent-badge{display:inline-flex}
@@ -565,16 +568,10 @@ body.adw .kpi-unit{font-size:14px;color:var(--dim);font-weight:600}
   body.adw .kpi-row>.kpi-group:first-child{grid-column:1/-1}
 }
 body.adw .kpi .kpi-value{font-size:20px;font-weight:700;letter-spacing:-.02em;color:var(--text)}
-.formula-info{position:relative;display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;cursor:help;color:var(--accent);font-size:12px;font-weight:700;vertical-align:middle}
-.formula-info:hover,.formula-info:focus-visible{background:var(--hover);outline:none}
-.formula-info::after{content:attr(data-tooltip);position:absolute;left:50%;bottom:calc(100% + 8px);z-index:120;width:max-content;max-width:min(340px,80vw);padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--card-bg);box-shadow:var(--shadow-dialog);color:var(--text);font-size:12px;font-weight:400;line-height:1.4;white-space:normal;opacity:0;pointer-events:none;transform:translate(-50%,4px);transition:opacity .12s,transform .12s}
-.formula-info:hover::after,.formula-info:focus-visible::after{opacity:1;transform:translate(-50%,0)}
-.kpi-group:first-child .kpi:first-child .formula-info::after{left:0;transform:translate(0,4px)}
-.kpi-group:first-child .kpi:first-child .formula-info:hover::after,
-.kpi-group:first-child .kpi:first-child .formula-info:focus-visible::after{transform:translate(0,0)}
-.kpi-group:last-child .formula-info::after{left:auto;right:0;transform:translate(0,4px)}
-.kpi-group:last-child .formula-info:hover::after,
-.kpi-group:last-child .formula-info:focus-visible::after{transform:translate(0,0)}
+.info-btn{display:inline-grid;place-items:center;width:20px;min-width:20px;height:20px;min-height:20px;padding:0;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--accent-text);font-size:12px;font-weight:700;vertical-align:middle}
+.popover{position:fixed;z-index:140;width:max-content;max-width:min(340px,calc(100vw - 16px));padding:9px 11px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);box-shadow:var(--shadow-dialog);color:var(--text);font-size:var(--fs-sm);line-height:1.45}
+.skip-link{position:fixed;z-index:100001;left:12px;top:8px;transform:translateY(-150%);padding:8px 12px;border-radius:var(--r-md);background:var(--accent);color:#fff;text-decoration:none}
+.skip-link:focus{transform:translateY(0)}
 body.adw .kpi.tone-green .kpi-value{color:var(--success)}
 body.adw .kpi.tone-orange .kpi-value{color:var(--u-orange)}
 body.adw .kpi.tone-red .kpi-value{color:var(--error)}
@@ -632,7 +629,7 @@ body.adw #reportGrid>.chart-report-card.layout-full>[id^="chart_"]:not(#chart_ga
 body.adw .chart-report-card>[id^="chart_"]>.no-data{min-height:100%;display:flex;align-items:center;justify-content:center}
 body.adw .no-data{color:var(--dim)}
 body.adw .report-more-toggle{grid-column:1/-1!important;padding:9px!important;text-align:center;background:transparent!important;border:1px dashed var(--border)!important;box-shadow:none!important}
-body.adw .report-more-toggle button{border:0;background:transparent;color:var(--accent);font-weight:700}
+body.adw .report-more-toggle button{border:0;background:transparent;color:var(--accent-text);font-weight:700}
 body.adw .report-more-toggle button::after{content:" \2193"}
 body.adw .report-more-toggle.expanded button::after{content:" \2191"}
 body.adw .report-statistics{border:1px solid var(--divider);border-radius:var(--radius);background:transparent;margin-top:8px}
