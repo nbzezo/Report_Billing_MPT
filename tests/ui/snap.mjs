@@ -36,8 +36,27 @@ try {
     await page.waitForFunction(() => !document.querySelector('#reportLoading.show'), { timeout: 45000 });
     if ((await page.locator('#updateReport').textContent()).trim() !== 'Cập nhật') throw new Error('Header chưa dùng một hành động Cập nhật duy nhất.');
     if (!/Dữ liệu từ tệp/.test(await page.locator('#dataFreshnessSummary').textContent())) throw new Error('Header chưa hiển thị độ mới dữ liệu.');
+    const kpiMetrics = await page.locator('.kpi-shell').evaluate(element => ({
+      height: element.getBoundingClientRect().height,
+      card: element.querySelector('.overview-kpi-card')?.getBoundingClientRect().height,
+      primary: element.querySelector('.kpi-primary-grid')?.getBoundingClientRect().height,
+      status: element.querySelector('.kpi-status')?.getBoundingClientRect().height,
+      statusHead: element.querySelector('.kpi-status-head')?.getBoundingClientRect().height,
+      statusBar: element.querySelector('.kpi-status-bar')?.getBoundingClientRect().height,
+      statusChips: element.querySelector('.status-chips')?.getBoundingClientRect().height,
+      statusButton: element.querySelector('.status-chip')?.getBoundingClientRect().height,
+      secondary: element.querySelector('.kpi-secondary-grid')?.getBoundingClientRect().height,
+    }));
+    if (kpiMetrics.height > 360) throw new Error(`Khối KPI Tổng quan vượt mục tiêu 360px: ${JSON.stringify(kpiMetrics)}`);
     const filterHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
     if (filterHeight > 112) throw new Error(`Thanh lọc cao ${filterHeight}px ở 1440px.`);
+    if (await page.locator('#kpi_conn_text .drilldown-trigger').count() !== 4) throw new Error('Phân bố trạng thái chưa có đủ 4 nút drilldown.');
+    const totalKpi = page.locator('#kpi_total');
+    await totalKpi.click();
+    await page.locator('#callDrilldownDialog[open]').waitFor();
+    await page.keyboard.press('Escape');
+    await page.locator('#callDrilldownDialog').waitFor({ state: 'hidden' });
+    if (!(await totalKpi.evaluate(element => element === document.activeElement))) throw new Error('Drilldown KPI không trả focus về nút kích hoạt.');
     await page.evaluate(() => { window.__snapRunUnifiedReport = window.runUnifiedReport; window.runUnifiedReport = () => markFilterDirty(false); });
     await page.locator('#dateRangeButton').click();
     await page.locator('#dateRangePopover').waitFor({ state: 'visible' });

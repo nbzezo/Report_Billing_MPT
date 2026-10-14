@@ -118,11 +118,6 @@ function updateRN_CF_KPIs(rows){
   const elCF = document.getElementById('kpi_max_cf_text');
   if(elMed) elMed.innerText = (med==null) ? '—' : String(Math.round(med*10)/10);
   if(elCF) elCF.innerText = String(maxCF||0);
-  const rnAlertMin = 2;
-  if(elMed){
-    const val = med==null ? Infinity : med;
-    elMed.style.color = (val < rnAlertMin) ? '#c1121f' : '';
-  }
 }
 </script>
 
@@ -496,6 +491,14 @@ function updateRN_CF_KPIs(rows){
       </div>
     </div>
   </dialog>
+  <dialog id="callDrilldownDialog" class="adw-dialog adw-dialog-wide" aria-labelledby="callDrilldownTitle">
+    <div class="adw-dialog-header">
+      <div id="callDrilldownTitle" class="adw-dialog-title">Chi tiết cuộc gọi</div>
+      <button id="callDrilldownCloseIcon" type="button" class="flat-btn icon-only adw-dialog-close" aria-label="Đóng"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
+    </div>
+    <div id="callDrilldownBody" class="adw-dialog-body"></div>
+    <div class="adw-dialog-footer"><div id="callDrilldownStatus" class="adw-dialog-status" role="status" aria-live="polite"></div><button id="callDrilldownClose" type="button">Đóng</button></div>
+  </dialog>
   <dialog id="optionsDialog" class="adw-dialog">
     <div class="adw-dialog-header">
       <div class="adw-dialog-title">Tùy chọn phân tích &amp; màu sắc</div>
@@ -583,36 +586,23 @@ function updateRN_CF_KPIs(rows){
 
   <!-- KPI row -->
   <div class="grid full kpi-shell">
-    <div class="card full">
-      <div class="kpi-row">
-        <div class="kpi-group">
-          <div class="kpi-group-title">Tổng quan cuộc gọi</div>
-          <div class="kpi-group-grid">
-            <div class="kpi compact" id="kpi_total"><div class="kpi-value" id="kpi_total_text">—</div><div class="muted">Tổng cuộc</div></div>
-            <div class="kpi compact tone-green" id="kpi_connect_rate"><div class="kpi-value" id="kpi_connect_rate_text">—</div><div class="muted">Tỷ lệ kết nối / tổng lượt gọi <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / Tổng cuộc, bao gồm cả cuộc lỗi và hủy.">?</button></div></div>
-            <div class="kpi compact tone-green" id="kpi_answer"><div class="kpi-value" id="kpi_answer_text">—</div><div class="muted">ASR hợp lệ <button type="button" class="info-btn" aria-label="Giải thích: ASR hợp lệ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Kết nối + Không nghe). Chỉ tính các cuộc hợp lệ để đo khả năng trả lời.">?</button></div></div>
-            <div class="kpi compact tone-green" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="muted">Kết nối loại Fail <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi). Chỉ loại nhóm Lỗi khỏi mẫu số.">?</button></div></div>
-            <div class="kpi compact kpi-status" id="kpi_conn"><div class="kpi-status-head"><span class="muted">Phân bổ trạng thái</span><div class="kpi-status-bar" id="kpi_conn_bar" aria-hidden="true"></div></div><div class="kpi-value status-chips" id="kpi_conn_text">—</div></div>
-          </div>
-        </div>
-        <div class="kpi-group">
-          <div class="kpi-group-title">Năng lực / vận hành</div>
-          <div class="kpi-group-grid">
-            <div class="kpi compact" id="kpi_minutes"><div class="kpi-value" id="kpi_minutes_text">—</div><div class="muted">Tổng phút gọi</div></div>
-            <div class="kpi compact" id="kpi_peak"><div class="kpi-value" id="kpi_peak_text">—</div><div class="muted">Đồng thời cao nhất <button type="button" class="info-btn" aria-label="Giải thích: Đồng thời cao nhất" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Số cuộc đồng thời lớn nhất trong khoảng thời gian lọc.">?</button></div></div>
-            <div class="kpi compact" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="muted">Billsec trung bình <button type="button" class="info-btn" aria-label="Giải thích: Thời lượng tính cước trung bình" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Tổng billsec của cuộc Kết nối chia cho số cuộc Kết nối.">?</button></div></div>
-            <div class="kpi compact kpi-setting"><div class="kpi-value"><input id="alertThreshold" type="number" min="0" max="100" step="1" value="40" aria-describedby="alertThresholdLabel"><span class="kpi-unit">%</span></div><div class="muted"><label for="alertThreshold" id="alertThresholdLabel">Ngưỡng cảnh báo ASR</label> <button type="button" class="info-btn" aria-label="Giải thích: Ngưỡng cảnh báo ASR" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="ASR hợp lệ thấp hơn ngưỡng này sẽ được tô cảnh báo. Giá trị được lưu trên máy.">?</button></div></div>
-          </div>
-        </div>
-        <div class="kpi-group">
-          <div class="kpi-group-title">Chất lượng / RN-CF</div>
-          <div class="kpi-group-grid">
-            <div class="kpi compact" id="kpi_median_rn"><div class="kpi-value" id="kpi_median_rn_text">—</div><div class="muted">Median Random Number</div></div>
-            <div class="kpi compact tone-red" id="kpi_max_cf"><div class="kpi-value" id="kpi_max_cf_text">—</div><div class="muted">Max Call Fail</div></div>
-            <div class="kpi compact tone-orange" id="kpi_dup_dest"><div class="kpi-value" id="kpi_dup_dest_text">—</div><div class="muted">Destination lặp</div></div>
-            <div class="kpi compact tone-red" id="kpi_invalid_dest"><div class="kpi-value" id="kpi_invalid_dest_text">—</div><div class="muted">Số đích lỗi</div></div>
-          </div>
-        </div>
+    <div class="card full overview-kpi-card">
+      <div class="kpi-group-title">Tổng quan cuộc gọi</div>
+      <div class="kpi-primary-grid">
+        <button type="button" class="kpi kpi-primary drilldown-trigger" id="kpi_total" data-drill-title="Chi tiết tất cả cuộc gọi"><span class="kpi-value" id="kpi_total_text">—</span><span class="kpi-label">Tổng cuộc</span></button>
+        <div class="kpi kpi-primary" id="kpi_connect_rate"><div class="kpi-value" id="kpi_connect_rate_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Tỷ lệ kết nối <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / Tổng cuộc, bao gồm cả cuộc lỗi và hủy.">?</button></div></div>
+        <div class="kpi kpi-primary" id="kpi_answer"><div class="kpi-value" id="kpi_answer_text">—</div><div class="kpi-label">ASR hợp lệ <button type="button" class="info-btn" aria-label="Giải thích: ASR hợp lệ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Kết nối + Không nghe). Chỉ tính các cuộc hợp lệ để đo khả năng trả lời.">?</button></div></div>
+        <div class="kpi kpi-primary" id="kpi_minutes"><div class="kpi-value" id="kpi_minutes_text">—</div><div class="kpi-subvalue" id="kpi_minutes_sub"></div><div class="kpi-label">Tổng phút gọi</div></div>
+      </div>
+      <div class="kpi kpi-status" id="kpi_conn"><div class="kpi-status-head"><span class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Phân bố trạng thái</span><div class="kpi-status-bar" id="kpi_conn_bar" aria-hidden="true"></div></div><div class="kpi-value status-chips" id="kpi_conn_text">—</div></div>
+      <div class="kpi-secondary-grid">
+        <div class="kpi kpi-secondary" id="kpi_peak"><div class="kpi-value" id="kpi_peak_text">—</div><div class="kpi-label">Đồng thời cao nhất <button type="button" class="info-btn" aria-label="Giải thích: Đồng thời cao nhất" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Số cuộc đồng thời lớn nhất trong khoảng thời gian lọc.">?</button></div></div>
+        <div class="kpi kpi-secondary" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="kpi-label">Thời lượng tính cước TB <button type="button" class="info-btn" aria-label="Giải thích: Thời lượng tính cước trung bình" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Tổng billsec của cuộc Kết nối chia cho số cuộc Kết nối.">?</button></div></div>
+        <div class="kpi kpi-secondary" id="kpi_max_cf"><div class="kpi-value" id="kpi_max_cf_text">—</div><div class="kpi-label">Chuỗi lỗi dài nhất</div></div>
+        <div class="kpi kpi-secondary" id="kpi_median_rn"><div class="kpi-value" id="kpi_median_rn_text">—</div><div class="kpi-label">Trung vị số ngẫu nhiên (RN)</div></div>
+        <div class="kpi kpi-secondary" id="kpi_dup_dest"><div class="kpi-value" id="kpi_dup_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lặp</div></div>
+        <div class="kpi kpi-secondary" id="kpi_invalid_dest"><div class="kpi-value" id="kpi_invalid_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lỗi</div></div>
+        <div class="kpi kpi-secondary" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="kpi-label">Tỷ lệ kết nối (trừ cuộc lỗi) <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi). Chỉ loại nhóm Lỗi khỏi mẫu số.">?</button></div></div>
       </div>
     </div>
   </div>
@@ -635,7 +625,7 @@ function updateRN_CF_KPIs(rows){
         <details id="settingsData" class="settings-section"><summary>Dữ liệu &amp; bảo trì</summary><div id="settingsDataContent"></div></details>
         <details id="settingsMapping" class="settings-section"><summary>Tên hiển thị Account</summary><div id="settingsMappingContent"></div></details>
         <details id="settingsGateway" class="settings-section"><summary>Gateway ↔ Account</summary><div id="settingsGatewayContent"></div></details>
-        <details id="settingsAnalysis" class="settings-section"><summary>Phân tích &amp; hiển thị</summary><div id="settingsAnalysisContent"></div></details>
+        <details id="settingsAnalysis" class="settings-section"><summary>Phân tích &amp; ngưỡng cảnh báo</summary><div id="settingsAnalysisContent"><div class="kpi-threshold-settings"><p class="adw-row-sub">Giá trị mặc định đề xuất; có thể điều chỉnh theo mục tiêu vận hành.</p><div class="threshold-grid"><label>ASR cảnh báo dưới (%)<input id="alertThreshold" type="number" min="0" max="100" step="1" value="40"></label><label>Kết nối: cảnh báo dưới (%)<input id="thresholdConnectWarn" type="number" min="0" max="100" value="40"></label><label>Kết nối: nghiêm trọng dưới (%)<input id="thresholdConnectBad" type="number" min="0" max="100" value="30"></label><label>Đích lỗi: cảnh báo trên (%)<input id="thresholdInvalidWarn" type="number" min="0" max="100" value="2"></label><label>Đích lỗi: nghiêm trọng trên (%)<input id="thresholdInvalidBad" type="number" min="0" max="100" value="5"></label><label>Đích lặp: cảnh báo trên (%)<input id="thresholdRepeatWarn" type="number" min="0" max="100" value="10"></label><label>Lỗi: cảnh báo trên (%)<input id="thresholdFailWarn" type="number" min="0" max="100" value="8"></label><label>Lỗi: nghiêm trọng trên (%)<input id="thresholdFailBad" type="number" min="0" max="100" value="15"></label></div></div></div></details>
         <details id="settingsAI" class="settings-section"><summary>Trợ lý AI</summary><div id="settingsAIContent"></div><div id="settingsAIActions"></div></details>
       </div>
     </section>
@@ -4530,9 +4520,9 @@ function renderCommon(filtered, ov, colors){
   if(kpiConnEl){
     const counts = ov.counts || {};
     const chips = [`<button type="button" class="status-chip fail drilldown-trigger" data-drill-status="Fail" data-drill-title="Chi tiết Lỗi">${statusLabel('Fail')} ${UIFormat.int(counts.Fail||0)} · ${UIFormat.pct(ov.pct.Fail)}</button>`,
-      `<button type="button" class="status-chip noans drilldown-trigger" data-drill-status="No Answer" data-drill-title="Chi tiết Không nghe">${statusLabel('No Answer')} ${UIFormat.int(counts['No Answer']||0)} · ${UIFormat.pct(ov.pct.NoAnswer)}</button>`];
-    if((counts.Cancelled||0) > 0) chips.push(`<button type="button" class="status-chip canc drilldown-trigger" data-drill-status="Cancelled" data-drill-title="Chi tiết Hủy">${statusLabel('Cancelled')} ${UIFormat.int(counts.Cancelled||0)} · ${UIFormat.pct(ov.pct.Cancelled)}</button>`);
-    chips.push(`<button type="button" class="status-chip conn drilldown-trigger" data-drill-status="Connected" data-drill-title="Chi tiết Kết nối">${statusLabel('Connected')} ${UIFormat.int(counts.Connected||0)} · ${UIFormat.pct(ov.pct.Connected)}</button>`);
+      `<button type="button" class="status-chip noans drilldown-trigger" data-drill-status="No Answer" data-drill-title="Chi tiết Không nghe">${statusLabel('No Answer')} ${UIFormat.int(counts['No Answer']||0)} · ${UIFormat.pct(ov.pct.NoAnswer)}</button>`,
+      `<button type="button" class="status-chip canc drilldown-trigger" data-drill-status="Cancelled" data-drill-title="Chi tiết Hủy">${statusLabel('Cancelled')} ${UIFormat.int(counts.Cancelled||0)} · ${UIFormat.pct(ov.pct.Cancelled)}</button>`,
+      `<button type="button" class="status-chip conn drilldown-trigger" data-drill-status="Connected" data-drill-title="Chi tiết Kết nối">${statusLabel('Connected')} ${UIFormat.int(counts.Connected||0)} · ${UIFormat.pct(ov.pct.Connected)}</button>`];
     kpiConnEl.innerHTML = chips.join('');
     const bar = document.getElementById('kpi_conn_bar');
     const total = ov.totalCalls || 0;
@@ -4550,7 +4540,12 @@ function renderCommon(filtered, ov, colors){
   if(kpiConnectExclFailEl) kpiConnectExclFailEl.innerText = UIFormat.pct(ov.connectRateExcludingFail||0);
 
   const kpiMinEl = document.getElementById('kpi_minutes_text');
-  if(kpiMinEl) kpiMinEl.innerText = UIFormat.minutesLong(ov.totalMinutes);
+  if(kpiMinEl){
+    const minutes=UIFormat.minutesLong(ov.totalMinutes);
+    const split=minutes.match(/^(.*?)\s*(\(≈.*\))$/);
+    kpiMinEl.innerText=split?split[1]:minutes;
+    document.getElementById('kpi_minutes_sub').innerText=split?split[2]:'';
+  }
 
   const kpiAvgBillsecEl = document.getElementById('kpi_avg_billsec_text');
   if(kpiAvgBillsecEl) kpiAvgBillsecEl.innerText = UIFormat.dec((ov.billsecMetrics||{}).avgBillsecConnected||0) + ' giây';
@@ -4569,7 +4564,7 @@ function renderCommon(filtered, ov, colors){
     if(k) k.innerText = UIFormat.int(cc.systemPeak||0);
   }catch(e){ console.warn('Peak KPI error', e); }
 
-  updateKPIAlerts(ov.answerRate);
+  updateKPIAlerts(ov);
 
   // Keep legacy RN/CF enrich+KPIs behavior intact
   // Guard: avoid breaking the whole dashboard if annotate helper isn't in scope
@@ -6426,31 +6421,77 @@ function loadGridOrder(){
   loadGridOrder();
 })();
 
-// Threshold persistence
-const THRESH_KEY = 'answer-rate-threshold';
-(function initThreshold(){
-  const inp = document.getElementById('alertThreshold');
-  if(!inp) return;
-  const saved = localStorage.getItem(THRESH_KEY);
-  if(saved!==null) inp.value = saved;
-  inp.addEventListener('change', ()=>{
-    localStorage.setItem(THRESH_KEY, String(inp.value));
-    // refresh KPI highlight
-    try{ updateDashboardWithFilters(); }catch(e){}
+// Ngưỡng mặc định đề xuất; người dùng có thể điều chỉnh tại Cài đặt.
+const KPI_THRESHOLDS=Object.freeze({
+  connectRate:{warn:40,bad:30,higherIsBetter:true},
+  invalidDestination:{warn:2,bad:5,higherIsBetter:false},
+  repeatedDestination:{warn:10,bad:null,higherIsBetter:false},
+  failRate:{warn:8,bad:15,higherIsBetter:false},
+});
+const KPI_THRESH_KEY='kpi-thresholds-v1';
+const KPI_THRESHOLD_INPUTS={
+  connectRate:['thresholdConnectWarn','thresholdConnectBad'],
+  invalidDestination:['thresholdInvalidWarn','thresholdInvalidBad'],
+  repeatedDestination:['thresholdRepeatWarn',null],
+  failRate:['thresholdFailWarn','thresholdFailBad'],
+};
+function currentKpiThresholds(){
+  const result={};
+  Object.entries(KPI_THRESHOLDS).forEach(([key,defaults])=>{
+    const [warnId,badId]=KPI_THRESHOLD_INPUTS[key];
+    const warn=Number(document.getElementById(warnId)?.value);
+    const bad=badId===null?null:Number(document.getElementById(badId)?.value);
+    result[key]={...defaults,warn:Number.isFinite(warn)?warn:defaults.warn,bad:bad===null||Number.isFinite(bad)?bad:defaults.bad};
   });
+  return result;
+}
+function kpiSeverity(value,threshold){
+  if(!Number.isFinite(Number(value))||!threshold) return '';
+  const n=Number(value),bad=threshold.bad,warn=threshold.warn;
+  if(threshold.higherIsBetter){
+    if(bad!==null&&n<bad) return 'bad';
+    if(n<warn) return 'warn';
+  }else{
+    if(bad!==null&&n>bad) return 'bad';
+    if(n>warn) return 'warn';
+  }
+  return 'ok';
+}
+function setKpiSeverity(id,value,threshold,label){
+  const element=document.getElementById(id);
+  if(!element) return;
+  const severity=kpiSeverity(value,threshold);
+  if(severity) element.dataset.severity=severity; else delete element.dataset.severity;
+  element.title=severity==='bad'?`⚠ ${label}: vượt ngưỡng nghiêm trọng.`:severity==='warn'?`⚠ ${label}: vượt ngưỡng cảnh báo.`:'';
+}
+(function initThresholds(){
+  let saved={};
+  try{ saved=JSON.parse(localStorage.getItem(KPI_THRESH_KEY)||'{}')||{}; }catch(_){}
+  Object.entries(KPI_THRESHOLD_INPUTS).forEach(([key,[warnId,badId]])=>{
+    const values=saved[key]||{};
+    if(Number.isFinite(Number(values.warn))) document.getElementById(warnId).value=values.warn;
+    if(badId&&Number.isFinite(Number(values.bad))) document.getElementById(badId).value=values.bad;
+  });
+  const legacy=localStorage.getItem('answer-rate-threshold');
+  if(legacy!==null) document.getElementById('alertThreshold').value=legacy;
+  document.querySelectorAll('#settingsAnalysisContent input[type="number"]').forEach(input=>input.addEventListener('change',()=>{
+    localStorage.setItem(KPI_THRESH_KEY,JSON.stringify(currentKpiThresholds()));
+    if(input.id==='alertThreshold') localStorage.setItem('answer-rate-threshold',String(input.value));
+    try{ updateDashboardWithFilters(); }catch(_){}
+  }));
 })();
 
-// Update KPI alert to use threshold input value
 function getAlertThreshold(){
   const el = document.getElementById('alertThreshold');
   const v = el ? Number(el.value||40) : 40;
   return (isNaN(v)?40:v);
 }
-function updateKPIAlerts(answerRate){
-  const el = document.getElementById('kpi_answer');
-  if(!el) return;
-  const thr = getAlertThreshold();
-  el.style.boxShadow = answerRate<thr ? '0 0 0 2px rgba(220,38,38,0.35)' : 'none';
+function updateKPIAlerts(overview){
+  const thresholds=currentKpiThresholds();
+  setKpiSeverity('kpi_connect_rate',overview.connectRate,thresholds.connectRate,'Tỷ lệ kết nối');
+  setKpiSeverity('kpi_invalid_dest',(overview.destinationQuality||{}).invalidDestinationRate,thresholds.invalidDestination,'Số đích lỗi');
+  setKpiSeverity('kpi_dup_dest',(overview.destinationQuality||{}).repeatedDestinationRate,thresholds.repeatedDestination,'Số đích lặp');
+  setKpiSeverity('kpi_conn',(overview.pct||{}).Fail,thresholds.failRate,'Tỷ lệ lỗi');
 }
 
 // Quick Date Ranges: add This Month / Last Month
@@ -8417,6 +8458,29 @@ function closeCallDrilldown(restoreFocus=true){
   const trigger = drilldownState.trigger;
   drilldownState.trigger = null;
   if(restoreFocus && trigger && typeof trigger.focus === 'function') trigger.focus();
+}
+
+function initDrilldownTriggers(){
+  const dialog=document.getElementById('callDrilldownDialog');
+  document.getElementById('callDrilldownClose')?.addEventListener('click',()=>closeCallDrilldown());
+  document.getElementById('callDrilldownCloseIcon')?.addEventListener('click',()=>closeCallDrilldown());
+  dialog?.addEventListener('close',()=>{
+    if(!drilldownState.open) return;
+    drilldownState.open=false;
+    drilldownState.request++;
+    const trigger=drilldownState.trigger;
+    drilldownState.trigger=null;
+    if(trigger&&typeof trigger.focus==='function') trigger.focus();
+  });
+  document.addEventListener('click',event=>{
+    const trigger=event.target.closest('.drilldown-trigger');
+    if(!trigger) return;
+    const extra={title:trigger.dataset.drillTitle||'Chi tiết cuộc gọi'};
+    if(trigger.dataset.drillStatus) extra.statuses=[trigger.dataset.drillStatus];
+    if(trigger.dataset.drillAccount) extra.accountIds=[trigger.dataset.drillAccount];
+    if(trigger.dataset.drillGateway!==undefined) extra.gatewayKey=trigger.dataset.drillGateway;
+    openCallDrilldown(extra,trigger);
+  });
 }
 
 function serverSourceParams(){
@@ -11328,6 +11392,7 @@ function initInfoPopover(){
   });
 }
 initInfoPopover();
+initDrilldownTriggers();
 initCompactFilters();
 initAdwChrome();
 initFilterDirtyState();

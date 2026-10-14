@@ -1219,9 +1219,19 @@ class FrontendRegressionTests(unittest.TestCase):
         ):
             self.assertIn(token, self.dashboard_html)
 
-    def test_kpi_summary_places_status_chips_on_a_full_width_row(self):
-        self.assertIn(".kpi-row>.kpi-group:first-child .kpi-group-grid{grid-template-columns:repeat(4", self.dashboard_html)
-        self.assertIn("#kpi_conn{grid-column:1/-1;min-height:52px}", self.dashboard_html)
+    def test_overview_kpis_use_primary_status_and_compact_secondary_rows(self):
+        for token in (
+            'class="kpi-primary-grid"',
+            'class="kpi kpi-status" id="kpi_conn"',
+            'class="kpi-secondary-grid"',
+            'id="kpi_minutes"',
+            'Trung vị số ngẫu nhiên (RN)',
+            'Tỷ lệ kết nối (trừ cuộc lỗi)',
+            'const KPI_THRESHOLDS=Object.freeze',
+            'data-severity="warn"',
+        ):
+            self.assertIn(token, self.dashboard_html)
+        self.assertNotIn('id="kpi_max_cf" class="kpi compact tone-red"', self.dashboard_html)
 
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
@@ -1257,9 +1267,9 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertIn(".mapping-panel{margin-top:12px}", self.dashboard_html)
         self.assertNotIn(".mapping-panel{display:none", self.dashboard_html)
 
-    def test_empty_call_drilldown_dialog_is_removed(self):
-        self.assertNotIn('id="callDrilldownDialog"', self.dashboard_html)
-        self.assertNotIn('aria-controls="callDrilldownDialog"', self.dashboard_html)
+    def test_kpi_drilldown_dialog_has_content_and_restores_focus(self):
+        for token in ('id="callDrilldownDialog"', 'id="callDrilldownBody"', 'function initDrilldownTriggers()', "trigger.focus()"):
+            self.assertIn(token, self.dashboard_html)
 
     def test_legacy_mpt_source_dialog_is_removed(self):
         self.assertNotIn('id="mptSourcePanel"', self.dashboard_html)

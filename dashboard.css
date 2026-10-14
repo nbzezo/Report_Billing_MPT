@@ -1094,6 +1094,41 @@ body.adw .chip-status[data-status="Fail"]{background:var(--st-fail-bg);color:var
 body.adw .card{background:var(--surface);border-color:var(--border)}
 body.adw .empty-state{text-align:center;padding:var(--sp-8);color:var(--text-2)}
 body.adw .loading-error{margin-top:var(--sp-3);color:var(--st-fail-fg);background:var(--st-fail-bg);padding:var(--sp-3);border-radius:var(--r-md)}
+
+/* UX-23: KPI Tổng quan theo hai tầng, màu chỉ xuất hiện khi vượt ngưỡng. */
+body.adw .overview-kpi-card{padding:12px}
+body.adw .kpi-primary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+body.adw .overview-kpi-card .kpi{min-width:0;background:var(--surface);border-color:var(--border)}
+body.adw .overview-kpi-card .kpi-primary{min-height:78px}
+body.adw .overview-kpi-card .kpi-primary .kpi-value{font-size:var(--fs-2xl);font-variant-numeric:tabular-nums}
+body.adw .overview-kpi-card .kpi-subvalue{color:var(--text-3);font-size:var(--fs-xs);line-height:1}
+body.adw button.kpi-primary{width:100%;color:var(--text);cursor:pointer}
+body.adw button.kpi-primary:hover{background:var(--hover)}
+body.adw .kpi-label{color:var(--text-2);font-size:var(--fs-sm);line-height:1.25}
+body.adw .overview-kpi-card .kpi-status{display:flex;flex:none;height:auto;min-height:0;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:8px;margin-top:8px;padding:9px 10px;text-align:left}
+body.adw .overview-kpi-card .kpi-status-head{display:grid;flex:none;grid-template-columns:auto 1fr;align-items:center;gap:12px;min-width:0;max-width:none}
+body.adw .overview-kpi-card .kpi-status-bar{height:14px}
+body.adw .overview-kpi-card .status-chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;width:100%}
+body.adw .overview-kpi-card .status-chip{justify-content:center;min-height:32px}
+body.adw .kpi-secondary-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:8px}
+body.adw .overview-kpi-card .kpi-secondary{min-height:54px;padding:7px 9px}
+body.adw .overview-kpi-card .kpi-secondary .kpi-value{font-size:var(--fs-lg);font-variant-numeric:tabular-nums}
+body.adw .kpi[data-severity="warn"]{border-color:var(--sev-warn);background:var(--st-noanswer-bg)}
+body.adw .kpi[data-severity="bad"]{border-color:var(--sev-bad);background:var(--st-fail-bg)}
+body.adw .kpi[data-severity="warn"] .kpi-alert::before,body.adw .kpi[data-severity="bad"] .kpi-alert::before{content:"⚠ ";font-weight:700}
+body.adw .kpi[data-severity="warn"] .kpi-alert{color:var(--st-noanswer-fg)}
+body.adw .kpi[data-severity="bad"] .kpi-alert{color:var(--st-fail-fg)}
+body.adw .threshold-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0 14px}
+body.adw .threshold-grid label{display:grid;gap:5px;color:var(--text-2);font-size:var(--fs-sm)}
+body.adw .threshold-grid input{width:100%;box-sizing:border-box}
+@media(max-width:1250px){
+  body.adw .kpi-secondary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(max-width:900px){
+  body.adw .kpi-primary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.adw .overview-kpi-card .status-chips{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.adw .kpi-secondary-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
 body.adw .loading-error-details{margin-top:var(--sp-2);color:var(--text-2)}
 body.adw .loading-error-details pre{max-height:140px;overflow:auto;white-space:pre-wrap;font-size:var(--fs-xs)}
 body.adw .skeleton{background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2));background-size:200% 100%;animation:adw-skeleton 1.4s infinite}
