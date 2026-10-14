@@ -1301,6 +1301,20 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css.split(token_end, 1)[1]), [])
         self.assertLessEqual(len(re.findall(r"#[0-9a-fA-F]{3,8}\b", html + core)), 10)
 
+    def test_responsive_layout_covers_tablet_and_mobile_breakpoints(self):
+        for token in (
+            'id="mobileFilterToggle"',
+            'id="mobileFilterSheet"',
+            "function scheduleVisiblePlotResize()",
+            "setTimeout(()=>",
+            "},150);",
+            "@media(min-width:1024px) and (max-width:1279px)",
+            "@media(min-width:900px) and (max-width:1023px)",
+            "@media(max-width:899px)",
+            "@container report-layout (max-width:933px)",
+        ):
+            self.assertIn(token, self.dashboard_html)
+
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
         self.assertTrue(worker.exists())

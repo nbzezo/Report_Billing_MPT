@@ -708,6 +708,7 @@ body.adw .adw-filterbar .report-filter-row{align-items:center}
 body.adw .adw-filterbar .report-filter-row label{min-width:0}
 body.adw .adw-filterbar .filter-actions{flex:0 0 auto}
 body.adw .compact-filter-row{display:flex;align-items:center;gap:8px;min-height:44px}
+body.adw #mobileFilterToggle{display:none}
 body.adw .compact-profile{display:flex;align-items:center;gap:7px;white-space:nowrap}
 body.adw .compact-profile select{width:180px;max-width:22vw}
 body.adw .compact-account{display:block}
@@ -841,8 +842,10 @@ body.adw .kpi.tone-red .kpi-value{color:var(--error)}
 body.adw .status-chip{border-radius:999px;font-weight:700;font-size:12px}
 
 /* ---------- Report grid ---------- */
-body.adw #reportGrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin:0;padding-bottom:96px;align-items:start}
+body.adw #reportGrid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin:0;padding-bottom:96px;align-items:start;container:report-layout / inline-size}
 body.adw #reportGrid>.card[data-tab]{grid-column:span 6;min-width:0}
+/* Chỉ ghép cặp khi mỗi card còn ít nhất khoảng 460 px. */
+@container report-layout (max-width:933px){body.adw #reportGrid>.card[data-tab]{grid-column:1/-1}}
 body.adw #reportGrid>#settings_panel{grid-column:1/-1;width:100%;max-width:none;box-sizing:border-box}
 body.adw #reportGrid>.card.cid-tier-header{box-shadow:none;background:transparent;border:0;border-left:4px solid var(--cid-tier-color,var(--accent));border-radius:4px;padding:8px 14px;margin:6px 0 2px}
 body.adw #reportGrid>.card.cid-tier-header h3{font-size:14px;margin:0}
@@ -1203,19 +1206,42 @@ body.adw .risk-ai-meta{margin-top:10px;padding-top:8px;border-top:1px solid var(
 body.adw .risk-empty-note{padding:11px 13px;border:1px dashed var(--border);border-radius:var(--radius);background:var(--view-bg);color:var(--dim);font-size:12px}
 
 /* ---------- Responsive ---------- */
+body.adw #reportGrid>.card:has(>table),body.adw #reportGrid>.card:has(.report-stat-table){overflow-x:auto;box-shadow:var(--shadow-card),inset -12px 0 12px -14px var(--dim)}
+body.adw #reportGrid>.card:has(>table)>table,body.adw #reportGrid>.card:has(.report-stat-table) .report-stat-table{min-width:680px}
+@media(min-width:1024px) and (max-width:1279px){
+  body.adw .adw-sidebar{flex-basis:180px;width:180px}
+  body.adw .kpi-primary-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+}
+@media(min-width:900px) and (max-width:1023px){
+  body.adw .adw-sidebar{flex-basis:64px;width:64px;padding-inline:7px}
+  body.adw .adw-navlist .tab-btn{justify-content:center;gap:0;padding-inline:8px}
+  body.adw .adw-navlist .tab-btn>span:not(.tab-icon),body.adw .adw-sidebar-note{display:none}
+  body.adw .adw-navlist .tab-btn .tab-icon{width:20px;height:20px}
+  body.adw .adw-filterbar{max-height:112px;overflow:visible}
+  body.adw .compact-filter-row{max-height:94px;overflow:visible}
+}
 @media(max-width:1100px){
   body.adw .kpi-row{grid-template-columns:1fr}
   body.adw #reportGrid>.card[data-tab]{grid-column:1/-1}
   body.adw .risk-kpi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
-@media(max-width:860px){
+@media(max-width:899px){
+  html,body.adw{max-width:100%;overflow-x:hidden}
   body.adw .adw-body{display:block}
   body.adw .adw-sidebar{position:static;width:auto;height:auto;max-height:none;flex:none;display:block;border-right:0;border-bottom:1px solid var(--border)}
-  body.adw .adw-navlist{flex-direction:row;overflow-x:auto;gap:6px}
+  body.adw .adw-navlist{flex-direction:row;overflow-x:auto;overscroll-behavior-inline:contain;scrollbar-width:thin;gap:6px}
   body.adw .adw-navlist .tab-btn{width:auto;flex:0 0 auto;border-radius:999px}
   body.adw .adw-sidebar-note{display:none}
   body.adw .hb-subtitle{display:none}
   body.adw .adw-filterbar{position:static}
+  body.adw #mobileFilterToggle{display:inline-flex;align-items:center;justify-content:center;min-height:38px;padding:7px 14px;border-color:var(--accent);color:var(--accent-text);font-weight:700}
+  body.adw #mobileFilterSheet{display:none}
+  body.adw.mobile-filter-open #mobileFilterToggle{position:fixed;z-index:162;top:12px;right:12px;background:var(--surface)}
+  body.adw.mobile-filter-open #mobileFilterSheet{display:flex;position:fixed;z-index:160;inset:0 0 0 auto;align-content:flex-start;align-items:stretch;flex-direction:column;flex-wrap:nowrap;width:min(420px,100vw);height:100dvh;max-height:none;box-sizing:border-box;padding:64px 16px 24px;overflow-y:auto;background:var(--window-bg);box-shadow:var(--shadow-dialog)}
+  body.adw.mobile-filter-open #mobileFilterSheet>*{flex:0 0 auto;width:100%;max-width:none;box-sizing:border-box}
+  body.adw.mobile-filter-open #mobileFilterSheet .compact-profile{display:grid}
+  body.adw.mobile-filter-open #mobileFilterSheet .compact-profile select,body.adw.mobile-filter-open #mobileFilterSheet #dateRangeButton,body.adw.mobile-filter-open #mobileFilterSheet #accountDropdownBtn,body.adw.mobile-filter-open #mobileFilterSheet #moreFiltersButton{width:100%;max-width:none}
+  body.adw.mobile-filter-open #mobileFilterSheet .filter-popover{position:fixed;z-index:165;top:62px;right:10px;left:auto;width:min(400px,calc(100vw - 20px));max-height:calc(100dvh - 76px);overflow:auto}
   body.adw .adw-clamp{padding:14px 12px 32px}
   body.adw .risk-kpi-grid{grid-template-columns:1fr}
   body.adw .risk-section-head{display:block}

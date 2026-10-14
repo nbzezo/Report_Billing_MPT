@@ -183,7 +183,8 @@ function updateRN_CF_KPIs(rows){
   </header>
 
   <div class="adw-filterbar">
-    <div class="compact-filter-row">
+    <button id="mobileFilterToggle" type="button" aria-expanded="false" aria-controls="mobileFilterSheet">Bộ lọc</button>
+    <div id="mobileFilterSheet" class="compact-filter-row">
       <label class="compact-profile" title="Kết nối MPT"><span>Kết nối</span><select id="mainMptProfile"><option value="">-- Chọn kết nối --</option></select></label>
       <div class="filter-popover-wrap">
         <button type="button" id="dateRangeButton" class="filter-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="dateRangePopover">Thời gian</button>
@@ -2396,6 +2397,35 @@ function initAdwChrome(){
 
   adwSyncChromeHeight();
   window.addEventListener('resize',adwSyncChromeHeight);
+  const mobileFilterToggle=document.getElementById('mobileFilterToggle');
+  const syncMobileFilter=()=>{
+    const mobile=window.innerWidth<900;
+    if(!mobile) document.body.classList.remove('mobile-filter-open');
+    const open=mobile&&document.body.classList.contains('mobile-filter-open');
+    mobileFilterToggle?.setAttribute('aria-expanded',open?'true':'false');
+    if(mobileFilterToggle) mobileFilterToggle.textContent=open?'Đóng bộ lọc':'Bộ lọc';
+  };
+  mobileFilterToggle?.addEventListener('click',()=>{
+    const open=document.body.classList.toggle('mobile-filter-open');
+    mobileFilterToggle.setAttribute('aria-expanded',open?'true':'false');
+    mobileFilterToggle.textContent=open?'Đóng bộ lọc':'Bộ lọc';
+    if(!open) mobileFilterToggle.focus();
+    scheduleVisiblePlotResize();
+  });
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='Escape'||!document.body.classList.contains('mobile-filter-open')) return;
+    document.body.classList.remove('mobile-filter-open');
+    syncMobileFilter();
+    mobileFilterToggle?.focus();
+    scheduleVisiblePlotResize();
+  });
+  window.addEventListener('resize',syncMobileFilter);
+  syncMobileFilter();
+  document.querySelectorAll('#tabsBar .tab-btn').forEach(button=>{
+    const label=button.textContent.trim();
+    button.setAttribute('aria-label',label);
+    button.title=label;
+  });
   const header=document.querySelector('.adw-headerbar');
   const bar=document.querySelector('.adw-filterbar');
   if(window.ResizeObserver&&header&&bar){
@@ -4414,6 +4444,16 @@ function resizeVisibleTabPlots(tabName){
     });
   }));
 }
+
+let responsivePlotResizeTimer=0;
+function scheduleVisiblePlotResize(){
+  clearTimeout(responsivePlotResizeTimer);
+  responsivePlotResizeTimer=setTimeout(()=>{
+    const active=document.querySelector('#tabsBar .tab-btn.active')?.dataset.tab||'overview';
+    resizeVisibleTabPlots(active);
+  },150);
+}
+window.addEventListener('resize',scheduleVisiblePlotResize);
 
 const gatewayHangupCauseCardObservers=new WeakMap();
 
@@ -10601,6 +10641,7 @@ function llmAskPanelOpen(){
   toggle?.setAttribute('aria-expanded','true');
   toggle?.setAttribute('aria-label','Đóng trợ lý AI; kéo để di chuyển');
   requestAnimationFrame(()=>document.getElementById('askQuestionInput')?.focus());
+  scheduleVisiblePlotResize();
 }
 function llmAskPanelClose(){
   const panel = document.getElementById('askDashboardPanel');
@@ -10613,6 +10654,7 @@ function llmAskPanelClose(){
   toggle?.setAttribute('aria-expanded','false');
   toggle?.setAttribute('aria-label','Mở trợ lý AI; kéo để di chuyển');
   toggle?.focus();
+  scheduleVisiblePlotResize();
 }
 function llmAskPanelToggle(){
   const panel = document.getElementById('askDashboardPanel');

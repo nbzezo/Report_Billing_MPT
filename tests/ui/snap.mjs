@@ -187,11 +187,36 @@ try {
         throw new Error(`Bong bóng AI không trở lại góc dưới phải: ${JSON.stringify(bubbleState)}`);
     }
     if (theme === 'light' && !auditOnly) {
-      await page.setViewportSize({ width: 1024, height: 768 });
-      await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
-      const compactHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
-      if (compactHeight > 112) throw new Error(`Thanh lọc cao ${compactHeight}px ở 1024px.`);
-      await page.screenshot({ path: path.join(out, 'light-overview-1024.png'), fullPage: true });
+      for (const width of [1024, 900, 600]) {
+        await page.setViewportSize({ width, height: 768 });
+        await page.waitForTimeout(180);
+        if (width >= 900) {
+          const compactHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
+          if (compactHeight > 112) throw new Error(`Thanh lọc cao ${compactHeight}px ở ${width}px.`);
+          const sidebarWidth = await page.locator('#adwSidebar').evaluate(element => element.getBoundingClientRect().width);
+          const expected = width === 1024 ? 180 : 64;
+          if (Math.abs(sidebarWidth - expected) > 1) throw new Error(`Sidebar rộng ${sidebarWidth}px thay vì ${expected}px ở ${width}px.`);
+        } else {
+          const filterToggle = page.locator('#mobileFilterToggle');
+          if (!(await filterToggle.isVisible())) throw new Error('Nút Bộ lọc không hiện ở 600px.');
+          await filterToggle.click();
+          await page.locator('#mobileFilterSheet').waitFor({ state: 'visible' });
+          if ((await filterToggle.getAttribute('aria-expanded')) !== 'true') throw new Error('Sheet bộ lọc không cập nhật aria-expanded.');
+          await page.keyboard.press('Escape');
+          if (!(await page.locator('#mobileFilterSheet').isHidden())) throw new Error('Sheet bộ lọc không đóng bằng Escape.');
+          if (!(await filterToggle.evaluate(element => element === document.activeElement))) throw new Error('Sheet bộ lọc không trả focus về nút mở.');
+        }
+        for (const tab of tabs) {
+          const tabButton = page.locator(`#tabsBar .tab-btn[data-tab="${tab}"]`);
+          await tabButton.scrollIntoViewIfNeeded();
+          await tabButton.click();
+          await page.waitForTimeout(80);
+          const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, viewport: innerWidth }));
+          if (overflow.scroll > overflow.viewport + 1) throw new Error(`Màn hình ${tab} tràn ngang ở ${width}px: ${JSON.stringify(overflow)}`);
+        }
+        await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
+        await page.screenshot({ path: path.join(out, `light-overview-${width}.png`), fullPage: true });
+      }
     }
     if (theme === 'light') {
       await page.setViewportSize({ width: 1440, height: 900 });
