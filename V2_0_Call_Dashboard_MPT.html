@@ -605,6 +605,7 @@ function updateRN_CF_KPIs(rows){
         <div class="kpi kpi-secondary" id="kpi_invalid_dest"><div class="kpi-value" id="kpi_invalid_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lỗi</div></div>
         <div class="kpi kpi-secondary" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="kpi-label">Tỷ lệ kết nối (trừ cuộc lỗi) <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi). Chỉ loại nhóm Lỗi khỏi mẫu số.">?</button></div></div>
       </div>
+      <div id="kpiDirectionNote" class="kpi-direction-note" role="status" hidden></div>
     </div>
   </div>
 
@@ -2554,6 +2555,17 @@ function plotLayout(overrides={}){
       const isHardWhite=v=>typeof v==='string' && ['#'+'fff','#'+'ffffff'].includes(v.trim().toLowerCase());
       if(isHardWhite(next.paper_bgcolor)) delete next.paper_bgcolor;
       if(isHardWhite(next.plot_bgcolor)) delete next.plot_bgcolor;
+      const reportCard=target?.closest('.chart-report-card');
+      const scope=reportCard?.dataset.reportScope||'';
+      const curatedTitle=reportCard?.dataset.reportTitle||'';
+      if(scope || curatedTitle){
+        const title=typeof next.title==='string' ? {text:next.title} : {...(next.title||{})};
+        const baseTitle=curatedTitle || title.text || '';
+        const escape=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+        title.text=`${escape(baseTitle)}${scope?`<br><span style="font-size:12px;font-weight:400">${escape(scope)}</span>`:''}`;
+        next.title=title;
+        next.margin={...(next.margin||{}),t:scope?82:(next.margin?.t||60)};
+      }
       return original.call(this,element,data,plotLayout(next),config);
     };
     wrapped.__adwThemed=true;
@@ -4084,8 +4096,39 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-10-14-empty-states-v1';
+const REPORT_ORDER_VERSION='2026-10-14-ux34-curated-defaults-v1';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
+
+const REPORT_CARD_TITLES={
+  chart_conn_donut:'Cuộc gọi đang kết nối ra sao?',
+  chart_answer_gauge:'Tỷ lệ trả lời đạt bao nhiêu?',
+  chart_direction_split:'Dữ liệu có đủ hai chiều gọi không?',
+  chart_minutes_account:'Tài khoản nào dùng nhiều phút nhất?',
+  chart_stack_prefix_pct:'Trạng thái theo đầu số ra sao?',
+  chart_telco_conn_stacked:'Nhà mạng nào kết nối tốt nhất?',
+  chart_hangup_heatmap:'Lỗi tập trung ở đâu?',
+  table_fail_reason:'Vì sao cuộc gọi thất bại?',
+  report_chart_asr_time:'ASR và kết nối thay đổi thế nào?',
+  chart_minutes_day:'Lưu lượng phút gọi biến động ra sao?',
+  chart_golden_hours_rate:'Khung giờ nào hiệu quả nhất?',
+  chart_concurrent_calls:'Tải đồng thời đạt đỉnh khi nào?',
+  panel_alerts:'Điểm nào cần xử lý trước?',
+  chart_agent_perf:'Tài khoản nào đang hoạt động hiệu quả?',
+  table_agent_perf:'Chỉ số từng tài khoản ra sao?',
+  table_gateway_fail:'Gateway nào có rủi ro cao?',
+  panel_cid_coverage:'Kho CID có đủ phủ tải không?',
+  chart_cid_availability:'CID khả dụng thay đổi thế nào?',
+  chart_cid_recovery_survival:'CID phục hồi nhanh đến đâu?',
+  chart_cid_pressure:'Gateway nào chịu áp lực CID lớn?',
+  panel_cid_waste:'CID đang bị lãng phí ở đâu?',
+  table_cid_action_queue:'Việc CID nào cần làm trước?',
+  panel_billing_config:'Phạm vi tính cước là gì?',
+  panel_billing_kpi:'Chi phí cuộc gọi hiện ra sao?',
+  billingRateEmpty:'Cần bổ sung gì để tính cước?',
+  chart_billing_by_period:'Chi phí biến động theo kỳ thế nào?',
+  chart_billing_by_telco:'Nhà mạng nào phát sinh nhiều chi phí?',
+  chart_billing_by_prefix:'Đầu số nào phát sinh nhiều chi phí?'
+};
 
 /* ==========================================================================
    NGUỒN DUY NHẤT cho bố cục báo cáo mỗi tab.
@@ -4114,7 +4157,9 @@ const REPORT_LAYOUT={
     // chất lượng thoại
     'chart_mos_histogram','chart_quality_by_telco','chart_mos_vs_packetloss'
   ]},
-  time:{ primary:6, order:[
+  time:{ primary:4,
+    primaryIds:['report_chart_asr_time','chart_minutes_day','chart_golden_hours_rate','chart_concurrent_calls'],
+    order:[
     // xem nhanh vận hành
     'report_chart_asr_time','chart_minutes_day','chart_golden_hours_rate',
     'chart_call_funnel','chart_concurrent_calls','chart_line_health_trend',
@@ -4129,8 +4174,8 @@ const REPORT_LAYOUT={
     // sức khỏe đầu số
     'table_line_anomalies'
   ]},
-  advanced:{ primary:7,
-    primaryIds:['panel_alerts','table_data_quality','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_agent_perf','table_agent_perf'],
+  advanced:{ primary:4,
+    primaryIds:['panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_fail'],
     order:[
       // tổng quan vận hành
       'panel_alerts','table_data_quality',
@@ -4144,8 +4189,8 @@ const REPORT_LAYOUT={
       'table_card'
     ]
   },
-  cid:{ primary:7,
-    primaryIds:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','chart_cid_pressure','panel_cid_waste','chart_cid_load_risk','table_cid_action_queue'],
+  cid:{ primary:6,
+    primaryIds:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','chart_cid_pressure','panel_cid_waste','table_cid_action_queue'],
     order:[
     // khả dụng / hồi phục
     'cidGroupEmpty','panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','table_cid_mttr_telco','chart_cid_mttr','table_cid_reblock','table_cid_duty',
@@ -4158,7 +4203,7 @@ const REPORT_LAYOUT={
     // hàng đợi hành động và so sánh
     'table_cid_action_queue','table_cid_comparison'
   ]},
-  billing:{ primary:99, order:[
+  billing:{ primary:6, order:[
     'panel_billing_config','panel_billing_kpi','billingRateEmpty',
     'chart_billing_by_period','chart_billing_by_telco','chart_billing_by_prefix',
     'table_billing_by_period','table_billing_by_account'
@@ -4175,12 +4220,43 @@ function resolveReportCard(id){
   return document.getElementById(`report_${id}`) || direct;
 }
 
+function syncReportCardScopes(rows){
+  const start=document.getElementById('startDate')?.value||'';
+  const end=document.getElementById('endDate')?.value||'';
+  const dates=start&&end ? `${UIFormat.dateShort(start)} – ${UIFormat.dateShort(end)}` : 'Phạm vi hiện tại';
+  const scope=`${dates} · ${UIFormat.int((rows||[]).length)} cuộc gọi`;
+  document.querySelectorAll('#reportGrid > .card[data-tab]').forEach(card=>{
+    card.dataset.reportScope=scope;
+    const chart=card.querySelector(':scope > [id^="chart_"]');
+    const title=REPORT_CARD_TITLES[card.id] || (chart && REPORT_CARD_TITLES[chart.id]);
+    if(title) card.dataset.reportTitle=title;
+    if(chart) return;
+
+    let subtitle=card.querySelector(':scope > .report-scope-subtitle');
+    if(!subtitle){
+      subtitle=document.createElement('p');
+      subtitle.className='report-scope-subtitle';
+      const heading=card.querySelector(':scope > h3');
+      if(heading) heading.after(subtitle);
+      else card.prepend(subtitle);
+    }
+    subtitle.textContent=scope;
+    if(title){
+      const heading=card.querySelector(':scope > h3, :scope > .table-card-details > summary h3');
+      if(heading) heading.textContent=title;
+    }
+  });
+}
+
 function applyPreferredReportOrder(){
   const grid=document.getElementById('reportGrid');
   if(!grid) return;
   let currentVersion='';
   try{ currentVersion=localStorage.getItem(REPORT_ORDER_VERSION_KEY)||''; }catch(e){}
   if(currentVersion===REPORT_ORDER_VERSION) return;
+  ['quality','time','advanced','cid','billing'].forEach(tab=>{
+    try{ localStorage.removeItem(`reports-expanded-${tab}`); }catch(e){}
+  });
   const used=new Set();
   Object.values(PREFERRED_REPORT_ORDER).flat().forEach(id=>{
     const card=resolveReportCard(id);
@@ -4233,7 +4309,7 @@ function updateReportToggle(tab){
   const secondary=document.querySelectorAll(`.card[data-tab="${tab}"].secondary-report`).length;
   toggle.classList.toggle('expanded',!!tabReportExpanded[tab]);
   const button=toggle.querySelector('button');
-  if(button) button.textContent=tabReportExpanded[tab] ? 'Thu gọn báo cáo chuyên sâu' : `Hiển thị tất cả ${secondary} báo cáo đang thu gọn`;
+  if(button) button.textContent=tabReportExpanded[tab] ? 'Thu gọn báo cáo chuyên sâu' : `Hiển thị thêm ${secondary} báo cáo`;
 }
 
 function positionReportToggles(){
@@ -8104,6 +8180,7 @@ async function updateDashboardWithFilters(){
   const ov = cached.ov || aggregateOverview(filtered);
 
   lastFiltered = filtered;
+  syncReportCardScopes(filtered);
 
   const colors = getSeriesColors();
 
@@ -10255,7 +10332,28 @@ function plotDirectionSplit(rows, colors){
   });
   const labels = Object.keys(counts).filter(k=> counts[k]>0);
   const values = labels.map(k=> counts[k]);
-  if(!values.length) return showNoData(elId, 'Không có dữ liệu chiều cuộc gọi (direction)');
+  const card=resolveReportCard(elId);
+  const note=document.getElementById('kpiDirectionNote');
+  const knownDirections=['Inbound','Outbound'].filter(key=>counts[key]>0);
+  if(!values.length || !knownDirections.length){
+    if(card) card.hidden=false;
+    if(note) note.hidden=true;
+    return showNoData(elId, 'Không có dữ liệu chiều cuộc gọi (direction)');
+  }
+  if(knownDirections.length<2){
+    if(card) card.hidden=true;
+    if(note){
+      const direction=knownDirections[0]==='Inbound'?'Gọi vào':knownDirections[0]==='Outbound'?'Gọi ra':'Không xác định';
+      const known=counts.Inbound+counts.Outbound;
+      const total=values.reduce((sum,value)=>sum+value,0);
+      const percent=total?UIFormat.pctFromRatio(counts[knownDirections[0]]/total):'—';
+      note.textContent=`Chiều gọi: ${direction} ${percent}${counts.Unknown?` · ${UIFormat.int(counts.Unknown)} cuộc chưa xác định`:''}. Biểu đồ được ẩn vì dữ liệu không có đủ hai chiều.`;
+      note.hidden=false;
+    }
+    return;
+  }
+  if(card) card.hidden=false;
+  if(note) note.hidden=true;
   const directionColors = {Inbound:uiColor('--ux-color-2563eb'),Outbound:uiColor('--ux-color-7c3aed'),Unknown:CHART_SEMANTIC.Cancelled};
   const data=[{type:'pie', labels, values, hole:0.45, textinfo:'label+percent',
     marker:{colors: labels.map(label=>directionColors[label])},

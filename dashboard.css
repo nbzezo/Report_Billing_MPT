@@ -338,6 +338,8 @@
   .card.drag-over{outline:2px dashed var(--ux-color-94a3b8)}
   .chart-report-card{padding:0;overflow:hidden}
   .chart-report-card > [id^="chart_"]{width:100%;border:0;border-radius:0;box-shadow:none;background:transparent}
+  .report-scope-subtitle{margin:3px 0 10px;color:var(--muted);font-size:12px;line-height:1.4}
+  .kpi-direction-note{margin-top:10px;padding:9px 12px;border:1px solid var(--border);border-radius:9px;background:var(--hover);color:var(--dim);font-size:12px;line-height:1.45}
   .report-statistics{border-top:1px solid var(--line);padding:0 12px 10px}
   .report-statistics summary{cursor:pointer;padding:10px 0 4px;font-size:12px;font-weight:800;color:var(--ux-color-334155);list-style:none}
   .report-statistics summary::-webkit-details-marker{display:none}

@@ -67,6 +67,25 @@ try {
     const filterHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
     if (filterHeight > 112) throw new Error(`Thanh lọc cao ${filterHeight}px ở 1440px.`);
     if (await page.locator('#kpi_conn_text .drilldown-trigger').count() !== 4) throw new Error('Phân bố trạng thái chưa có đủ 4 nút drilldown.');
+    const overviewReportState = await page.evaluate(() => ({
+      directionVisible: !resolveReportCard('chart_direction_split').hidden,
+      directionNoteHidden: document.getElementById('kpiDirectionNote').hidden,
+      title: resolveReportCard('chart_conn_donut').dataset.reportTitle,
+      scope: resolveReportCard('chart_conn_donut').dataset.reportScope,
+    }));
+    if (!overviewReportState.directionVisible || !overviewReportState.directionNoteHidden) throw new Error(`Biểu đồ hai chiều chưa hiện đúng: ${JSON.stringify(overviewReportState)}`);
+    if (!overviewReportState.title?.endsWith('?') || !/8[.]?000 cuộc gọi/.test(overviewReportState.scope || '')) throw new Error(`Tiêu đề/phạm vi báo cáo chưa đủ: ${JSON.stringify(overviewReportState)}`);
+    const oneDirectionState = await page.evaluate(() => {
+      plotDirectionSplit(lastFiltered.map(row => ({...row, direction:'Outbound'})), getSeriesColors());
+      const state = {
+        hidden: resolveReportCard('chart_direction_split').hidden,
+        note: document.getElementById('kpiDirectionNote').textContent,
+        noteHidden: document.getElementById('kpiDirectionNote').hidden,
+      };
+      plotDirectionSplit(lastFiltered, getSeriesColors());
+      return state;
+    });
+    if (!oneDirectionState.hidden || oneDirectionState.noteHidden || !/Gọi ra 100/.test(oneDirectionState.note)) throw new Error(`Dữ liệu một chiều chưa chuyển thành ghi chú KPI: ${JSON.stringify(oneDirectionState)}`);
     const totalKpi = page.locator('#kpi_total');
     await totalKpi.click();
     await page.locator('#callDrilldownDialog[open]').waitFor();
@@ -96,6 +115,18 @@ try {
       await page.waitForTimeout(auditOnly ? 80 : 180);
       const activeState = await page.locator(`#tabsBar .tab-btn[data-tab="${tab}"]`).getAttribute('aria-current');
       if (activeState !== 'page') throw new Error(`Sidebar chưa đánh dấu màn hình ${tab} đang mở.`);
+      const defaultReportState = await page.evaluate(tabName => {
+        const layout = REPORT_LAYOUT[tabName];
+        if (!layout) return null;
+        const cards = [...new Set(layout.order.map(resolveReportCard).filter(Boolean))];
+        return {
+          visible: cards.filter(card => !card.hidden && getComputedStyle(card).display !== 'none').map(card => card.id),
+          expanded: tabReportExpanded[tabName],
+          toggle: document.querySelector(`#reportMore_${tabName} button`)?.textContent || '',
+        };
+      }, tab);
+      if (defaultReportState && defaultReportState.visible.length > 6) throw new Error(`${tab} đang mở quá 6 báo cáo: ${defaultReportState.visible.join(', ')}`);
+      if (defaultReportState && !defaultReportState.expanded && defaultReportState.toggle && !defaultReportState.toggle.startsWith('Hiển thị thêm ')) throw new Error(`${tab} chưa dùng nhãn progressive disclosure mới: ${defaultReportState.toggle}`);
       if (tab === 'cid') {
         if (!(await page.locator('#cidGroupEmpty').isVisible())) throw new Error('CID chưa gom trạng thái rỗng thành một card cấp nhóm.');
         const visibleChildren = await page.locator('#reportGrid > .card[data-tab="cid"]:not(#cidGroupEmpty)').evaluateAll(elements => elements.filter(element => !element.hidden && getComputedStyle(element).display !== 'none').map(element => element.id));

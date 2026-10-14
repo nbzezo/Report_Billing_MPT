@@ -1739,10 +1739,9 @@ class CidTabTests(unittest.TestCase):
         self.assertIn("else if(tabName==='cid') renderCidTab();", self.HTML)
         # Tab CID nay co trong REPORT_LAYOUT (nguon duy nhat) voi primary/secondary
         self.assertIn("cid:{ primary:", self.HTML)
-        # panel cau hinh (mapping gateway) nam CUOI thu tu tab CID
-        cid_block = self.HTML.split("cid:{ primary:", 1)[1].split("]}", 1)[0]
-        self.assertTrue(cid_block.rstrip().rstrip("\n").rstrip().endswith("'panel_gateway_map'"),
-                        "panel_gateway_map phai la card cuoi cung cua tab CID")
+        # cac thanh phan tom tat/nhom CID duoc chen dong theo anchor
+        self.assertIn("function positionCidExtras()", self.HTML)
+        self.assertIn("firstCidCard.parentNode.insertBefore(summary, firstCidCard)", self.HTML)
 
     def test_tab_luoi_nap_qua_api_rieng_khong_an_theo_bo_loc_CDR(self):
         self.assertIn("fetch('/api/cid-events?'", self.HTML)
@@ -1952,13 +1951,13 @@ class AdvancedReportLayoutTests(unittest.TestCase):
         self.assertIn("function positionAdvancedGroupHeaders()", self.HTML)
         self.assertIn("updateAdvancedGroupHeaders(tabName);", self.HTML)
 
-    def test_bay_bao_cao_xem_nhanh_duoc_chon_xuyen_nhom(self):
-        expected = "primaryIds:['panel_alerts','table_data_quality','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_agent_perf','table_agent_perf']"
+    def test_bon_bao_cao_xem_nhanh_duoc_chon_xuyen_nhom(self):
+        expected = "primaryIds:['panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_fail']"
         self.assertIn(expected, self.HTML)
         self.assertIn("v.primaryIds || v.order.slice(0, v.primary)", self.HTML)
 
     def test_thu_tu_theo_luong_chan_doan(self):
-        advanced = self.HTML.split("advanced:{ primary:7,", 1)[1].split("cid:{ primary:", 1)[0]
+        advanced = self.HTML.split("advanced:{ primary:4,", 1)[1].split("cid:{ primary:", 1)[0]
         advanced = advanced.split("order:[", 1)[1]
         ordered = ["panel_alerts", "table_data_quality", "table_gateway_fail",
                    "chart_gateway_call_distribution", "chart_gateway_hangup_cause_pie", "chart_gateway_fail_timeline",
@@ -1967,7 +1966,7 @@ class AdvancedReportLayoutTests(unittest.TestCase):
         self.assertEqual(positions, sorted(positions))
 
     def test_bao_cao_rn_chi_tiet_tham_gia_layout_va_nhom_chan_doan(self):
-        advanced = self.HTML.split("advanced:{ primary:7,", 1)[1].split("cid:{ primary:", 1)[0]
+        advanced = self.HTML.split("advanced:{ primary:4,", 1)[1].split("cid:{ primary:", 1)[0]
         self.assertIn("'report_rn_cf_by_account','report_rn_detail'", advanced)
         diagnostics = self.HTML.split("id:'advancedGroupDiagnostics'", 1)[1].split("},", 1)[0]
         self.assertIn("'report_rn_detail'", diagnostics)
@@ -2043,10 +2042,32 @@ class CidLifecycleExpansionTests(unittest.TestCase):
             self.assertIn(f"function {fn}", self.CORE)
             self.assertIn(fn, self.CORE.split("const __exports =", 1)[1])
 
-    def test_bay_bao_cao_quyet_dinh_mo_mac_dinh(self):
-        expected = "primaryIds:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','chart_cid_pressure','panel_cid_waste','chart_cid_load_risk','table_cid_action_queue']"
+    def test_sau_bao_cao_quyet_dinh_mo_mac_dinh(self):
+        expected = "primaryIds:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','chart_cid_pressure','panel_cid_waste','table_cid_action_queue']"
         self.assertIn(expected, self.HTML)
         self.assertIn("updateCidGroupHeaders(tabName);", self.HTML)
+
+
+class CuratedReportDefaultsTests(unittest.TestCase):
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_default_report_sets_stay_within_six_cards(self):
+        for token in ("quality:{ primary:4", "time:{ primary:4", "advanced:{ primary:4",
+                      "cid:{ primary:6", "billing:{ primary:6"):
+            self.assertIn(token, self.HTML)
+        self.assertIn("Hiển thị thêm ${secondary} báo cáo", self.HTML)
+
+    def test_report_cards_receive_curated_titles_and_visible_scope(self):
+        self.assertIn("const REPORT_CARD_TITLES={", self.HTML)
+        self.assertIn("function syncReportCardScopes(rows)", self.HTML)
+        self.assertIn("card.dataset.reportScope=scope", self.HTML)
+        self.assertIn("syncReportCardScopes(filtered);", self.HTML)
+
+    def test_direction_chart_only_renders_with_two_known_directions(self):
+        self.assertIn("if(knownDirections.length<2)", self.HTML)
+        self.assertIn("if(card) card.hidden=true", self.HTML)
+        self.assertIn("UIFormat.pctFromRatio(counts[knownDirections[0]]/total)", self.HTML)
+        self.assertIn('id="kpiDirectionNote"', self.HTML)
 
 
 class CidRiskReportPresentationTests(unittest.TestCase):
