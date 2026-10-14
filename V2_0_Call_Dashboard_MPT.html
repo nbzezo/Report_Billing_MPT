@@ -161,9 +161,18 @@ function updateRN_CF_KPIs(rows){
     </div>
     <div class="hb-end">
       <button id="dataFreshnessSummary" type="button" class="flat-btn hb-freshness" aria-haspopup="dialog">Chưa có dữ liệu</button>
-      <button id="updateReport" type="button" class="primary-btn">Cập nhật</button>
+      <div class="update-split filter-popover-wrap">
+        <button id="updateReport" type="button" class="primary-btn">Cập nhật</button>
+        <button id="updateScopeButton" type="button" class="primary-btn icon-only" aria-label="Chọn tài khoản cần tải" aria-haspopup="dialog" aria-expanded="false" aria-controls="updateScopePopover">▾</button>
+        <div id="updateScopePopover" class="filter-popover update-scope-popover" role="dialog" aria-labelledby="updateScopeTitle" hidden>
+          <div id="updateScopeTitle" class="mpt-source-block-title">Tài khoản cần tải từ MPT</div>
+          <p class="update-scope-note">Phạm vi tải độc lập với <strong>tài khoản đang xem</strong> trong thanh lọc. Bỏ chọn tất cả để tải mọi tài khoản.</p>
+          <div id="mptUpdateScopeContent"></div>
+          <div id="updateScopeStatus" class="mpt-source-status" role="status" aria-live="polite"></div>
+          <div class="filter-popover-actions"><button id="openConnectionSettings" type="button">Cài đặt kết nối</button><button type="button" class="primary-btn" data-filter-close>Đóng</button></div>
+        </div>
+      </div>
       <button id="headerCancelUpdate" type="button" class="flat-btn" hidden>Hủy</button>
-      <button id="openMptSource" type="button" class="muted-btn"><span>Nguồn dữ liệu MPT</span></button>
       <div class="adw-menu-wrap">
         <button id="appMenuBtn" type="button" class="flat-btn icon-only" aria-haspopup="true" aria-expanded="false" aria-controls="appMenu" title="Menu chính"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <div id="appMenu" class="adw-popover" role="menu" hidden>
@@ -230,12 +239,17 @@ function updateRN_CF_KPIs(rows){
     <button id="dismissSnapshot" type="button">Bỏ qua</button>
   </div>
 
+  <div id="connectionEmptyState" class="connection-empty-state" hidden>
+    <div><strong>Chưa có kết nối MPT</strong><span>Thêm kết nối đầu tiên để tải dữ liệu và cập nhật báo cáo.</span></div>
+    <button id="connectionEmptySettings" type="button" class="primary-btn">Mở Cài đặt kết nối</button>
+  </div>
+
   <div class="adw-body">
     <nav id="adwSidebar" class="adw-sidebar" aria-label="Nhóm báo cáo"></nav>
     <main id="adwMain" class="adw-main"><div id="adwClamp" class="adw-clamp"></div></main>
   </div>
 
-  <dialog id="mptSourcePanel" class="adw-dialog">
+  <div id="mptSourceSupport" hidden>
     <div class="adw-dialog-header">
       <div class="adw-dialog-title">Nguồn dữ liệu MPT</div>
       <button type="button" class="flat-btn icon-only adw-dialog-close" data-close-dialog aria-label="Đóng"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
@@ -324,7 +338,7 @@ function updateRN_CF_KPIs(rows){
       <div id="mptSourceStatusSlot" class="adw-dialog-status"></div>
       <button type="button" data-close-dialog>Đóng</button>
     </div>
-  </dialog>
+  </div>
   <dialog id="llmConfigDialog" class="adw-dialog adw-dialog-wide">
     <div class="adw-dialog-header">
       <div class="adw-dialog-title">Cấu hình LLM</div>
@@ -2263,15 +2277,6 @@ function initAdwShell(){
     if(kpi) clamp.appendChild(kpi);
     if(grid) clamp.appendChild(grid);
   }
-  // Nút chính và dòng trạng thái thuộc về footer của dialog, đúng kiểu Adwaita.
-  const footer=document.querySelector('#mptSourcePanel .adw-dialog-footer');
-  const status=document.getElementById('mptSourceStatus');
-  const run=document.getElementById('mptRunReport');
-  const slot=document.getElementById('mptSourceStatusSlot');
-  if(footer&&run){
-    if(status&&slot) slot.appendChild(status);
-    footer.insertBefore(run,footer.lastElementChild);
-  }
 }
 
 function adwDialog(id){
@@ -2314,6 +2319,10 @@ function initSettingsPanel(){
     if(node&&host) host.appendChild(node);
   };
   move('#mptConnectionManager','settingsConnectionContent');
+  const accountSection=document.getElementById('mptAccountPicker')?.closest('section');
+  const accountHost=document.getElementById('mptUpdateScopeContent');
+  if(accountSection&&accountHost){ accountSection.hidden=false; accountHost.appendChild(accountSection); }
+  document.getElementById('mptDeleteProfile')?.classList.add('btn-danger');
   move('#mappingDialog .adw-dialog-body','settingsMappingContent');
   move('#optionsDialog .adw-dialog-body','settingsAnalysisContent');
   move('#llmConfigDialog .adw-dialog-body','settingsAIContent');
@@ -2334,7 +2343,8 @@ function initSettingsPanel(){
 
 function initAdwChrome(){
   initSettingsPanel();
-  document.getElementById('openMptSource')?.addEventListener('click',()=>adwOpenDialog('mptSourcePanel'));
+  document.getElementById('openConnectionSettings')?.addEventListener('click',adwOpenConnectionManager);
+  document.getElementById('connectionEmptySettings')?.addEventListener('click',adwOpenConnectionManager);
 
   document.querySelectorAll('[data-close-dialog]').forEach(button=>{
     button.addEventListener('click',()=>button.closest('dialog')?.close());
@@ -8441,6 +8451,7 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
   }
   const source=new URL(dataUrl,location.origin);
   const accountIds=(source.searchParams.get('account_id')||'').split(',').filter(x=>x&&x!=='0');
+  const syncAccountIds=(source.searchParams.get('sync_account_id')||'').split(',').filter(x=>x&&x!=='0');
   const accountParam=accountIds.length?accountIds:'all';
   const cubeParams=currentCubeParams(
     source.searchParams.get('from_day')||mptEl('startDate').value,
@@ -8455,7 +8466,7 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
   bundleUrl.searchParams.set('cube_account',JSON.stringify(cubeParams.account));
   bundleUrl.searchParams.set('retry',JSON.stringify(cubeParams.retry||{}));
   let jobId='';
-  if(accountIds.length>1&&!readOnly){
+  if((syncAccountIds.length||accountIds.length)>1&&!readOnly){
     jobId='job-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
     bundleUrl.searchParams.set('job_id',jobId);
   }
@@ -8718,6 +8729,11 @@ function mptSetStatus(kind,text){
     settingsStatus.className='mpt-source-status'+(kind?' '+kind:'');
     settingsStatus.textContent=text;
   }
+  const scopeStatus=mptEl('updateScopeStatus');
+  if(scopeStatus){
+    scopeStatus.className='mpt-source-status'+(kind?' '+kind:'');
+    scopeStatus.textContent=text;
+  }
 }
 
 async function mptApiError(response){
@@ -8763,6 +8779,8 @@ function mptRenderProfiles(){
   if(select) select.value=mptActiveProfileId;
   if(mainSelect) mainSelect.value=mptActiveProfileId;
   if(settingsSelect) settingsSelect.value=mptActiveProfileId;
+  const emptyState=mptEl('connectionEmptyState');
+  if(emptyState) emptyState.hidden=mptProfiles.length>0;
 }
 
 function mptFillProfileFields(profile){
@@ -8897,7 +8915,6 @@ async function mptLoadProfiles(preferredId=''){
   if(chosen) await mptSelectProfile(chosen,true);
   else{
     mptFillProfileFields(null);
-    adwOpenConnectionManager();
     mptSetStatus('error','Chưa có kết nối. Hãy tạo kết nối MPT đầu tiên.');
   }
 }
@@ -8936,8 +8953,10 @@ const REPORT_SYNC_PARAM={view:'none',update:'update',force:'force'};
 function unifiedReportDataUrl(mode='view'){
   const params=new URLSearchParams();
   const accountIds=getSelectedAccounts();
+  const syncAccountIds=mode==='view'?[]:mptSelectedAccountIds();
   params.set('profile_id',mptActiveProfileId);
   params.set('account_id',accountIds.length?accountIds.join(','):'0');
+  if(mode!=='view') params.set('sync_account_id',syncAccountIds.length?syncAccountIds.join(','):'0');
   params.set('caller_number',mptEl('mainCaller')?.value.trim()||'');
   params.set('dest_number',mptEl('mainDestination')?.value.trim()||'');
   params.set('outbound',mptEl('mainDirection')?.value||'');
@@ -9056,7 +9075,7 @@ async function compactDatabase(button,status){
 async function runUnifiedReport(mode='view'){
   if(!mptActiveProfileId){
     mptSetStatus('error','Hãy chọn kết nối MPT trước.');
-    adwOpenDialog('mptSourcePanel');
+    adwOpenConnectionManager();
     return false;
   }
   const from=mptEl('startDate').value, to=mptEl('endDate').value;
@@ -9091,11 +9110,7 @@ async function mptRunReport(){
   mptSaveRecentScope();
   try{
     const success=await loadReportDataUrl(mptBuildDataUrl(),true);
-    // Phải dùng dialog.close() (qua adwCloseDialog) chứ KHÔNG set .open=false:
-    // panel mở bằng showModal(), gán .open=false chỉ ẩn dialog mà KHÔNG gỡ
-    // top-layer/::backdrop/inert -> cả trang bị chặn click dù biểu đồ vẫn hiện
-    // ("tải xong biểu đồ nhưng bấm không được").
-    if(success) adwCloseDialog('mptSourcePanel');
+    if(success) mptEl('updateScopePopover').hidden=true;
   }finally{
     button.textContent=original;
     mptSetRunEnabled();
@@ -9118,7 +9133,7 @@ function mptAccountLoadFailed(error){
 }
 
 function initMptSourcePanel(){
-  if(!mptEl('mptSourcePanel')) return;
+  if(!mptEl('mptAccountList')) return;
   mptRestoreScope();
   mptEl('mptProfile').addEventListener('change',event=>mptSelectProfile(event.target.value,true).catch(error=>mptAccountLoadFailed(error)));
   mptEl('settingsMptProfile')?.addEventListener('change',event=>mptSelectProfile(event.target.value,true).catch(error=>mptAccountLoadFailed(error)));
@@ -9171,7 +9186,8 @@ function initMptSourcePanel(){
   });
   mptEl('mptDeleteProfile').addEventListener('click',async()=>{
     if(!mptActiveProfileId){ mptSetStatus('error','Chưa chọn kết nối để xóa.'); return; }
-    if(!confirm('Xóa kết nối đã lưu này?')) return;
+    const profile=mptActiveProfile();
+    if(!confirm(`Xóa kết nối “${profile?.name||mptActiveProfileId}”?`)) return;
     try{
       const response=await fetch('/api/profiles?id='+encodeURIComponent(mptActiveProfileId),{method:'DELETE'});
       if(!response.ok) throw new Error(await mptApiError(response));
@@ -11246,7 +11262,7 @@ function renderActiveFilterChips(){
   updateCompactFilterSummary();
 }
 function initCompactFilters(){
-  const pairs=[['dateRangeButton','dateRangePopover'],['moreFiltersButton','moreFiltersPopover']];
+  const pairs=[['dateRangeButton','dateRangePopover'],['moreFiltersButton','moreFiltersPopover'],['updateScopeButton','updateScopePopover']];
   let openPair=null;
   const close=(restore=true)=>{
     if(!openPair) return;

@@ -82,12 +82,26 @@ try {
     await page.keyboard.press('Escape');
     if (!(await page.locator('#uiInfoPopover').isHidden())) throw new Error('Popover công thức không đóng bằng Escape.');
     if (!(await infoButton.evaluate(element => element === document.activeElement))) throw new Error('Popover không trả focus về nút kích hoạt.');
-    await page.locator('#openMptSource').click();
-    await page.locator('#mptSourcePanel[open]').waitFor();
+    const updateScopeButton = page.locator('#updateScopeButton');
+    await updateScopeButton.click();
+    await page.locator('#updateScopePopover').waitFor({ state: 'visible' });
+    const independentScope = await page.evaluate(() => {
+      const checkbox = document.querySelector('.mpt-account-check');
+      if (!checkbox) return null;
+      checkbox.checked = true;
+      const view = new URL(unifiedReportDataUrl('view'), location.origin);
+      const update = new URL(unifiedReportDataUrl('update'), location.origin);
+      checkbox.checked = false;
+      return { id: checkbox.value, viewAccount: view.searchParams.get('account_id'), viewSyncAccount: view.searchParams.get('sync_account_id'), updateAccount: update.searchParams.get('account_id'), updateSyncAccount: update.searchParams.get('sync_account_id') };
+    });
+    if (!independentScope || independentScope.viewSyncAccount !== null || independentScope.updateSyncAccount !== independentScope.id || independentScope.viewAccount !== independentScope.updateAccount)
+      throw new Error(`Phạm vi tải và phạm vi xem chưa độc lập: ${JSON.stringify(independentScope)}`);
     const dialogAudit = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
-    axeSummary.dialog = dialogAudit.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
-    if (!auditOnly) await page.screenshot({ path: path.join(out, `${theme}-dialog.png`) });
-    await page.evaluate(() => document.getElementById('mptSourcePanel')?.close());
+    axeSummary.updateScope = dialogAudit.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+    if (!auditOnly) await page.screenshot({ path: path.join(out, `${theme}-update-scope.png`) });
+    await page.keyboard.press('Escape');
+    if (!(await page.locator('#updateScopePopover').isHidden())) throw new Error('Popover phạm vi tải không đóng bằng Escape.');
+    if (!(await updateScopeButton.evaluate(element => element === document.activeElement))) throw new Error('Popover phạm vi tải không trả focus.');
     await page.locator('#askDashboardToggle').click();
     await page.locator('#askDashboardPanel').waitFor({ state: 'visible' });
     await page.waitForFunction(() => document.activeElement?.id === 'askQuestionInput');

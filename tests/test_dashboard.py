@@ -1228,29 +1228,29 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertTrue(worker.exists())
         self.assertIn("self.onmessage", worker.read_text(encoding="utf-8"))
 
-    def test_integrated_mpt_source_panel_loads_report_in_place(self):
+    def test_update_scope_is_separate_from_viewing_account_filter(self):
         for token in (
-            'id="mptSourcePanel"',
-            'id="mptProfile"',
+            'id="updateScopePopover"',
+            'id="updateScopeButton"',
             'id="mptAccountList"',
-            'id="mptRunReport"',
-            'class="mpt-source-primary"',
-            'id="mptAdvancedScope"',
-            'Tải file thủ công',
-            "loadReportDataUrl(mptBuildDataUrl(),true)",
-            "history.replaceState",
+            'id="accountDropdown"',
+            "const syncAccountIds=mode==='view'?[]:mptSelectedAccountIds()",
+            "params.set('sync_account_id'",
+            'Phạm vi tải độc lập',
         ):
             self.assertIn(token, self.dashboard_html)
+        self.assertIn('def separate_sync_scope(params):', self.server_source)
 
-    def test_mpt_source_dialog_keeps_footer_visible_on_short_viewports(self):
-        # Header/footer remain fixed while only the body scrolls; otherwise the
-        # report button is clipped on 768- or 800-pixel-high screens.
-        self.assertIn("height:min(88vh,940px)", self.dashboard_html)
-        self.assertIn("max-height:calc(100vh - 24px)", self.dashboard_html)
-        self.assertIn("display:flex;flex-direction:column", self.dashboard_html)
-        self.assertIn("overflow:auto;flex:1;min-height:0;max-height:none", self.dashboard_html)
-        self.assertIn('id="mptSourcePanel"', self.dashboard_html)
-        self.assertIn('class="adw-dialog-footer"', self.dashboard_html)
+    def test_backend_separates_download_scope_without_mutating_report_scope(self):
+        params = {"profile_id": "p", "account_id": "view-1", "sync_account_id": "load-2,load-3"}
+        sync_params = SERVER.DashboardHandler.separate_sync_scope(params)
+        self.assertEqual(params, {"profile_id": "p", "account_id": "view-1"})
+        self.assertEqual(sync_params["account_id"], "load-2,load-3")
+
+    def test_mpt_connection_manager_lives_in_settings(self):
+        for token in ('id="settingsConnectionContent"', "move('#mptConnectionManager','settingsConnectionContent')", 'id="connectionEmptySettings"'):
+            self.assertIn(token, self.dashboard_html)
+        self.assertIn("classList.add('btn-danger')", self.dashboard_html)
 
     def test_closed_dialogs_do_not_leak_into_the_bottom_of_report_tabs(self):
         self.assertIn("body.adw dialog.adw-dialog:not([open]){display:none}", self.dashboard_html)
@@ -1261,11 +1261,10 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertNotIn('id="callDrilldownDialog"', self.dashboard_html)
         self.assertNotIn('aria-controls="callDrilldownDialog"', self.dashboard_html)
 
-    def test_mpt_panel_closes_with_dialog_close_not_open_attribute(self):
-        # Panel mở bằng showModal(); đóng bằng .open=false chỉ ẩn dialog mà KHÔNG
-        # gỡ top-layer/::backdrop/inert -> cả trang nuốt click dù biểu đồ vẫn hiện.
-        self.assertIn("if(success) adwCloseDialog('mptSourcePanel');", self.dashboard_html)
-        self.assertNotIn("mptEl('mptSourcePanel').open=false", self.dashboard_html)
+    def test_legacy_mpt_source_dialog_is_removed(self):
+        self.assertNotIn('id="mptSourcePanel"', self.dashboard_html)
+        self.assertNotIn('id="openMptSource"', self.dashboard_html)
+        self.assertIn("['updateScopeButton','updateScopePopover']", self.dashboard_html)
 
     def test_loading_overlay_can_be_dismissed_after_a_failure(self):
         for token in (
@@ -1304,7 +1303,7 @@ class FrontendRegressionTests(unittest.TestCase):
             'id="adwSidebar"',
             'id="adwClamp"',
             'id="appMenu"',
-            '<dialog id="mptSourcePanel" class="adw-dialog">',
+            'id="updateScopePopover"',
             '<dialog id="filesDialog"',
             '<dialog id="optionsDialog"',
             '<dialog id="mappingDialog"',

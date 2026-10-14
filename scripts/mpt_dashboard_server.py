@@ -1412,7 +1412,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         job_id = params.pop("job_id", "")
         sync_mode = params.pop("sync", "auto")
         try:
-            cache_state = self._sync_calldata(params, job_id, sync_mode)
+            sync_params = self.separate_sync_scope(params)
+            cache_state = self._sync_calldata(sync_params, job_id, sync_mode)
             account_ids = [
                 x for x in params.get("account_id", "").split(",")
                 if x and x != "0"
@@ -1488,7 +1489,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         job_id = params.pop("job_id", "")
         sync_mode = params.pop("sync", "auto")
         try:
-            cache_state = self._sync_calldata(params, job_id, sync_mode)
+            sync_params = self.separate_sync_scope(params)
+            cache_state = self._sync_calldata(sync_params, job_id, sync_mode)
             result = self._analytics_request(
                 "bundle", params, cubeParams=self._cube_params(query, params),
                 previewLimit=50000,
@@ -1509,6 +1511,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.json_response(result)
         except Exception as exc:
             self.error_response(exc)
+
+    @staticmethod
+    def separate_sync_scope(params):
+        """Keep the report query account scope separate from the MPT download scope."""
+        sync_account_id = params.pop("sync_account_id", None)
+        sync_params = dict(params)
+        if sync_account_id is not None:
+            sync_params["account_id"] = sync_account_id
+        return sync_params
 
     def handle_call_details(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
