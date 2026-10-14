@@ -1181,6 +1181,7 @@ class FrontendRegressionTests(unittest.TestCase):
         cls.dashboard_html = (
             (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
             + (ROOT / "dashboard.css").read_text(encoding="utf-8")
+            + (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
         )
         cls.server_source = SERVER_PATH.read_text(encoding="utf-8")
 
@@ -1263,6 +1264,30 @@ class FrontendRegressionTests(unittest.TestCase):
         ):
             self.assertIn(token, self.dashboard_html)
         self.assertNotIn('Export CSV tổng hợp', self.dashboard_html)
+
+    def test_visible_copy_uses_consistent_vietnamese_labels(self):
+        for token in (
+            "const UI_LABELS = Object.freeze",
+            "statusLabel('Connected')",
+            "Bảng điều khiển cuộc gọi MPT",
+            "Tỷ lệ cuộc gọi ngắn",
+            "Lượt gọi lại",
+            "Phân bố số lượng cuộc gọi theo Gateway",
+            "Nguyên nhân kết thúc",
+            "Không thể xuất CSV vì chưa có dữ liệu gọi lại",
+        ):
+            self.assertIn(token, self.dashboard_html)
+        for stale_copy in (
+            "Không có cuộc gọi Connected",
+            "Short Call Rate trong Connected",
+            "Account summary",
+            "Retry rate cao",
+            "Phân bổ số lượng cuộc gọi theo Gateway",
+            "Phân bổ Hangup Cause theo Gateway",
+            ">Export CSV<",
+            ">Huỷ<",
+        ):
+            self.assertNotIn(stale_copy, self.dashboard_html)
 
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
@@ -1830,7 +1855,7 @@ class GatewayHangupCauseChartTests(unittest.TestCase):
     def test_bieu_do_phan_bo_so_cuoc_goi_theo_gateway(self):
         self.assertIn('id="chart_gateway_call_distribution"', self.HTML)
         self.assertIn("function plotGatewayCallDistribution(rows, colors)", self.HTML)
-        self.assertIn("title:{text:'Phân bổ số lượng cuộc gọi theo Gateway'", self.HTML)
+        self.assertIn("title:{text:'Phân bố số lượng cuộc gọi theo Gateway'", self.HTML)
         self.assertIn("cubeVal('gatewayFail'", self.HTML)
         self.assertIn("safePlot('chart_gateway_call_distribution'", self.HTML)
         self.assertIn("Tỷ trọng: %{customdata[0]:.2f}%", self.HTML)
@@ -1838,7 +1863,7 @@ class GatewayHangupCauseChartTests(unittest.TestCase):
     def test_bieu_do_phan_bo_phan_tram_theo_gateway(self):
         self.assertIn('id="chart_gateway_hangup_cause_pie"', self.HTML)
         self.assertIn("function plotGatewayHangupCausePie(rows)", self.HTML)
-        self.assertIn("title:'Phân bổ Hangup Cause theo Gateway (%)'", self.HTML)
+        self.assertIn("title:'Phân bố nguyên nhân kết thúc theo Gateway (%)'", self.HTML)
         self.assertIn("type:'bar', orientation:'h'", self.HTML)
         self.assertIn("barmode:'stack', barnorm:'percent'", self.HTML)
         self.assertIn("Không gộp nguyên nhân nhỏ", self.HTML)
@@ -1859,7 +1884,7 @@ class GatewayHangupCauseChartTests(unittest.TestCase):
         self.assertIn('id="gatewayHangupCauseGroups"', self.HTML)
         self.assertIn("details.className = 'gateway-cause-group'", self.HTML)
         self.assertIn("details.open = openGateways.has(gateway)", self.HTML)
-        self.assertIn("Tỷ trọng Fail", self.HTML)
+        self.assertIn("Tỷ trọng lỗi", self.HTML)
         self.assertIn("item.failSharePct.toFixed(2)", self.HTML)
         self.assertNotIn('id="gatewayHangupCauseTable"', self.HTML)
 

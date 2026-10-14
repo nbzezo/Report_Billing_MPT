@@ -845,9 +845,9 @@ function computeRequiredColumnHealth(rows){
                           .map(c=> `${c} (${Math.round(100*(n-filled[c])/n)}% trống)`);
   const critical = [];
   if(n>0 && billsecPositive===0 && !missing.includes('billsec'))
-    critical.push('Toàn bộ billsec = 0 → không cuộc nào được tính là Connected. Kiểm tra lại nguồn xuất dữ liệu.');
+    critical.push(`Toàn bộ billsec = 0 → không cuộc nào được tính là ${UI_LABELS.status.connected}. Hãy kiểm tra lại nguồn xuất dữ liệu.`);
   if(n>0 && durationPositive===0 && !missing.includes('duration'))
-    critical.push('Toàn bộ duration = 0 → mọi cuộc không xác định được nguyên nhân sẽ rơi về Fail.');
+    critical.push(`Toàn bộ duration = 0 → mọi cuộc không xác định được nguyên nhân sẽ rơi về ${UI_LABELS.status.fail}. Hãy kiểm tra lại nguồn xuất dữ liệu.`);
 
   return {required, missing, sparse, critical, rows:n, billsecPositive, durationPositive};
 }
@@ -925,16 +925,16 @@ function computeOperationalAlerts(rows){
   if(health.missing.length) items.push({level:'red',title:'Thiếu cột bắt buộc',desc:health.missing.join(', ')});
   else if(health.sparse.length) items.push({level:'yellow',title:'Cột thiếu dữ liệu',desc:health.sparse.join(', ')});
   items.push({level:overallRate<0.25?'red':overallRate<0.35?'yellow':'green',title:'Tỷ lệ kết nối tổng',
-    desc:`Connect rate: ${(100*overallRate).toFixed(2)}% (${connected}/${total})`});
+    desc:`Tỷ lệ kết nối: ${(100*overallRate).toFixed(2)}% (${connected}/${total})`});
   items.push(invalidRatio>0.05
-    ? {level:invalidRatio>0.12?'red':'yellow',title:'Data có dấu hiệu kém',desc:`Tỷ lệ destination_number không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`}
+    ? {level:invalidRatio>0.12?'red':'yellow',title:'Dữ liệu có dấu hiệu kém',desc:`Tỷ lệ số đích không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`}
     : {level:'green',title:'Chất lượng định dạng số đích',desc:`Tỷ lệ số không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`});
   items.push(drops.length
-    ? {level:'red',title:'Đầu số tụt mạnh so với baseline',desc:`Top: ${drops.slice(0,3).map(d=>`${d.p} (${d.diffPp.toFixed(1)}pp, n=${d.lastTot})`).join(', ')}`}
-    : {level:'green',title:'Biến động đầu số',desc:'Không phát hiện đầu số tụt mạnh theo rule (≥50 cuộc/ngày & tụt ≥10pp).'});
+    ? {level:'red',title:'Đầu số giảm mạnh so với mức nền',desc:`Các đầu số nổi bật: ${drops.slice(0,3).map(d=>`${d.p} (${d.diffPp.toFixed(1)} điểm %, n=${d.lastTot})`).join(', ')}`}
+    : {level:'green',title:'Biến động đầu số',desc:'Không phát hiện đầu số giảm mạnh theo ngưỡng (≥50 cuộc/ngày và giảm ≥10 điểm %).'});
   items.push(hourAnomalies.length
-    ? {level:'yellow',title:'Fail/No Answer tăng bất thường theo giờ',desc:`Top khung giờ: ${hourAnomalies.slice(0,3).map(h=>`${h.hour}h (${(100*h.rate).toFixed(1)}%, n=${h.total})`).join(', ')}. Rule: volume ≥50 và cao hơn baseline ≥10pp.`}
-    : {level:'green',title:'Fail/No Answer theo giờ',desc:'Không phát hiện khung giờ đủ volume có tỷ lệ Fail/No Answer tăng bất thường.'});
+    ? {level:'yellow',title:`${UI_LABELS.status.fail}/${UI_LABELS.status.noAnswer} tăng bất thường theo giờ`,desc:`Các khung giờ nổi bật: ${hourAnomalies.slice(0,3).map(h=>`${h.hour}h (${(100*h.rate).toFixed(1)}%, n=${h.total})`).join(', ')}. Ngưỡng: số lượng ≥50 và cao hơn mức nền ≥10 điểm %.`}
+    : {level:'green',title:`${UI_LABELS.status.fail}/${UI_LABELS.status.noAnswer} theo giờ`,desc:`Không phát hiện khung giờ đủ số lượng có tỷ lệ ${UI_LABELS.status.fail}/${UI_LABELS.status.noAnswer} tăng bất thường.`});
   return {items,scope:{mode:'full',rows:total,dateMin:dates[0]||null,dateMax:lastDate||null}};
 }
 

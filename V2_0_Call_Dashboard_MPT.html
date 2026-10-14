@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Call Dashboard by TuanDA </title>
+  <title>Bảng điều khiển cuộc gọi MPT</title>
   
 
 <!-- ==========================================
@@ -150,7 +150,7 @@ function updateRN_CF_KPIs(rows){
     <div class="hb-brand">
       <span class="hb-logo"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#E95420"/><path d="M7 15.5V11m4 4.5V8m4 7.5v-3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
       <div class="hb-titles">
-        <div class="hb-title">Call Dashboard MPT</div>
+        <div class="hb-title">Bảng điều khiển cuộc gọi MPT</div>
         <div class="hb-subtitle" id="mptSourceSummary">Chọn kết nối và phạm vi để cập nhật báo cáo</div>
       </div>
     </div>
@@ -272,7 +272,7 @@ function updateRN_CF_KPIs(rows){
                   <div class="mpt-account-tools">
                     <button id="mptSelectAllAccounts" type="button">Chọn tất cả</button>
                     <button id="mptClearAccounts" type="button">Bỏ chọn</button>
-                    <input id="mptAccountSearch" type="search" placeholder="Tìm account…" aria-label="Tìm tài khoản MPT" style="flex:1;min-width:120px">
+                    <input id="mptAccountSearch" type="search" placeholder="Tìm tài khoản…" aria-label="Tìm tài khoản MPT" style="flex:1;min-width:120px">
                   </div>
                   <div id="mptAccountList" class="mpt-account-list" role="group" aria-label="Tài khoản dùng để tải dữ liệu"><span class="muted">Chọn kết nối để tải tài khoản.</span></div>
                 </div>
@@ -515,7 +515,7 @@ function updateRN_CF_KPIs(rows){
           <label><input type="checkbox" id="concurTelcoLabels" checked> Hiển thị nhãn</label>
           <label title="Đổ chuông cũng chiếm một kênh thoại. Chọn 'Chiếm kênh' khi cần số liệu để quy hoạch trunk.">CCU tính theo
             <select id="ccuScope" style="padding:2px 6px;">
-              <option value="answered" selected>Đã nghe máy (Connected)</option>
+              <option value="answered" selected>Đã nghe máy (Kết nối)</option>
               <option value="occupied">Chiếm kênh (kể cả đổ chuông)</option>
             </select>
           </label>
@@ -541,10 +541,10 @@ function updateRN_CF_KPIs(rows){
       
 <div class="control-group tools-control"><div class="control-title">Màu sắc &amp; giao diện</div><div class="control-row tool-row"><button id="exportPNG" class="icon-btn" title="Xuất từng biểu đồ thành PNG">↓ PNG</button><button id="exportPDF" class="icon-btn primary-btn" title="Xuất toàn bộ báo cáo thành PDF">↓ PDF</button><button id="resetLayout" class="icon-btn" title="Đưa bố cục biểu đồ về mặc định">↺ Reset</button><button id="toggleDark" class="toggle-btn" title="Bật/tắt nền tối">Dark</button></div><div class="control-row color-controls legend-row">
           <label>Fail <input type="color" id="c_fail" value="#c0392b" disabled/></label>
-          <label>NoAnswer <input type="color" id="c_noans" value="#d97706" disabled/></label>
-          <label>Connected <input type="color" id="c_conn" value="#238636" disabled/></label>
+          <label>Không nghe <input type="color" id="c_noans" value="#d97706" disabled/></label>
+          <label>Kết nối <input type="color" id="c_conn" value="#238636" disabled/></label>
           <label>Minutes Bar <input type="color" id="c_minbar" value="#4e79a7" disabled/></label>
-          <label>Minutes Line <input type="color" id="c_minline" value="#1d4ed8" disabled/></label>
+          <label>Đường phút gọi <input type="color" id="c_minline" value="#1d4ed8" disabled/></label>
           <label>AnswerRate <input type="color" id="c_ansrate" value="#2563eb" disabled/></label>
         </div>
       </div>
@@ -553,7 +553,7 @@ function updateRN_CF_KPIs(rows){
   <!-- Account mapping (Adwaita dialog) -->
   <dialog id="mappingDialog" class="adw-dialog adw-dialog-wide">
     <div class="adw-dialog-header">
-      <div class="adw-dialog-title">Gán tên cho Account</div>
+      <div class="adw-dialog-title">Gán tên cho tài khoản</div>
       <button type="button" class="flat-btn icon-only adw-dialog-close" data-close-dialog aria-label="Đóng"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
     </div>
     <div class="adw-dialog-body">
@@ -568,14 +568,14 @@ function updateRN_CF_KPIs(rows){
           <button id="applyMapNow">Áp dụng ngay</button>
         </div>
         <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
-          <button id="exportMap">Export Mapping JSON</button>
+          <button id="exportMap">Xuất JSON ánh xạ</button>
           <label style="display:flex;align-items:center;gap:6px">Import JSON <input id="importMapFile" type="file" accept=".json,.csv"></label>
           <button id="clearMap" style="color:#b42318;border-color:#f0b3ad">Xoá toàn bộ mapping</button>
         </div>
       </div>
       <div class="card">
         <table class="map-table">
-          <thead><tr><th style="width:30%">Account ID</th><th>Tên hiển thị</th><th style="width:90px">Hành động</th></tr></thead>
+          <thead><tr><th style="width:30%">ID tài khoản</th><th>Tên hiển thị</th><th style="width:90px">Hành động</th></tr></thead>
           <tbody id="mapTbody"></tbody>
         </table>
       </div>
@@ -625,8 +625,8 @@ function updateRN_CF_KPIs(rows){
       <div class="settings-stack">
         <details id="settingsConnection" class="settings-section" open><summary>Kết nối MPT</summary><label for="settingsMptProfile">Kết nối đã lưu</label><select id="settingsMptProfile" style="width:100%;max-width:480px"><option value="">-- Chọn kết nối --</option></select><div id="settingsConnectionStatus" class="muted" role="status" aria-live="polite"></div><div id="settingsConnectionContent"></div></details>
         <details id="settingsData" class="settings-section"><summary>Dữ liệu &amp; bảo trì</summary><div id="settingsDataContent"></div></details>
-        <details id="settingsMapping" class="settings-section"><summary>Tên hiển thị Account</summary><div id="settingsMappingContent"></div></details>
-        <details id="settingsGateway" class="settings-section"><summary>Gateway ↔ Account</summary><div id="settingsGatewayContent"></div></details>
+        <details id="settingsMapping" class="settings-section"><summary>Tên hiển thị tài khoản</summary><div id="settingsMappingContent"></div></details>
+        <details id="settingsGateway" class="settings-section"><summary>Gateway ↔ Tài khoản</summary><div id="settingsGatewayContent"></div></details>
         <details id="settingsAnalysis" class="settings-section"><summary>Phân tích &amp; ngưỡng cảnh báo</summary><div id="settingsAnalysisContent"><div class="kpi-threshold-settings"><p class="adw-row-sub">Giá trị mặc định đề xuất; có thể điều chỉnh theo mục tiêu vận hành.</p><div class="threshold-grid"><label>ASR cảnh báo dưới (%)<input id="alertThreshold" type="number" min="0" max="100" step="1" value="40"></label><label>Kết nối: cảnh báo dưới (%)<input id="thresholdConnectWarn" type="number" min="0" max="100" value="40"></label><label>Kết nối: nghiêm trọng dưới (%)<input id="thresholdConnectBad" type="number" min="0" max="100" value="30"></label><label>Đích lỗi: cảnh báo trên (%)<input id="thresholdInvalidWarn" type="number" min="0" max="100" value="2"></label><label>Đích lỗi: nghiêm trọng trên (%)<input id="thresholdInvalidBad" type="number" min="0" max="100" value="5"></label><label>Đích lặp: cảnh báo trên (%)<input id="thresholdRepeatWarn" type="number" min="0" max="100" value="10"></label><label>Lỗi: cảnh báo trên (%)<input id="thresholdFailWarn" type="number" min="0" max="100" value="8"></label><label>Lỗi: nghiêm trọng trên (%)<input id="thresholdFailBad" type="number" min="0" max="100" value="15"></label></div></div></div></details>
         <details id="settingsAI" class="settings-section"><summary>Trợ lý AI</summary><div id="settingsAIContent"></div><div id="settingsAIActions"></div></details>
       </div>
@@ -664,13 +664,13 @@ function updateRN_CF_KPIs(rows){
     </div>
     <div id="chart_caller_participation_heatmap" class="card large" data-tab="time" draggable="true"></div>
     <div id="table_hangup_breakdown" class="card full" data-tab="quality" draggable="true">
-      <h3 style="margin:0 0 6px 0">Top hangup cause theo Telco / line prefix</h3>
+      <h3 style="margin:0 0 6px 0">Nguyên nhân kết thúc nổi bật theo nhà mạng / đầu số</h3>
       <div class="muted">Bảng truy vết nguyên nhân lỗi theo <code>hangup_cause</code>, <code>telco</code> và prefix gọi ra từ <code>caller_id_number</code>.</div>
       <table id="hangupBreakdownTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead><tr>
           <th style="text-align:left;border:1px solid #eee;padding:6px">hangup_cause</th>
           <th style="text-align:left;border:1px solid #eee;padding:6px">Telco</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Line prefix</th>
+          <th style="text-align:left;border:1px solid #eee;padding:6px">Đầu số</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">Count</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">% total</th>
         </tr></thead>
@@ -741,17 +741,17 @@ function updateRN_CF_KPIs(rows){
 
 <!-- Bảng tổng hợp Top số đích (gộp 2 tiêu chí) -->
 <div id="table_top_dest" class="card full" data-tab="quality" draggable="true">
-  <h3 style="margin:0 0 6px 0">Top số đích bất thường</h3>
+  <h3 style="margin:0 0 6px 0">Số đích bất thường nổi bật</h3>
   <div class="muted">Gồm 2 tiêu chí: (1) bị gọi nhiều nhất, (2) tỷ lệ Fail cao nhất với ngưỡng tối thiểu cuộc gọi.</div>
   <table id="topDestTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
     <thead>
       <tr>
-        <th style="text-align:left;border:1px solid #eee;padding:6px">destination_number</th>
+        <th style="text-align:left;border:1px solid #eee;padding:6px">Số đích</th>
         <th style="text-align:right;border:1px solid #eee;padding:6px">Tổng cuộc</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">Connected</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">No Answer</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">Fail</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">Fail %</th>
+        <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
+        <th style="text-align:right;border:1px solid #eee;padding:6px">Không nghe</th>
+        <th style="text-align:right;border:1px solid #eee;padding:6px">Lỗi</th>
+        <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ lỗi</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -770,10 +770,10 @@ function updateRN_CF_KPIs(rows){
       <table id="lineAnomTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead>
           <tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Prefix</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt (D-0)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate (D-0)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Avg 7D trước</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Đầu số</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi (D-0)</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối (D-0)</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">TB 7 ngày trước</th>
             <th style="text-align:right;border:1px solid #eee;padding:6px">Chênh lệch</th>
             <th style="text-align:center;border:1px solid #eee;padding:6px">AI</th>
           </tr>
@@ -785,21 +785,21 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_agent_perf" class="card large" data-tab="advanced" draggable="true"></div>
 
     <div id="table_agent_perf" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Account summary</h3>
-      <div class="muted">Tổng hợp theo <code>account_id</code>: connect rate, ASR hợp lệ <code>Connected/(Connected + No Answer)</code> và Kết nối loại Fail <code>Connected/(Tổng − Fail)</code>.</div>
+      <h3 style="margin:0 0 6px 0">Tổng hợp theo tài khoản</h3>
+      <div class="muted">Tổng hợp theo <code>account_id</code>: tỷ lệ kết nối, ASR hợp lệ <code>Kết nối/(Kết nối + Không nghe)</code> và tỷ lệ kết nối trừ cuộc lỗi <code>Kết nối/(Tổng − Lỗi)</code>.</div>
       <table id="agentPerfTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead>
           <tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Account</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Connected</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Tài khoản</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
             <th style="text-align:right;border:1px solid #eee;padding:6px">ASR hợp lệ</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối loại Fail</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Talk minutes</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Avg billsec (Connected)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Short call %</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Retry</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Phút gọi</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Thời lượng tính cước TB</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ cuộc ngắn</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Gọi lại</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -809,21 +809,21 @@ function updateRN_CF_KPIs(rows){
     <div id="gatewayGroupEmpty" class="card full empty-state--group" data-tab="advanced" data-group-empty hidden></div>
 
     <div id="table_gateway_fail" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Tỷ lệ Fail theo Gateway (tất cả account)</h3>
-      <div class="muted">Gộp toàn bộ cuộc gọi đã map gateway trong phạm vi lọc, <b>không tách theo account</b>. <code>Số account</code> = số account khác nhau đi qua gateway đó. Sắp xếp Fail % giảm dần.</div>
+      <h3 style="margin:0 0 6px 0">Tỷ lệ lỗi theo Gateway (tất cả tài khoản)</h3>
+      <div class="muted">Gộp toàn bộ cuộc gọi đã gán Gateway trong phạm vi lọc, <b>không tách theo tài khoản</b>. <code>Số tài khoản</code> là số tài khoản khác nhau đi qua Gateway đó. Sắp xếp theo tỷ lệ lỗi giảm dần.</div>
       <div id="gatewayFailCoverage" class="muted" style="margin-top:6px"></div>
       <table id="gatewayFailTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead><tr>
           <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Số account</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Connected</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Số tài khoản</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">ASR hợp lệ</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối loại Fail</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Fail</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Fail %</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Talk minutes</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Lỗi</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ lỗi</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Phút gọi</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -832,8 +832,8 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_gateway_call_distribution" class="card full" data-tab="advanced" draggable="true"></div>
 
     <div id="table_gateway_hangup_cause" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Hangup cause theo Gateway</h3>
-      <div class="muted">Mỗi Gateway được thu gọn riêng. “Tỷ trọng cuộc gọi” = Attempt của nguyên nhân / tổng Attempt Gateway; “Tỷ trọng Fail” = số Fail của nguyên nhân / tổng Attempt Gateway.</div>
+      <h3 style="margin:0 0 6px 0">Nguyên nhân kết thúc theo Gateway</h3>
+      <div class="muted">Mỗi Gateway được thu gọn riêng. “Tỷ trọng cuộc gọi” là số cuộc của nguyên nhân chia tổng số cuộc qua Gateway; “Tỷ trọng lỗi” là số cuộc lỗi của nguyên nhân chia tổng số cuộc qua Gateway.</div>
       <div id="gatewayHangupCoverage" class="muted" style="margin-top:6px"></div>
       <div id="gatewayHangupCauseGroups" class="gateway-cause-groups"></div>
     </div>
@@ -841,24 +841,24 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_gateway_hangup_cause_pie" class="card full" data-tab="advanced" draggable="true"></div>
 
     <div id="table_gateway_by_account" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Gateway theo account</h3>
-      <div class="muted">Gộp cuộc gọi theo <code>account_id × gateway</code>. Gateway lấy từ mapping <code>routing_id</code> đã đồng bộ (tab Vòng đời CID), join qua <code>caller_id_number</code>. Dòng <code>(chưa map)</code> = CID chưa có trong danh sách routing đã gán.</div>
+      <h3 style="margin:0 0 6px 0">Gateway theo tài khoản</h3>
+      <div class="muted">Gộp cuộc gọi theo <code>account_id × gateway</code>. Gateway lấy từ ánh xạ <code>routing_id</code> đã đồng bộ ở tab Vòng đời CID, nối qua <code>caller_id_number</code>. Dòng <code>(chưa gán)</code> là CID chưa có trong danh sách routing đã gán.</div>
       <div id="gatewayByAccountCoverage" class="muted" style="margin-top:6px"></div>
       <div class="muted" style="margin-top:4px;font-size:11px">Lọc từng cột như Excel: chữ = chứa chuỗi; số = <code>&gt;100</code>, <code>&gt;=80</code>, <code>&lt;50</code>, <code>=0</code> hoặc khoảng <code>10-20</code>.</div>
       <table id="gatewayByAccountTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead>
           <tr>
             <th style="text-align:left;border:1px solid #eee;padding:6px">account_id</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên account</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên tài khoản</th>
             <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
             <th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Connected</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
             <th style="text-align:right;border:1px solid #eee;padding:6px">ASR hợp lệ</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối loại Fail</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Fail %</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Talk minutes</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ lỗi</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Phút gọi</th>
           </tr>
           <tr class="gw-colfilter">
             <th style="border:1px solid #eee;padding:3px"><input data-gwf="account_id" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
@@ -879,7 +879,7 @@ function updateRN_CF_KPIs(rows){
     </div>
 
     <div id="table_gateway_block_reconcile" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Đối chiếu chặn telco ↔ Fail</h3>
+      <h3 style="margin:0 0 6px 0">Đối chiếu chặn nhà mạng ↔ Lỗi</h3>
       <div class="muted">So trạng thái khai trong export routing (<code>ON</code>/<code>PAUSE</code> theo Viettel/Mobi/Vina/Other của từng CID) với Fail thực tế của cuộc gọi tới nhà mạng đó trong CDR. Gộp theo <code>gateway × nhóm telco × trạng thái khai</code>.</div>
       <table id="gatewayBlockReconcileTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead><tr>
@@ -887,8 +887,8 @@ function updateRN_CF_KPIs(rows){
           <th style="text-align:left;border:1px solid #eee;padding:6px">Nhóm telco</th>
           <th style="text-align:left;border:1px solid #eee;padding:6px">Khai báo</th>
           <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Fail %</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Connect %</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ lỗi</th>
+          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
           <th style="text-align:left;border:1px solid #eee;padding:6px">Nhận xét</th>
         </tr></thead>
         <tbody></tbody>
@@ -903,11 +903,11 @@ function updateRN_CF_KPIs(rows){
       <table id="callbackTopTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
         <thead>
           <tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">destination_number</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Connected</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Connect rate</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Attempt trước khi connect (lần đầu)</th>
+            <th style="text-align:left;border:1px solid #eee;padding:6px">Số đích</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
+            <th style="text-align:right;border:1px solid #eee;padding:6px">Số lần gọi trước kết nối đầu tiên</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -916,12 +916,12 @@ function updateRN_CF_KPIs(rows){
 
     <div id="table_data_quality" class="card full" data-tab="advanced" draggable="true">
       <h3 style="margin:0 0 6px 0">Chất lượng data đầu vào</h3>
-      <div class="muted">Kiểm tra duplicate UUID, số đích được gọi lặp, sai định dạng, thiếu cột bắt buộc và thời gian bất thường. Destination đạt 100% được gom vào một dòng mở rộng; bên dưới liệt kê tối đa 150 destination có tỷ lệ thấp hơn, xếp giảm dần (Connected / Attempt).</div>
+      <div class="muted">Kiểm tra UUID trùng, số đích được gọi lặp, sai định dạng, thiếu cột bắt buộc và thời gian bất thường. Số đích đạt 100% được gom vào một dòng mở rộng; bên dưới liệt kê tối đa 150 số đích có tỷ lệ thấp hơn, xếp giảm dần (Kết nối / Cuộc gọi).</div>
       <div id="dataQualitySummary" class="kv"></div>
       <div id="dataQualityTopDupGrid" class="data-quality-table-grid">
-        <table id="dataQualityTopDup0"><thead><tr><th style="text-align:left;border:1px solid #eee">destination_number</th><th style="text-align:right;border:1px solid #eee">Attempt</th><th style="text-align:right;border:1px solid #eee">Connected</th><th style="text-align:right;border:1px solid #eee">Connect rate</th></tr></thead><tbody></tbody></table>
-        <table id="dataQualityTopDup1"><thead><tr><th style="text-align:left;border:1px solid #eee">destination_number</th><th style="text-align:right;border:1px solid #eee">Attempt</th><th style="text-align:right;border:1px solid #eee">Connected</th><th style="text-align:right;border:1px solid #eee">Connect rate</th></tr></thead><tbody></tbody></table>
-        <table id="dataQualityTopDup2"><thead><tr><th style="text-align:left;border:1px solid #eee">destination_number</th><th style="text-align:right;border:1px solid #eee">Attempt</th><th style="text-align:right;border:1px solid #eee">Connected</th><th style="text-align:right;border:1px solid #eee">Connect rate</th></tr></thead><tbody></tbody></table>
+        <table id="dataQualityTopDup0"><thead><tr><th style="text-align:left;border:1px solid #eee">Số đích</th><th style="text-align:right;border:1px solid #eee">Cuộc gọi</th><th style="text-align:right;border:1px solid #eee">Kết nối</th><th style="text-align:right;border:1px solid #eee">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
+        <table id="dataQualityTopDup1"><thead><tr><th style="text-align:left;border:1px solid #eee">Số đích</th><th style="text-align:right;border:1px solid #eee">Cuộc gọi</th><th style="text-align:right;border:1px solid #eee">Kết nối</th><th style="text-align:right;border:1px solid #eee">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
+        <table id="dataQualityTopDup2"><thead><tr><th style="text-align:left;border:1px solid #eee">Số đích</th><th style="text-align:right;border:1px solid #eee">Cuộc gọi</th><th style="text-align:right;border:1px solid #eee">Kết nối</th><th style="text-align:right;border:1px solid #eee">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
       </div>
 
     <div id="panel_alerts" class="card full" data-tab="advanced" draggable="true">
@@ -937,7 +937,7 @@ function updateRN_CF_KPIs(rows){
         Min RN = thấp nhất ≥ 1 (bỏ RN = null). • Min CF = chuỗi Fail dương nhỏ nhất (&gt; 0).
       </div>
       <div style="display:flex;gap:8px;margin-bottom:6px;">
-        <button id="exportReportUnified" class="primary-btn">Export CSV</button>
+        <button id="exportReportUnified" class="primary-btn">Xuất CSV</button>
       </div>
       <div style="overflow:auto;max-height:420px;">
         <table id="rncfUnifiedTable" style="width:100%;border-collapse:collapse;font-size:12px">
@@ -974,7 +974,7 @@ function updateRN_CF_KPIs(rows){
           <input id="rnLowThreshold" type="number" min="1" step="1" value="2" style="width:70px">
         </label>
         <input id="rnReportSearch" type="search" placeholder="Lọc account / số gọi ra…" style="min-width:190px">
-        <button id="exportRNReport" class="primary-btn">Export CSV</button>
+        <button id="exportRNReport" class="primary-btn">Xuất CSV</button>
         <span id="rnReportSummary" class="muted" style="margin-left:auto"></span>
       </div>
       <div class="rn-table-wrap">
@@ -999,7 +999,7 @@ function updateRN_CF_KPIs(rows){
     <div id="report_retry_pattern" class="card chart-report-card retry-report-card full" data-tab="time" draggable="true">
       <div class="retry-header">
         <div>
-          <div class="retry-title">Hiệu quả gọi lại sau Fail / No Answer</div>
+          <div class="retry-title">Hiệu quả gọi lại sau Lỗi / Không nghe</div>
           <div id="retrySubtitle" class="retry-subtitle">Đo lường lượt gọi lại, khả năng kết nối và các điểm bất thường trong phạm vi lọc hiện tại.</div>
         </div>
         <div class="retry-controls">
@@ -1013,54 +1013,54 @@ function updateRN_CF_KPIs(rows){
           </label>
           <label>Phạm vi
             <select id="retryScope">
-              <option value="account" selected>Cùng Account</option>
+              <option value="account" selected>Cùng tài khoản</option>
               <option value="system">Toàn hệ thống</option>
             </select>
           </label>
           <label>Cỡ mẫu tối thiểu
             <select id="retryMinSample">
-              <option value="1">1 retry</option>
-              <option value="5">5 retry</option>
-              <option value="10">10 retry</option>
-              <option value="20" selected>20 retry</option>
+              <option value="1">1 lượt gọi lại</option>
+              <option value="5">5 lượt gọi lại</option>
+              <option value="10">10 lượt gọi lại</option>
+              <option value="20" selected>20 lượt gọi lại</option>
             </select>
           </label>
           <label>Xếp hạng
             <select id="retryTopN">
-              <option value="5">Top 5</option>
-              <option value="10" selected>Top 10</option>
-              <option value="20">Top 20</option>
+              <option value="5">5 tài khoản đầu</option>
+              <option value="10" selected>10 tài khoản đầu</option>
+              <option value="20">20 tài khoản đầu</option>
             </select>
           </label>
         </div>
       </div>
       <div class="retry-kpis">
-        <div class="retry-kpi"><div class="retry-kpi-label">Lượt retry</div><div id="retryKpiTotal" class="retry-kpi-value">—</div><div class="retry-kpi-note">Số lần gọi lại hợp lệ</div></div>
-        <div class="retry-kpi"><div class="retry-kpi-label">Số đích được retry</div><div id="retryKpiDestinations" class="retry-kpi-value">—</div><div class="retry-kpi-note">Không tính trùng số đích</div></div>
-        <div class="retry-kpi"><div class="retry-kpi-label">Retry Connected</div><div id="retryKpiConnected" class="retry-kpi-value">—</div><div class="retry-kpi-note">Lượt retry kết nối thành công</div></div>
-        <div class="retry-kpi"><div class="retry-kpi-label">Retry ASR</div><div id="retryKpiAsr" class="retry-kpi-value">—</div><div class="retry-kpi-note">Connected / tổng retry</div></div>
-        <div class="retry-kpi"><div class="retry-kpi-label">Retry rate</div><div id="retryKpiRate" class="retry-kpi-value">—</div><div class="retry-kpi-note">Retry / Fail + No Answer</div></div>
-        <div class="retry-kpi"><div class="retry-kpi-label">Chuỗi thành công</div><div id="retryKpiChainAsr" class="retry-kpi-value">—</div><div class="retry-kpi-note">Kết quả cuối chuỗi Connected</div></div>
+        <div class="retry-kpi"><div class="retry-kpi-label">Lượt gọi lại</div><div id="retryKpiTotal" class="retry-kpi-value">—</div><div class="retry-kpi-note">Số lần gọi lại hợp lệ</div></div>
+        <div class="retry-kpi"><div class="retry-kpi-label">Số đích được gọi lại</div><div id="retryKpiDestinations" class="retry-kpi-value">—</div><div class="retry-kpi-note">Không tính trùng số đích</div></div>
+        <div class="retry-kpi"><div class="retry-kpi-label">Gọi lại kết nối</div><div id="retryKpiConnected" class="retry-kpi-value">—</div><div class="retry-kpi-note">Lượt gọi lại kết nối thành công</div></div>
+        <div class="retry-kpi"><div class="retry-kpi-label">ASR gọi lại</div><div id="retryKpiAsr" class="retry-kpi-value">—</div><div class="retry-kpi-note">Kết nối / tổng lượt gọi lại</div></div>
+        <div class="retry-kpi"><div class="retry-kpi-label">Tỷ lệ gọi lại</div><div id="retryKpiRate" class="retry-kpi-value">—</div><div class="retry-kpi-note">Gọi lại / (Lỗi + Không nghe)</div></div>
+        <div class="retry-kpi"><div class="retry-kpi-label">Chuỗi thành công</div><div id="retryKpiChainAsr" class="retry-kpi-value">—</div><div class="retry-kpi-note">Kết quả cuối chuỗi là Kết nối</div></div>
       </div>
       <div id="chart_retry_pattern" class="retry-chart-main"></div>
       <div class="retry-analysis-grid">
         <div class="retry-analysis-panel"><div class="retry-analysis-heading">Kết quả theo độ trễ</div><div id="chart_retry_delay" class="retry-analysis-chart"></div></div>
-        <div class="retry-analysis-panel"><div class="retry-analysis-heading">Hiệu quả theo lần retry</div><div id="chart_retry_attempt" class="retry-analysis-chart"></div></div>
+        <div class="retry-analysis-panel"><div class="retry-analysis-heading">Hiệu quả theo lần gọi lại</div><div id="chart_retry_attempt" class="retry-analysis-chart"></div></div>
         <div class="retry-analysis-panel"><div class="retry-analysis-heading">Xu hướng theo ngày</div><div id="chart_retry_trend" class="retry-analysis-chart"></div></div>
         <div class="retry-analysis-panel">
           <div class="retry-analysis-heading">Phân tích chiều dữ liệu
-            <select id="retryDimension"><option value="telco">Telco</option><option value="prefix">Line prefix</option><option value="hour">Khung giờ</option></select>
+            <select id="retryDimension"><option value="telco">Nhà mạng</option><option value="prefix">Đầu số</option><option value="hour">Khung giờ</option></select>
           </div>
           <div id="chart_retry_dimension" class="retry-analysis-chart"></div>
         </div>
       </div>
       <div id="retryAlerts" class="retry-alerts"></div>
       <details class="report-statistics retry-details" data-custom-statistics="retry">
-        <summary id="retryTableSummary">Chi tiết theo Account</summary>
-        <div style="display:flex;justify-content:flex-end;padding-top:4px"><button id="retryExportCsv" type="button">Export CSV</button></div>
+        <summary id="retryTableSummary">Chi tiết theo tài khoản</summary>
+        <div style="display:flex;justify-content:flex-end;padding-top:4px"><button id="retryExportCsv" type="button">Xuất CSV</button></div>
         <div class="retry-table-scroll">
           <table id="retryDataTable" class="retry-table">
-            <thead><tr><th>Account</th><th class="num">Retry</th><th class="num">Connected</th><th class="num">Retry ASR</th><th class="num">Số đích</th><th class="num">Chuỗi retry</th><th class="num">Chuỗi thành công</th><th class="num">Chain ASR</th><th class="num">Retry lần 2+</th></tr></thead>
+            <thead><tr><th>Tài khoản</th><th class="num">Gọi lại</th><th class="num">Kết nối</th><th class="num">ASR gọi lại</th><th class="num">Số đích</th><th class="num">Chuỗi gọi lại</th><th class="num">Chuỗi thành công</th><th class="num">ASR chuỗi</th><th class="num">Gọi lại lần 2+</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -1128,7 +1128,7 @@ function updateRN_CF_KPIs(rows){
 
         <div class="control-group"><div class="control-title">Phạm vi &amp; nhóm</div>
           <div class="control-row">
-            <label>Account <select id="billAccount" style="min-width:150px"><option value="">Tất cả</option></select></label>
+            <label>Tài khoản <select id="billAccount" style="min-width:150px"><option value="">Tất cả</option></select></label>
           </div>
           <div class="control-row">
             <label>Telco <select id="billTelco" style="min-width:120px"><option value="">Tất cả</option></select></label>
@@ -1231,7 +1231,7 @@ function updateRN_CF_KPIs(rows){
     </div>
 
     <div id="table_billing_by_account" class="card full" data-tab="billing" draggable="true">
-      <h3 style="margin:0 0 6px 0">Cước theo Account &amp; Telco</h3>
+      <h3 style="margin:0 0 6px 0">Cước theo tài khoản và nhà mạng</h3>
       <div class="muted">Dùng để đối soát từng cụm đầu số / từng hướng nhà mạng.</div>
       <div style="overflow:auto;max-height:420px;margin-top:6px">
         <table id="billingAccountTable" style="width:100%;border-collapse:collapse;font-size:12px">
@@ -1451,22 +1451,22 @@ function updateRN_CF_KPIs(rows){
       <h3 style="margin:0 0 6px 0">CID cần xử lý</h3>
       <div class="muted">Ưu tiên theo tuổi khóa, mốc chết 48h, số lần tái khóa và lưu lượng vẫn gọi vào CID.</div>
       <table id="cidActionQueueTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
-        <thead><tr><th style="text-align:left;border:1px solid #eee;padding:6px">Ưu tiên</th><th style="text-align:left;border:1px solid #eee;padding:6px">CID</th><th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:left;border:1px solid #eee;padding:6px">Gateway / Account</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đã khóa</th><th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc vẫn gọi</th><th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối mất ước tính</th><th style="text-align:right;border:1px solid #eee;padding:6px">Tái khóa</th></tr></thead>
+        <thead><tr><th style="text-align:left;border:1px solid #eee;padding:6px">Ưu tiên</th><th style="text-align:left;border:1px solid #eee;padding:6px">CID</th><th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:left;border:1px solid #eee;padding:6px">Gateway / Tài khoản</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đã khóa</th><th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc vẫn gọi</th><th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối mất ước tính</th><th style="text-align:right;border:1px solid #eee;padding:6px">Tái khóa</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
 
     <div id="table_cid_comparison" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">So sánh Gateway / Account</h3>
-      <div class="muted">Đối chiếu độ ổn định CID giữa các Gateway và Account trên cùng cửa sổ quan sát.</div>
+      <h3 style="margin:0 0 6px 0">So sánh Gateway / Tài khoản</h3>
+      <div class="muted">Đối chiếu độ ổn định CID giữa các Gateway và tài khoản trên cùng cửa sổ quan sát.</div>
       <div id="cidComparisonBody" style="margin-top:8px"></div>
     </div>
 
     <div id="table_card" class="card full" data-tab="advanced">
       <h3 style="margin:0 0 8px 0">Bảng dữ liệu (mẫu 20 bản ghi đầu)</h3>
-      <div class="muted">Bạn có thể export file JSON đã lọc nếu cần.</div>
+      <div class="muted">Bạn có thể xuất tệp JSON đã lọc khi cần.</div>
       <table id="dataTable"><thead><tr></tr></thead><tbody></tbody></table>
-      <div style="margin-top:8px;display:flex;gap:8px"><button id="exportCSV">Export CSV</button><button id="downloadFilteredJSON">Download JSON</button></div>
+      <div style="margin-top:8px;display:flex;gap:8px"><button id="exportCSV">Xuất CSV</button><button id="downloadFilteredJSON">Tải JSON</button></div>
     </div>
   </div>
 
@@ -1539,14 +1539,14 @@ function plotFailStreakTimeline(rows, colors){
       name: (typeof getAccountNameForId==='function') ? getAccountNameForId(acc) : acc,
       line:{ width:2, color: categoryColor(acc, palette) },
       marker:{ size:5 },
-      hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Max CF: %{y}<extra></extra>'
+      hovertemplate: '%{x|%Y-%m-%d %H:%M}<br>Chuỗi lỗi dài nhất: %{y}<extra></extra>'
     };
   });
   Plotly.react(elId, traces, {
-    title: 'Timeline Max Fail Streak theo Account (bucket 30 phút)',
+    title: 'Chuỗi lỗi liên tiếp dài nhất theo tài khoản (mỗi 30 phút)',
     height: 360,
     xaxis:{ title:'Thời gian', type:'date' },
-    yaxis:{ title:'Max CF liên tiếp', rangemode:'tozero' },
+    yaxis:{ title:'Chuỗi lỗi dài nhất', rangemode:'tozero' },
     legend:{ orientation:'h', y:-0.2 }
   }, {responsive:true});
 }
@@ -1592,7 +1592,7 @@ function plotShortCallRate(rows, colors){
   const elId = 'chart_short_call_rate';
   const thresholds = [5, 10, 15, 20, 30];
   const connected = (rows||[]).filter(r=> r.connType==='Connected');
-  if(!connected.length) return showNoData(elId, 'Không có cuộc gọi Connected');
+  if(!connected.length) return showNoData(elId, `Không có cuộc gọi ${statusLabel('Connected')}`);
   const total = connected.length;
   const counts = thresholds.map(t=> connected.filter(r=> Number(r.billsec||0) < t).length);
   const pcts = counts.map(c=> +(c/total*100).toFixed(2));
@@ -1605,11 +1605,11 @@ function plotShortCallRate(rows, colors){
     marker:{ color: CHART_SEMANTIC.Warning }
   }];
   Plotly.react(elId, data, {
-    title: `Short Call Rate trong Connected (n=${total})`,
+    title: `Tỷ lệ cuộc gọi ngắn trong nhóm ${statusLabel('Connected')} (n=${total})`,
     height: 360,
     margin:{l:65,r:30,t:65,b:60},
     xaxis:{ title:'Ngưỡng billsec' },
-    yaxis:{ title:'% trong Connected', range:[0,100] }
+    yaxis:{ title:`% trong nhóm ${statusLabel('Connected')}`, range:[0,100] }
   }, {responsive:true});
 }
 
@@ -1640,10 +1640,10 @@ function plotShortCallByAccount(rows, colors){
     marker:{ color: CHART_SEMANTIC.Warning }
   }];
   Plotly.react(elId, data, {
-    title: `Short Call Rate theo Account (billsec < ${SHORT_THRESHOLD}s trong Connected)`,
+    title: `Tỷ lệ cuộc gọi ngắn theo tài khoản (billsec < ${SHORT_THRESHOLD} giây trong nhóm ${statusLabel('Connected')})`,
     height: Math.max(360, arr.length*32 + 130),
     margin:{l:125,r:55,t:65,b:55},
-    xaxis:{ title:'Short call %', range:[0,100] },
+    xaxis:{ title:'Tỷ lệ cuộc gọi ngắn (%)', range:[0,100] },
     yaxis:{ type:'category', automargin:true, autorange:'reversed' }
   }, {responsive:true});
 }
@@ -1672,7 +1672,7 @@ function plotBillsecDurationGap(rows, colors){
       type:'scatter', mode:'markers',
       name: d.name,
       marker:{ size:4, color: categoryColor(d.acc, palette), opacity:0.6 },
-      hovertemplate: `<b>${d.name}</b><br>Duration: %{x}s<br>Billsec: %{y}s<br>Gap: %{customdata}s<extra></extra>`,
+      hovertemplate: `<b>${d.name}</b><br>Tổng thời lượng: %{x}s<br>Billsec: %{y}s<br>Thời gian chờ: %{customdata}s<extra></extra>`,
       customdata: d.gaps
     };
   });
@@ -1680,10 +1680,10 @@ function plotBillsecDurationGap(rows, colors){
   const maxVal = Math.min(Math.max(...pts.map(p=>p.dur)), 600);
   traces.push({ x:[0,maxVal], y:[0,maxVal], type:'scatter', mode:'lines', name:'dur=bill', line:{dash:'dash', color:'#aaa', width:1}, showlegend:true });
   Plotly.react(elId, traces, {
-    title: 'Billsec vs Duration (Connected) — Gap = Ring/Setup time',
+    title: `Billsec và tổng thời lượng (${statusLabel('Connected')}) — Chênh lệch = thời gian chờ`,
     height: 380,
-    xaxis:{ title:'Duration (s)', range:[0,Math.min(maxVal+20,650)] },
-    yaxis:{ title:'Billsec (s)', range:[0,Math.min(maxVal+20,650)] },
+    xaxis:{ title:'Tổng thời lượng (giây)', range:[0,Math.min(maxVal+20,650)] },
+    yaxis:{ title:'Billsec (giây)', range:[0,Math.min(maxVal+20,650)] },
     legend:{ orientation:'h', y:-0.2 }
   }, {responsive:true});
 }
@@ -1749,30 +1749,30 @@ function plotRetryRanking(analysis,config,colors){
     const rest=eligible.slice(config.topN);
     const retries=rest.reduce((sum,item)=>sum+item.retries,0);
     const connected=rest.reduce((sum,item)=>sum+item.retryConnected,0);
-    visible.push({name:`Khác (${rest.length} Account)`,retries,retryConnected:connected,retryASR:retries?+(connected*100/retries).toFixed(2):0});
+    visible.push({name:`Khác (${rest.length} tài khoản)`,retries,retryConnected:connected,retryASR:retries?+(connected*100/retries).toFixed(2):0});
   }
-  if(!visible.length) return showNoData('chart_retry_pattern',`Không có Account đạt tối thiểu ${config.minSample} retry`);
+  if(!visible.length) return showNoData('chart_retry_pattern',`Không có tài khoản đạt tối thiểu ${config.minSample} lượt gọi lại`);
   const names=visible.map(item=>item.name);
   const retries=visible.map(item=>item.retries);
   const asrs=visible.map(item=>item.retryASR);
   const traces=[
     {
-      x:retries,y:names,type:'bar',orientation:'h',name:'Lượt retry',
+      x:retries,y:names,type:'bar',orientation:'h',name:'Lượt gọi lại',
       marker:{color:CHART_SEMANTIC.Warning},text:retries.map(value=>value.toLocaleString('vi-VN')),textposition:'outside',
       customdata:visible.map(item=>[item.retryConnected,item.retryASR]),
-      hovertemplate:'<b>%{y}</b><br>Retry: %{x:,}<br>Connected: %{customdata[0]:,}<br>Retry ASR: %{customdata[1]:.2f}%<extra></extra>'
+      hovertemplate:`<b>%{y}</b><br>Gọi lại: %{x:,}<br>${statusLabel('Connected')}: %{customdata[0]:,}<br>ASR gọi lại: %{customdata[1]:.2f}%<extra></extra>`
     },
     {
-      x:asrs,y:names,type:'scatter',mode:'markers',name:'Retry ASR',
+      x:asrs,y:names,type:'scatter',mode:'markers',name:'ASR gọi lại',
       marker:{size:11,color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,symbol:'diamond',line:{color:'#fff',width:1}},
       xaxis:'x2',customdata:retries,
-      hovertemplate:'<b>%{y}</b><br>Retry ASR: %{x:.2f}%<br>Cỡ mẫu: %{customdata:,}<extra></extra>'
+      hovertemplate:'<b>%{y}</b><br>ASR gọi lại: %{x:.2f}%<br>Cỡ mẫu: %{customdata:,}<extra></extra>'
     }
   ];
   Plotly.react('chart_retry_pattern',traces,{
     height:Math.max(390,names.length*38+150),margin:{l:150,r:68,t:68,b:58},
-    xaxis:{title:'Lượt retry',domain:[0,1],rangemode:'tozero',gridcolor:'#e7ebf0',zeroline:false},
-    xaxis2:{title:'Retry ASR',overlaying:'x',side:'top',range:[0,100],ticksuffix:'%',showgrid:false,zeroline:false},
+    xaxis:{title:'Lượt gọi lại',domain:[0,1],rangemode:'tozero',gridcolor:'#e7ebf0',zeroline:false},
+    xaxis2:{title:'ASR gọi lại',overlaying:'x',side:'top',range:[0,100],ticksuffix:'%',showgrid:false,zeroline:false},
     yaxis:{type:'category',automargin:true,autorange:'reversed'},
     legend:{orientation:'h',x:0,y:1.2},hovermode:'closest',bargap:.34,
     paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)'
@@ -1788,11 +1788,11 @@ function plotRetryDelay(events,colors){
   const connected=active.map(label=>lookup.get(label).connected);
   const notConnected=active.map(label=>lookup.get(label).retries-lookup.get(label).connected);
   Plotly.react('chart_retry_delay',[
-    {x:active,y:connected,type:'bar',name:'Connected',marker:{color:(colors&&colors.Connected)||CHART_SEMANTIC.Connected}},
+    {x:active,y:connected,type:'bar',name:statusLabel('Connected'),marker:{color:(colors&&colors.Connected)||CHART_SEMANTIC.Connected}},
     {x:active,y:notConnected,type:'bar',name:'Chưa kết nối',marker:{color:CHART_SEMANTIC.Warning}}
   ],{
     height:300,margin:{l:48,r:20,t:40,b:62},barmode:'stack',
-    xaxis:{type:'category',automargin:true},yaxis:{title:'Retry',rangemode:'tozero'},
+    xaxis:{type:'category',automargin:true},yaxis:{title:'Lượt gọi lại',rangemode:'tozero'},
     legend:{orientation:'h',x:0,y:1.16},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)'
   },retryPlotConfig());
 }
@@ -1805,11 +1805,11 @@ function plotRetryAttempts(events,colors){
   const totals=order.map(label=>lookup.get(label).retries);
   const asrs=order.map(label=>lookup.get(label).asr);
   Plotly.react('chart_retry_attempt',[
-    {x:order,y:totals,type:'bar',name:'Retry',marker:{color:CHART_SEMANTIC.Warning},text:totals.map(String),textposition:'outside'},
+    {x:order,y:totals,type:'bar',name:'Gọi lại',marker:{color:CHART_SEMANTIC.Warning},text:totals.map(String),textposition:'outside'},
     {x:order,y:asrs,type:'scatter',mode:'lines+markers',name:'ASR',yaxis:'y2',line:{color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,width:2},marker:{size:8},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
   ],{
     height:300,margin:{l:48,r:52,t:40,b:48},
-    yaxis:{title:'Retry',rangemode:'tozero'},yaxis2:{title:'ASR',overlaying:'y',side:'right',range:[0,100],ticksuffix:'%',showgrid:false},
+    yaxis:{title:'Lượt gọi lại',rangemode:'tozero'},yaxis2:{title:'ASR',overlaying:'y',side:'right',range:[0,100],ticksuffix:'%',showgrid:false},
     legend:{orientation:'h',x:0,y:1.16},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)'
   },retryPlotConfig());
 }
@@ -1818,11 +1818,11 @@ function plotRetryTrend(events,colors){
   const rows=retryAggregate(events,event=>event.date).sort((a,b)=>a.key.localeCompare(b.key));
   if(!rows.length) return showNoData('chart_retry_trend','Không có dữ liệu');
   Plotly.react('chart_retry_trend',[
-    {x:rows.map(row=>row.key),y:rows.map(row=>row.retries),type:'bar',name:'Retry',marker:{color:CHART_SEMANTIC.Warning}},
+    {x:rows.map(row=>row.key),y:rows.map(row=>row.retries),type:'bar',name:'Gọi lại',marker:{color:CHART_SEMANTIC.Warning}},
     {x:rows.map(row=>row.key),y:rows.map(row=>row.asr),type:'scatter',mode:'lines+markers',name:'ASR',yaxis:'y2',line:{color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,width:2},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
   ],{
     height:300,margin:{l:48,r:52,t:40,b:58},
-    xaxis:{type:'category',automargin:true},yaxis:{title:'Retry',rangemode:'tozero'},
+    xaxis:{type:'category',automargin:true},yaxis:{title:'Lượt gọi lại',rangemode:'tozero'},
     yaxis2:{title:'ASR',overlaying:'y',side:'right',range:[0,100],ticksuffix:'%',showgrid:false},
     legend:{orientation:'h',x:0,y:1.16},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)'
   },retryPlotConfig());
@@ -1834,11 +1834,11 @@ function plotRetryDimension(events,dimension,colors){
   rows=dimension==='hour'?rows.sort((a,b)=>a.key.localeCompare(b.key)):rows.sort((a,b)=>b.retries-a.retries).slice(0,12);
   if(!rows.length) return showNoData('chart_retry_dimension','Không có dữ liệu');
   Plotly.react('chart_retry_dimension',[
-    {x:rows.map(row=>row.key),y:rows.map(row=>row.retries),type:'bar',name:'Retry',marker:{color:CHART_SEMANTIC.Warning}},
+    {x:rows.map(row=>row.key),y:rows.map(row=>row.retries),type:'bar',name:'Gọi lại',marker:{color:CHART_SEMANTIC.Warning}},
     {x:rows.map(row=>row.key),y:rows.map(row=>row.asr),type:'scatter',mode:'markers',name:'ASR',yaxis:'y2',marker:{color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,size:8,symbol:'diamond'},hovertemplate:'%{x}<br>ASR: %{y:.2f}%<extra></extra>'}
   ],{
     height:300,margin:{l:48,r:52,t:40,b:72},
-    xaxis:{type:'category',automargin:true,tickangle:dimension==='hour'?-45:0},yaxis:{title:'Retry',rangemode:'tozero'},
+    xaxis:{type:'category',automargin:true,tickangle:dimension==='hour'?-45:0},yaxis:{title:'Lượt gọi lại',rangemode:'tozero'},
     yaxis2:{title:'ASR',overlaying:'y',side:'right',range:[0,100],ticksuffix:'%',showgrid:false},
     legend:{orientation:'h',x:0,y:1.16},paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)'
   },retryPlotConfig());
@@ -1847,7 +1847,7 @@ function plotRetryDimension(events,dimension,colors){
 function renderRetryTable(analysis){
   const tbody=document.querySelector('#retryDataTable tbody');
   const summary=document.getElementById('retryTableSummary');
-  if(summary) summary.textContent=`Chi tiết theo Account (${analysis.accArr.length.toLocaleString('vi-VN')} dòng)`;
+  if(summary) summary.textContent=`Chi tiết theo tài khoản (${analysis.accArr.length.toLocaleString('vi-VN')} dòng)`;
   if(!tbody) return;
   tbody.innerHTML=analysis.accArr.map(item=>`<tr>
     <td>${reportTableEscape(item.name)}</td>
@@ -1859,22 +1859,22 @@ function renderRetryTable(analysis){
     <td class="num">${item.successfulChains.toLocaleString('vi-VN')}</td>
     <td class="num">${item.chainASR.toLocaleString('vi-VN')}%</td>
     <td class="num">${item.retry2Plus.toLocaleString('vi-VN')}</td>
-  </tr>`).join('') || '<tr><td colspan="9" class="muted">Không có dữ liệu retry.</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="9" class="muted">Không có dữ liệu gọi lại.</td></tr>';
 }
 
 function renderRetryAlerts(analysis,config){
   const el=document.getElementById('retryAlerts');
   if(!el) return;
   const alerts=[];
-  if(analysis.totalRetries<config.minSample) alerts.push(`Cỡ mẫu thấp: chỉ có ${analysis.totalRetries.toLocaleString('vi-VN')} retry.`);
-  if(analysis.totalRetries>=20 && analysis.retryASR<20) alerts.push(`Retry ASR thấp (${analysis.retryASR.toLocaleString('vi-VN')}%), cần rà soát thời điểm và danh sách gọi lại.`);
-  if(analysis.retryRate>=30) alerts.push(`Retry rate cao (${analysis.retryRate.toLocaleString('vi-VN')}%), dấu hiệu gọi lặp nhiều sau Fail/No Answer.`);
+  if(analysis.totalRetries<config.minSample) alerts.push(`Cỡ mẫu thấp: chỉ có ${analysis.totalRetries.toLocaleString('vi-VN')} lượt gọi lại.`);
+  if(analysis.totalRetries>=20 && analysis.retryASR<20) alerts.push(`ASR gọi lại thấp (${analysis.retryASR.toLocaleString('vi-VN')}%), cần rà soát thời điểm và danh sách gọi lại.`);
+  if(analysis.retryRate>=30) alerts.push(`Tỷ lệ gọi lại cao (${analysis.retryRate.toLocaleString('vi-VN')}%), có dấu hiệu gọi lặp nhiều sau trạng thái ${statusLabel('Fail')}/${statusLabel('No Answer')}.`);
   const repeated=analysis.events.filter(event=>event.attempt>=2).length;
   const repeatedRate=analysis.totalRetries?repeated*100/analysis.totalRetries:0;
-  if(analysis.totalRetries>=20 && repeatedRate>=20) alerts.push(`${repeatedRate.toFixed(1)}% lượt retry là lần thứ 2 trở lên.`);
+  if(analysis.totalRetries>=20 && repeatedRate>=20) alerts.push(`${repeatedRate.toFixed(1)}% lượt gọi lại là lần thứ 2 trở lên.`);
   const weakAccount=analysis.accArr.find(item=>item.retries>=config.minSample&&item.retryASR<15);
-  if(weakAccount) alerts.push(`${weakAccount.name}: ${weakAccount.retries} retry nhưng ASR chỉ ${weakAccount.retryASR}%.`);
-  if(!alerts.length) el.innerHTML='<div class="retry-alert good">Chưa phát hiện bất thường Retry theo các ngưỡng tham chiếu.</div>';
+  if(weakAccount) alerts.push(`${weakAccount.name}: ${weakAccount.retries} lượt gọi lại nhưng ASR chỉ ${weakAccount.retryASR}%.`);
+  if(!alerts.length) el.innerHTML='<div class="retry-alert good">Chưa phát hiện bất thường gọi lại theo các ngưỡng tham chiếu.</div>';
   else el.innerHTML=alerts.map(text=>`<div class="retry-alert">${reportTableEscape(text)}</div>`).join('');
 }
 
@@ -1894,8 +1894,8 @@ function plotRetryPattern(rows,colors){
   const analysis=(dashState.cube && dashState.cube.retryPattern) || computeRetryPattern(retryLastRows,config.windowMinutes,config.scope);
   retryLastAnalysis=analysis;
   const subtitle=document.getElementById('retrySubtitle');
-  if(subtitle) subtitle.textContent=`Retry trong ${config.windowMinutes} phút • ${config.scope==='account'?'Chỉ nối các cuộc cùng Account':'Nối cuộc gọi trên toàn hệ thống'} • ${analysis.eligibleFailures.toLocaleString('vi-VN')} Fail/No Answer trong phạm vi lọc`;
-  if(!analysis.totalRetries){ clearRetryReport('Không phát hiện retry theo cấu hình hiện tại'); return; }
+  if(subtitle) subtitle.textContent=`Gọi lại trong ${config.windowMinutes} phút • ${config.scope==='account'?'Chỉ nối các cuộc cùng tài khoản':'Nối cuộc gọi trên toàn hệ thống'} • ${analysis.eligibleFailures.toLocaleString('vi-VN')} cuộc ${statusLabel('Fail')}/${statusLabel('No Answer')} trong phạm vi lọc`;
+  if(!analysis.totalRetries){ clearRetryReport('Không phát hiện lượt gọi lại theo cấu hình hiện tại'); return; }
   setRetryKpis(analysis);
   plotRetryRanking(analysis,config,colors);
   plotRetryDelay(analysis.events,colors);
@@ -1907,8 +1907,8 @@ function plotRetryPattern(rows,colors){
 }
 
 function exportRetryCsv(){
-  if(!retryLastAnalysis||!retryLastAnalysis.accArr.length) return toast('Không có dữ liệu retry để export.', true);
-  const header=['Account','Retry','Connected','Retry ASR (%)','Unique destinations','Retry chains','Successful chains','Chain ASR (%)','Retry attempt 2+'];
+  if(!retryLastAnalysis||!retryLastAnalysis.accArr.length) return toast('Không thể xuất CSV vì chưa có dữ liệu gọi lại. Hãy điều chỉnh bộ lọc rồi thử lại.', true);
+  const header=['Tài khoản','Lượt gọi lại','Kết nối','ASR gọi lại (%)','Số đích duy nhất','Chuỗi gọi lại','Chuỗi thành công','ASR chuỗi (%)','Lượt gọi lại lần 2+'];
   const body=retryLastAnalysis.accArr.map(item=>[item.name,item.retries,item.retryConnected,item.retryASR,item.uniqueDestinations,item.chains,item.successfulChains,item.chainASR,item.retry2Plus]);
   const csv=[header,...body].map(row=>row.map(value=>JSON.stringify(value??'')).join(',')).join('\n');
   downloadTextFile(`retry_report_${localISODate()}.csv`,csv);
@@ -1974,7 +1974,7 @@ function plotAccountRadar(rows, colors, topN=5){
   }));
 
   const layout = {
-    title:'So sánh KPI theo Account (Radar – chuẩn hoá 0–100)',
+    title:'So sánh KPI theo tài khoản (Radar – chuẩn hóa 0–100)',
     height:420,
     polar:{
       radialaxis:{visible:true, range:[0,100], tickfont:{size:10}},
@@ -3103,8 +3103,8 @@ function plotASRByTime(rows, colors){
   const spread=Math.max(rawMax-rawMin,2);
   const yPadding=Math.max(1,spread*.28);
   const yRange=[Math.max(0,Math.floor((rawMin-yPadding)*2)/2),Math.min(100,Math.ceil((rawMax+yPadding)*2)/2)];
-  const asrExtra=labels.map((_,i)=>`Connected: ${connected[i]} • No Answer: ${noAnswer[i]} • Mẫu ASR: ${denominators[i]}`);
-  const connectExtra=labels.map((_,i)=>`Connected: ${connected[i]} • Tổng cuộc gọi: ${totalCalls[i]}`);
+  const asrExtra=labels.map((_,i)=>`${statusLabel('Connected')}: ${connected[i]} • ${statusLabel('No Answer')}: ${noAnswer[i]} • Mẫu ASR: ${denominators[i]}`);
+  const connectExtra=labels.map((_,i)=>`${statusLabel('Connected')}: ${connected[i]} • Tổng cuộc gọi: ${totalCalls[i]}`);
   const asrColor=(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate;
   const connectColor=(colors&&colors.Connected)||CHART_SEMANTIC.Connected;
   const onePeriod=mode==='day' && labels.length===1;
@@ -3245,14 +3245,14 @@ function plotCallerParticipationHeatmap(rows, colors){
     texttemplate: showText ? '%{text}' : '',
     textfont: {size: 11},
     hovertemplate: '%{x}<br>%{y}: %{z} caller_id_number<extra></extra>',
-    colorbar: {title: 'Caller'}
+    colorbar: {title: 'Số nguồn'}
   };
   const layout = {
-    title: `Heatmap số đầu số tham gia theo Telco / ${CALLER_PARTICIPATION_BUCKET_MINUTES} phút`,
+    title: `Bản đồ nhiệt số đầu số tham gia theo nhà mạng / ${CALLER_PARTICIPATION_BUCKET_MINUTES} phút`,
     height: 380,
     margin: {l: 72, r: 78, t: 48, b: 70},
-    xaxis: {title: 'Bucket thời gian', type: 'category', automargin: true, nticks: Math.min(12, agg.labels.length)},
-    yaxis: {title: 'Telco', type: 'category', automargin: true}
+    xaxis: {title: 'Khoảng thời gian', type: 'category', automargin: true, nticks: Math.min(12, agg.labels.length)},
+    yaxis: {title: 'Nhà mạng', type: 'category', automargin: true}
   };
   Plotly.react(elId, [trace], layout, {responsive:true, displaylogo:false});
 }
@@ -3323,7 +3323,7 @@ function plotAvgDurationByPrefix(rows, colors){
   }];
 
   const layout={
-    title:'Thời lượng trung bình (Connected) theo Prefix',
+    title:`Thời lượng trung bình (${statusLabel('Connected')}) theo đầu số`,
     height: Math.max(360, dataArr.length*30),
     xaxis:{title:'Thời lượng TB (giây)',range:[0,maxAvg ? maxAvg*1.15 : 1],automargin:true},
     yaxis:{type:'category', automargin:true, autorange:'reversed'}
@@ -3366,12 +3366,12 @@ function plotDurationShareByPrefix(rows, colors){
     textposition:'outside',
     cliponaxis:false,
     customdata: dataArr.map((d,i)=> [pcts[i], d.con, +(d.sec/d.con).toFixed(1)]),
-    hovertemplate:'<b>%{y}</b><br>Thời lượng: %{x} phút (%{customdata[0]}%)<br>Số cuộc Connected: %{customdata[1]}<br>TB/cuộc: %{customdata[2]}s<extra></extra>',
+    hovertemplate:`<b>%{y}</b><br>Thời lượng: %{x} phút (%{customdata[0]}%)<br>Số cuộc ${statusLabel('Connected')}: %{customdata[1]}<br>Trung bình/cuộc: %{customdata[2]} giây<extra></extra>`,
     marker:{color: dataArr.map(d=> categoryColor(d.prefix, pal))}
   }];
 
   const layout={
-    title:`Tỷ trọng thời lượng gọi theo đầu số — Tổng ${(totalSec/60).toFixed(1)} phút (Connected)`,
+    title:`Tỷ trọng thời lượng gọi theo đầu số — Tổng ${(totalSec/60).toFixed(1)} phút (${statusLabel('Connected')})`,
     height: Math.max(360, dataArr.length*34),
     margin:{r:120},
     xaxis:{title:'Phút gọi', rangemode:'tozero'},
@@ -3427,7 +3427,7 @@ function plotAvgDurationVsConnectRate(rows, colors){
   });
 
   const layout = {
-    title:'Tương quan: Thời lượng TB (Connected) vs Tỷ lệ kết nối theo Prefix',
+    title:`Tương quan: Thời lượng trung bình (${statusLabel('Connected')}) và tỷ lệ kết nối theo đầu số`,
     height:420,
     xaxis:{title:'Tỷ lệ kết nối (%)', range:[0,100]},
     yaxis:{title:'Thời lượng TB (giây)'},
@@ -7056,9 +7056,9 @@ function plotGoldenHoursRate(rows){
     y: ['CN','T2','T3','T4','T5','T6','T7'],
     hoverongaps:false,
     customdata: zTot.map((row,i)=> row.map((t,j)=>({t, c:zCon[i][j], r:zRate[i][j]}))),
-    hovertemplate: 'Thứ %{y}<br>Giờ %{x}:00<br>Attempt %{customdata.t}<br>Connected %{customdata.c}<br>Connect rate %{customdata.r}%<extra></extra>'
+    hovertemplate: `Thứ %{y}<br>Giờ %{x}:00<br>Số cuộc %{customdata.t}<br>${statusLabel('Connected')} %{customdata.c}<br>Tỷ lệ kết nối %{customdata.r}%<extra></extra>`
   }];
-  const layout={title:'Khung giờ vàng — Connect rate theo Thứ × Giờ', xaxis:{title:'Giờ'}, yaxis:{title:'Thứ', autorange:'reversed'}};
+  const layout={title:'Khung giờ vàng — Tỷ lệ kết nối theo Thứ × Giờ', xaxis:{title:'Giờ'}, yaxis:{title:'Thứ', autorange:'reversed'}};
   Plotly.react('chart_golden_hours_rate', data, layout, {responsive:true});
 }
 function plotTopTimeSlots(rows, colors, topN=10, minAttempts=30){
@@ -7091,9 +7091,9 @@ function plotTopTimeSlots(rows, colors, topN=10, minAttempts=30){
     cliponaxis:false,
     marker:{color:barColors,line:{color:'#fff',width:.5}},
     customdata:top.map(s=>[s.con,s.tot,s.tot<100?'Mẫu thấp (<100 cuộc)':'Mẫu đủ từ 100 cuộc']),
-    hovertemplate:'%{y}<br>Connect rate: %{x:.2f}%<br>Connected: %{customdata[0]}<br>Tổng cuộc: %{customdata[1]}<br>%{customdata[2]}<extra></extra>'
+    hovertemplate:`%{y}<br>Tỷ lệ kết nối: %{x:.2f}%<br>${statusLabel('Connected')}: %{customdata[0]}<br>Tổng cuộc: %{customdata[1]}<br>%{customdata[2]}<extra></extra>`
   }], {
-    title:{text:`Khung giờ có tỷ lệ kết nối cao nhất<br><span style="font-size:11px;color:#64748b">Top ${topN} • Tối thiểu ${minAttempts} cuộc/khung • Thanh xanh nhạt: ngoài Top 3</span>`,x:.03,xanchor:'left'},
+    title:{text:`Khung giờ có tỷ lệ kết nối cao nhất<br><span style="font-size:11px;color:#64748b">${topN} khung đầu • Tối thiểu ${minAttempts} cuộc/khung • Thanh xanh nhạt: ngoài 3 khung đầu</span>`,x:.03,xanchor:'left'},
     xaxis:{title:'Tỷ lệ kết nối (%)',range:[0,axisMax],ticksuffix:'%',gridcolor:'#e7ebf0',zeroline:false},
     yaxis:{autorange:'reversed',categoryorder:'array',categoryarray:y},
     height: Math.max(450, y.length*34+130),
@@ -7126,10 +7126,10 @@ function plotCallFunnel(rows, minCompletedBillsec=30){
     marker:{color:['#64748b',CHART_SEMANTIC.Connected,'#166534']},
     connector:{line:{color:'#cbd5e1',width:1},fillcolor:'rgba(203,213,225,.48)'},
     customdata:values.map((value,i)=>[fmt(value),previousRates[i],totalRates[i]]),
-    hovertemplate:'%{y}<br>Số cuộc: %{customdata[0]}<br>Tỷ lệ từ bước trước: %{customdata[1]:.1f}%<br>Tỷ lệ trên tổng Attempt: %{customdata[2]:.1f}%<extra></extra>'
+    hovertemplate:'%{y}<br>Số cuộc: %{customdata[0]}<br>Tỷ lệ từ bước trước: %{customdata[1]:.1f}%<br>Tỷ lệ trên tổng số cuộc: %{customdata[2]:.1f}%<extra></extra>'
   }];
   const layout={
-    title:{text:`Phễu chất lượng cuộc gọi<br><span style="font-size:11px;color:#64748b">Hoàn tất = Connected và billsec ≥ ${minCompletedBillsec} giây</span>`,x:.03,xanchor:'left'},
+    title:{text:`Phễu chất lượng cuộc gọi<br><span style="font-size:11px;color:#64748b">Hoàn tất = ${statusLabel('Connected')} và billsec ≥ ${minCompletedBillsec} giây</span>`,x:.03,xanchor:'left'},
     margin:{l:105,r:145,t:74,b:22},showlegend:false,plot_bgcolor:'#fff',paper_bgcolor:'#fff',
     annotations:[
       {xref:'paper',yref:'paper',x:1.02,y:.66,text:`Rơi ${fmt(lossConnect)} · ${pct(lossConnect,total).toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:'#64748b'}},
@@ -7161,8 +7161,8 @@ function plotLineHealthTrend(rows, colors, topN=6){
     return {type:'scatter', mode:'lines+markers', name:p, x:dates, y, line:{color:categoryColor(p)}};
   });
   Plotly.react('chart_line_health_trend', traces, {
-    title:`Sức khỏe đầu số — Connect rate theo ngày (Top ${prefixes.length} theo volume)`,
-    yaxis:{title:'Connect rate (%)', range:[0,100]},
+    title:`Sức khỏe đầu số — Tỷ lệ kết nối theo ngày (${prefixes.length} đầu số có nhiều cuộc nhất)`,
+    yaxis:{title:'Tỷ lệ kết nối (%)', range:[0,100]},
     xaxis:{title:'Ngày'},
     legend:{orientation:'h'},
     margin:{l:60,r:20,t:60,b:60}
@@ -7213,7 +7213,7 @@ function renderLineAnomalyTable(rows, minAttemptsDay=50, dropThresholdPp=10){
     const fmt = v => (100*v).toFixed(2)+'%';
     const diff = (o.diffPp>=0?'+':'') + o.diffPp.toFixed(2) + 'pp';
     const explainPayload = {
-      loai: 'Bất thường đầu số (connect rate tụt so với baseline 7 ngày)',
+      loai: 'Bất thường đầu số (tỷ lệ kết nối giảm so với mức nền 7 ngày)',
       prefix: o.p, attemptHomNay: o.lastTot,
       connectRateHomNay: +(100*o.lastRate).toFixed(2),
       connectRateTrungBinh7Ngay: +(100*o.baseRate).toFixed(2),
@@ -7237,13 +7237,13 @@ function renderLineAnomalyTable(rows, minAttemptsDay=50, dropThresholdPp=10){
 function plotAgentPerformance(rows, colors, topN=10){
   if(!rows || !rows.length) return showNoData('chart_agent_perf','Không có dữ liệu');
   const accountCount = new Set((rows||[]).map(r=>String(r.account_id||'unknown'))).size;
-  if(accountCount < 2) return showNoData('chart_agent_perf','Không đủ account để so sánh. Xem chi tiết ở bảng Account summary.');
+  if(accountCount < 2) return showNoData('chart_agent_perf',`Không đủ tài khoản để so sánh. Xem chi tiết ở bảng ${UI_LABELS.group.accountSummary}.`);
   const selected = (cubeVal('agentPerf', ()=>computeAgentPerf(rows))||[]).slice().sort((a,b)=> b.tot-a.tot).slice(0, topN);
   if(!selected.length) return showNoData('chart_agent_perf','Không có dữ liệu');
   const data=selected.slice().sort((a,b)=>b.rate-a.rate || b.tot-a.tot);
   const y = data.map(a=>{
     const id=String(a.id),name=String(getAccountNameForId(a.id)||id);
-    return name===id ? `Account ${id}` : `${name} · ${id}`;
+    return name===id ? `Tài khoản ${id}` : `${name} · ${id}`;
   });
   const x = data.map(a=> +(100*a.rate).toFixed(2));
   const xAsr = data.map(a=> +(100*a.asr).toFixed(2));
@@ -7255,17 +7255,17 @@ function plotAgentPerformance(rows, colors, topN=10){
     x, y, type:'bar', orientation:'h',
     marker:{color:barColors,line:{color:'#fff',width:.5}},cliponaxis:false,
     customdata:data.map(a=>[a.tot,a.con,a.noans,a.fail,a.minutes,a.avgCon]),
-    hovertemplate:'%{y}<br>Tỷ lệ kết nối: %{x:.2f}%<br>Attempt: %{customdata[0]:,.0f}<br>Connected: %{customdata[1]:,.0f}<br>No Answer: %{customdata[2]:,.0f}<br>Fail: %{customdata[3]:,.0f}<br>Talk minutes: %{customdata[4]:.1f}<br>Avg billsec connected: %{customdata[5]:.1f}s<extra></extra>',
-    text:data.map(a=>`${(100*a.rate).toFixed(1)}% · ${new Intl.NumberFormat('vi-VN').format(a.tot)} attempts`),
+    hovertemplate:`%{y}<br>Tỷ lệ kết nối: %{x:.2f}%<br>Số cuộc: %{customdata[0]:,.0f}<br>${statusLabel('Connected')}: %{customdata[1]:,.0f}<br>${statusLabel('No Answer')}: %{customdata[2]:,.0f}<br>${statusLabel('Fail')}: %{customdata[3]:,.0f}<br>Phút gọi: %{customdata[4]:.1f}<br>Billsec trung bình khi kết nối: %{customdata[5]:.1f} giây<extra></extra>`,
+    text:data.map(a=>`${(100*a.rate).toFixed(1)}% · ${new Intl.NumberFormat('vi-VN').format(a.tot)} cuộc`),
     textposition:'outside'
   }, {
     x: xAsr, y, type:'scatter', mode:'markers', name:'ASR hợp lệ',
     xaxis:'x2',
     marker:{size:9, color:CHART_SEMANTIC.AnswerRate, symbol:'diamond', line:{color:'#fff',width:1}},
     customdata: data.map(a=>[a.con, a.noans]),
-    hovertemplate:'%{y}<br>ASR hợp lệ: %{x:.2f}%<br>Connected: %{customdata[0]:,.0f} • No Answer: %{customdata[1]:,.0f}<extra></extra>'
+    hovertemplate:`%{y}<br>ASR hợp lệ: %{x:.2f}%<br>${statusLabel('Connected')}: %{customdata[0]:,.0f} • ${statusLabel('No Answer')}: %{customdata[1]:,.0f}<extra></extra>`
   }], {
-    title:{text:`Kết nối & ASR của ${topN} Account có nhiều cuộc gọi nhất<br><span style="font-size:11px;color:#64748b">Cột = Tỷ lệ kết nối • Diamond = ASR hợp lệ • Sắp theo tỷ lệ kết nối</span>`,x:.03,xanchor:'left'},
+    title:{text:`Kết nối và ASR của ${topN} tài khoản có nhiều cuộc gọi nhất<br><span style="font-size:11px;color:#64748b">Cột = Tỷ lệ kết nối • Hình thoi = ASR hợp lệ • Sắp theo tỷ lệ kết nối</span>`,x:.03,xanchor:'left'},
     xaxis:{title:'Tỷ lệ kết nối (%)',range:[0,100],ticksuffix:'%',gridcolor:'#e7ebf0',zeroline:false},
     xaxis2:{title:'ASR (%)',overlaying:'x',side:'top',range:[0,100],ticksuffix:'%',showgrid:false,zeroline:false},
     yaxis:{type:'category',autorange:'reversed',categoryorder:'array',categoryarray:y,automargin:true},
@@ -7294,7 +7294,7 @@ function renderAgentPerfTable(rows){
     const tr=document.createElement('tr');
     const name=getAccountNameForId(a.id);
     tr.innerHTML=`
-      <td style="border:1px solid #eee;padding:6px"><button type="button" class="drilldown-trigger" data-drill-account="${reportTableEscape(String(a.id))}" data-drill-title="Chi tiết Account ${reportTableEscape(String(name))}">${reportTableEscape(name)}</button><div class="muted" style="font-size:11px">ID: ${reportTableEscape(String(a.id))}</div></td>
+      <td style="border:1px solid #eee;padding:6px"><button type="button" class="drilldown-trigger" data-drill-account="${reportTableEscape(String(a.id))}" data-drill-title="Chi tiết tài khoản ${reportTableEscape(String(name))}">${reportTableEscape(name)}</button><div class="muted" style="font-size:11px">ID: ${reportTableEscape(String(a.id))}</div></td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${a.tot}</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${a.con}</td>
       <td style="border:1px solid #eee;padding:6px;text-align:right">${(100*a.rate).toFixed(2)}%</td>
@@ -7363,7 +7363,7 @@ function renderGatewayByAccountTable(rows){
   gwByAccountData = [];
   const hasMap = gatewayCidIndex && Object.keys(gatewayCidIndex).length > 0;
   if(!hasMap){
-    if(cov) cov.innerHTML = 'Chưa có mapping Gateway. Vào tab <b>Vòng đời CID</b> → <b>Gán Gateway ↔ account</b>, gán <code>routing_id</code> rồi <b>Đồng bộ Gateway</b>.';
+    if(cov) cov.innerHTML = 'Chưa có ánh xạ Gateway. Vào tab <b>Vòng đời CID</b> → <b>Gán Gateway ↔ tài khoản</b>, gán <code>routing_id</code> rồi <b>Đồng bộ Gateway</b>.';
     return;
   }
   if(!rows || !rows.length){ if(cov) cov.textContent = ''; return; }
@@ -7453,9 +7453,9 @@ function plotGatewayCallDistribution(rows, colors){
     marker:{color:data.map(item=>categoryColor(item.gateway,palette))},
     text:data.map(item=>item.total.toLocaleString('vi-VN')),
     textposition:'auto',
-    hovertemplate:'Gateway: %{y}<br>Số cuộc gọi: %{x:,}<br>Tỷ trọng: %{customdata[0]:.2f}%<br>Số account: %{customdata[1]:,}<br>Connected: %{customdata[2]:,}<br>Fail: %{customdata[3]:,}<extra></extra>',
+    hovertemplate:`Gateway: %{y}<br>Số cuộc gọi: %{x:,}<br>Tỷ trọng: %{customdata[0]:.2f}%<br>Số tài khoản: %{customdata[1]:,}<br>${statusLabel('Connected')}: %{customdata[2]:,}<br>${statusLabel('Fail')}: %{customdata[3]:,}<extra></extra>`,
   }],{
-    title:{text:'Phân bổ số lượng cuộc gọi theo Gateway',x:.02,xanchor:'left'},
+    title:{text:'Phân bố số lượng cuộc gọi theo Gateway',x:.02,xanchor:'left'},
     height:420,
     margin:{t:58,r:28,b:52,l:190},
     xaxis:{title:'Số cuộc gọi',rangemode:'tozero',fixedrange:true,separatethousands:true},
@@ -7526,7 +7526,7 @@ function renderGatewayHangupCauseTable(rows){
           <span class="gateway-cause-meta gateway-cause-fail">Fail ${gatewayFail.toLocaleString('vi-VN')} · ${gatewayFailPct.toFixed(2)}%</span>
         </summary>
         <div class="gateway-cause-table-wrap"><table class="gateway-cause-table">
-          <thead><tr><th>hangup_cause</th><th>Attempt</th><th>Tỷ trọng cuộc gọi</th><th>Connected</th><th>No Answer</th><th>Cancelled</th><th>Fail</th><th>Tỷ trọng Fail</th></tr></thead>
+          <thead><tr><th>Nguyên nhân kết thúc</th><th>Số cuộc</th><th>Tỷ trọng cuộc gọi</th><th>${statusLabel('Connected')}</th><th>${statusLabel('No Answer')}</th><th>${statusLabel('Cancelled')}</th><th>${statusLabel('Fail')}</th><th>Tỷ trọng lỗi</th></tr></thead>
           <tbody>${bodyRows}</tbody>
         </table></div>`;
       host.appendChild(details);
@@ -7563,7 +7563,7 @@ function plotGatewayHangupCausePie(rows){
       const cell=lookup.get(gateway+'\u0000'+cause);
       return [cell?.total||0, cell?.sharePct||0, cell?.gatewayTotal||0];
     }),
-    hovertemplate:'Gateway: %{y}<br>Hangup cause: '+reportTableEscape(cause)+'<br>Attempt: %{customdata[0]:,}<br>Tỷ trọng trong Gateway: %{customdata[1]:.2f}%<extra></extra>',
+    hovertemplate:'Gateway: %{y}<br>Nguyên nhân kết thúc: '+reportTableEscape(cause)+'<br>Số cuộc: %{customdata[0]:,}<br>Tỷ trọng trong Gateway: %{customdata[1]:.2f}%<extra></extra>',
     text:gateways.map(gateway=>{
       const cell=lookup.get(gateway+'\u0000'+cause);
       return cell && cell.sharePct >= 8 ? `${cell.sharePct.toFixed(1)}%` : '';
@@ -7573,7 +7573,7 @@ function plotGatewayHangupCausePie(rows){
     legendgroup:cause, showlegend:true
   }));
   Plotly.react(elId,traces,{
-    title:'Phân bổ Hangup Cause theo Gateway (%)',
+    title:'Phân bố nguyên nhân kết thúc theo Gateway (%)',
     barmode:'stack', barnorm:'percent',
     height:Math.max(430,gateways.length*54+190),
     margin:{t:70,r:24,b:155,l:190},
@@ -7658,7 +7658,7 @@ function plotCallbackDistribution(rows, colors){
     // histfunc 'sum' trên (giá trị, số lượng) = histogram trên từng giá trị như trước.
     x: hist.map(h=>h[0]), y: hist.map(h=>h[1]), type:'histogram', histfunc:'sum',
     marker:{color: CHART_SEMANTIC.Volume},
-    hovertemplate:'Attempt trước khi connect: %{x}<br>Số lượng: %{y}<extra></extra>'
+    hovertemplate:'Số lần gọi trước khi kết nối: %{x}<br>Số lượng: %{y}<extra></extra>'
   }], {
     title:'Phân phối: số lần gọi trước khi connect (lần đầu)',
     xaxis:{title:'Số lần gọi'},
@@ -7763,7 +7763,7 @@ function renderDataQuality(rows){
       const perfectAttempts = perfect.reduce((sum,s)=>sum+s.tot,0);
       const perfectNames = perfect.map(s=>`<span>${reportTableEscape(maskDn(s.dn))}</span>`).join('');
       tables[0].insertAdjacentHTML('beforeend', `<tr><td colspan="4" style="border:1px solid #eee;padding:6px">
-        <details><summary style="cursor:pointer"><b>100% Connected</b> — ${perfect.length.toLocaleString('vi-VN')} destination · ${perfectAttempts.toLocaleString('vi-VN')} Attempt</summary>
+        <details><summary style="cursor:pointer"><b>100% ${statusLabel('Connected')}</b> — ${perfect.length.toLocaleString('vi-VN')} số đích · ${perfectAttempts.toLocaleString('vi-VN')} cuộc</summary>
           <div class="data-quality-perfect-list">${perfectNames}</div>
         </details>
       </td></tr>`);
@@ -7867,13 +7867,13 @@ function renderAdvancedAlerts(rows){
   items.push({
     level: lowOverall ? 'red' : (overallRate<0.35 ? 'yellow' : 'green'),
     title: 'Tỷ lệ kết nối tổng',
-    desc: `Connect rate: ${(100*overallRate).toFixed(2)}% (${connected}/${total})`
+    desc: `Tỷ lệ kết nối: ${(100*overallRate).toFixed(2)}% (${connected}/${total})`
   });
   if(invalidRatio>0.05){
     items.push({
       level: invalidRatio>0.12 ? 'red' : 'yellow',
-      title: 'Data có dấu hiệu kém',
-      desc: `Tỷ lệ destination_number không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`
+      title: 'Dữ liệu có dấu hiệu kém',
+      desc: `Tỷ lệ số đích không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`
     });
   } else {
     items.push({
@@ -7886,28 +7886,28 @@ function renderAdvancedAlerts(rows){
     const top = drops.slice(0,3).map(d=> `${d.p} (${d.diffPp.toFixed(1)}pp, n=${d.lastTot})`).join(', ');
     items.push({
       level: 'red',
-      title: 'Đầu số tụt mạnh so với baseline',
-      desc: `Top: ${top}`
+      title: 'Đầu số giảm mạnh so với mức nền',
+      desc: `Các đầu số nổi bật: ${top}`
     });
   } else {
     items.push({
       level: 'green',
       title: 'Biến động đầu số',
-      desc: 'Không phát hiện đầu số tụt mạnh theo rule (≥50 cuộc/ngày & tụt ≥10pp).'
+      desc: 'Không phát hiện đầu số giảm mạnh theo ngưỡng (≥50 cuộc/ngày và giảm ≥10 điểm %).'
     });
   }
   if(hourAnomalies.length){
     const topHour = hourAnomalies.slice(0,3).map(h=> `${h.hour}h (${(100*h.rate).toFixed(1)}%, n=${h.total})`).join(', ');
     items.push({
       level: 'yellow',
-      title: 'Fail/No Answer tăng bất thường theo giờ',
-      desc: `Top khung giờ: ${topHour}. Rule: volume ≥50 và cao hơn baseline ≥10pp.`
+      title: `${statusLabel('Fail')}/${statusLabel('No Answer')} tăng bất thường theo giờ`,
+      desc: `Các khung giờ nổi bật: ${topHour}. Ngưỡng: số lượng ≥50 và cao hơn mức nền ≥10 điểm %.`
     });
   } else {
     items.push({
       level: 'green',
-      title: 'Fail/No Answer theo giờ',
-      desc: 'Không phát hiện khung giờ đủ volume có tỷ lệ Fail/No Answer tăng bất thường.'
+      title: `${statusLabel('Fail')}/${statusLabel('No Answer')} theo giờ`,
+      desc: `Không phát hiện khung giờ đủ số lượng có tỷ lệ ${statusLabel('Fail')}/${statusLabel('No Answer')} tăng bất thường.`
     });
   }
 
@@ -8227,7 +8227,7 @@ document.getElementById('exportPDF').addEventListener('click', async ()=>{
     const startTime=(document.getElementById('startTime')||{}).value||'00:00';
     const endTime=(document.getElementById('endTime')||{}).value||'23:59';
     const accountText=(document.getElementById('accountDropdownBtn')||{}).textContent||'All';
-    header.innerHTML=`<h1>Call Dashboard MPT</h1><div>Phạm vi: ${reportTableEscape(start)} ${reportTableEscape(startTime)} - ${reportTableEscape(end)} ${reportTableEscape(endTime)} &nbsp; | &nbsp; Account: ${reportTableEscape(accountText)} &nbsp; | &nbsp; Xuất lúc: ${new Date().toLocaleString('vi-VN')}</div>`;
+    header.innerHTML=`<h1>Bảng điều khiển cuộc gọi MPT</h1><div>Phạm vi: ${reportTableEscape(start)} ${reportTableEscape(startTime)} - ${reportTableEscape(end)} ${reportTableEscape(endTime)} &nbsp; | &nbsp; Tài khoản: ${reportTableEscape(accountText)} &nbsp; | &nbsp; Xuất lúc: ${new Date().toLocaleString('vi-VN')}</div>`;
     const kpi=document.querySelector('.kpi-shell');
     document.body.insertBefore(header,kpi||document.body.firstChild);
 
@@ -8563,7 +8563,7 @@ function renderDrilldownResult(result, params, requestId, version){
   }else{
     const table = document.createElement('table');
     table.className = 'drilldown-table';
-    table.innerHTML = '<thead><tr><th>Thời gian</th><th>Account</th><th>Gateway</th><th>Số nguồn</th><th>Số đích</th><th>Trạng thái</th><th>Lý do kết thúc</th><th>Thời lượng (giây)</th><th>Giây tính cước (billsec)</th></tr></thead><tbody></tbody>';
+    table.innerHTML = '<thead><tr><th>Thời gian</th><th>Tài khoản</th><th>Gateway</th><th>Số nguồn</th><th>Số đích</th><th>Trạng thái</th><th>Lý do kết thúc</th><th>Thời lượng (giây)</th><th>Giây tính cước (billsec)</th></tr></thead><tbody></tbody>';
     const tbody = table.querySelector('tbody');
     rows.forEach(row=>{
       const tr = document.createElement('tr');
@@ -10245,7 +10245,7 @@ function plotAnswerDelayByTelco(rows, colors){
   });
   const pct = (arr,p)=>{ if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const i=Math.min(arr.length-1, Math.max(0, Math.ceil(p*arr.length)-1)); return s[i]; };
   const tels = Object.keys(map).filter(t=> map[t].length>0).sort();
-  if(!tels.length) return showNoData(elId, 'Không có cuộc gọi Connected để tính thời gian đổ chuông');
+  if(!tels.length) return showNoData(elId, `Không có cuộc gọi ${statusLabel('Connected')} để tính thời gian đổ chuông`);
   const palette = ['#8baecd','#4e79a7','#315f91'];
   const traces = [50,90,95].map((p,i)=>({
     x: tels.map(t=> pct(map[t], p/100)),
@@ -10299,7 +10299,7 @@ function plotBillingByPrefix(res, cfg, metric, colors){
   }], {
     title:`${metricObj.label} theo đầu số gọi ra (prefix caller)`,
     height:380,
-    xaxis:{title:'Prefix', type:'category', automargin:true, tickangle:-45},
+    xaxis:{title:'Đầu số', type:'category', automargin:true, tickangle:-45},
     yaxis:{title:metricObj.unit, rangemode:'tozero', automargin:true},
     margin:{t:60, b:80}
   }, {responsive:true, displaylogo:false});
