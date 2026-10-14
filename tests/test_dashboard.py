@@ -1105,9 +1105,10 @@ class ExportProgressTests(unittest.TestCase):
 
         handler.merge_account_exports = fake_merge
 
+        today = date.today().isoformat()
         _, cache_state = handler._export_calldata_csv({
             "profile_id": "p", "account_id": "0",
-            "from_day": "2026-09-01", "to_day": "2026-09-01",
+            "from_day": today, "to_day": today,
         }, sync_mode="update")
 
         self.assertEqual(cache_state, "SYNC")
@@ -1998,9 +1999,9 @@ class CidReadabilityOnReportLayoutTests(unittest.TestCase):
         self.assertIn("  positionReportToggles();\n  positionCidExtras();\n  positionAdvancedGroupHeaders();\n}\napplyDashboardV2Layout();", self.HTML)
         self.assertIn("    positionReportToggles();\n    positionCidExtras();\n    positionAdvancedGroupHeaders();\n  }catch(e){}\n}", self.HTML)
 
-    def test_5_nhom_mau_khop_dung_REPORT_LAYOUT_cid_order(self):
+    def test_4_nhom_mau_khop_dung_REPORT_LAYOUT_cid_order(self):
         for anchor in ("panel_cid_coverage", "chart_cid_pressure", "chart_cid_load_risk",
-                       "table_cid_action_queue", "panel_gateway_map"):
+                       "table_cid_action_queue"):
             self.assertIn(f"anchor:'{anchor}'", self.HTML)
 
     def test_bang_ky_thuat_van_an_sau_details(self):

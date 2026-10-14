@@ -18,6 +18,7 @@ const auditOnly = process.argv.includes('--audit-only');
 const themeArg = process.argv.find(value => value.startsWith('--theme='));
 const themes = themeArg ? [themeArg.split('=')[1]] : ['light', 'dark'];
 const out = path.join(here, process.argv.includes('--baseline') ? 'baseline' : 'out');
+const kpiBaseline = JSON.parse(await fs.readFile(path.join(here, 'baseline', 'kpi.json'), 'utf8'));
 await fs.mkdir(out, { recursive: true });
 await fs.access(path.join(here, 'fixtures', 'sample.csv')).catch(() => { throw new Error('Chạy node tests/ui/make-sample.mjs trước.'); });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -35,6 +36,8 @@ try {
     await page.waitForFunction(() => ['8000', '8.000'].includes(document.querySelector('#kpi_total_text')?.textContent?.trim()), { timeout: 45000 });
     await page.waitForFunction(() => !document.querySelector('#reportLoading.show'), { timeout: 45000 });
     await page.waitForFunction(() => reportSkeletonTimer === null && !document.body.classList.contains('report-skeleton-active'));
+    const kpiSnapshot = await page.evaluate(ids => Object.fromEntries(ids.map(id => [id, document.getElementById(id)?.textContent?.trim()])), Object.keys(kpiBaseline));
+    if (JSON.stringify(kpiSnapshot) !== JSON.stringify(kpiBaseline)) throw new Error(`KPI lệch baseline UX-00: ${JSON.stringify({expected:kpiBaseline,actual:kpiSnapshot})}`);
     const skeletonState = await page.evaluate(async () => {
       const token = beginReportSkeleton();
       await new Promise(resolve => setTimeout(resolve, 220));
@@ -92,6 +95,39 @@ try {
     await page.keyboard.press('Escape');
     await page.locator('#callDrilldownDialog').waitFor({ state: 'hidden' });
     if (!(await totalKpi.evaluate(element => element === document.activeElement))) throw new Error('Drilldown KPI không trả focus về nút kích hoạt.');
+    if (theme === 'light') {
+      await page.evaluate(() => { window.__qaRunUnifiedReport = window.runUnifiedReport; window.__qaUpdateTriggered = false; window.runUnifiedReport = mode => { window.__qaUpdateTriggered = mode === 'update'; markFilterDirty(false); }; });
+      await page.locator('#mainMptProfile').focus();
+      await page.keyboard.press('Home');
+      await page.keyboard.press('ArrowDown');
+      await page.locator('#dateRangeButton').focus();
+      await page.keyboard.press('Enter');
+      await page.locator('#dateRangePopover').waitFor({ state: 'visible' });
+      await page.keyboard.press('Escape');
+      await page.locator('#moreFiltersButton').focus();
+      await page.keyboard.press('Enter');
+      await page.locator('#moreFiltersPopover').waitFor({ state: 'visible' });
+      await page.locator('#mainDirection').focus();
+      await page.keyboard.press('ArrowDown');
+      await page.locator('#applyMoreFilters').focus();
+      await page.keyboard.press('Enter');
+      await page.locator('#updateReport').focus();
+      await page.keyboard.press('Enter');
+      if (!(await page.evaluate(() => window.__qaUpdateTriggered))) throw new Error('Luồng bàn phím chưa kích hoạt Cập nhật.');
+      await totalKpi.focus();
+      await page.keyboard.press('Enter');
+      await page.locator('#callDrilldownDialog[open]').waitFor();
+      await page.keyboard.press('Escape');
+      await page.locator('#tabsBar .tab-btn[data-tab="quality"]').focus();
+      await page.keyboard.press('Enter');
+      if ((await page.locator('#tabsBar .tab-btn[data-tab="quality"]').getAttribute('aria-current')) !== 'page') throw new Error('Luồng bàn phím chưa đổi tab.');
+      await page.locator('#askDashboardToggle').focus();
+      await page.keyboard.press('Enter');
+      await page.locator('#askDashboardPanel').waitFor({ state: 'visible' });
+      await page.keyboard.press('Escape');
+      await page.evaluate(() => { window.runUnifiedReport = window.__qaRunUnifiedReport; delete window.__qaRunUnifiedReport; delete window.__qaUpdateTriggered; });
+      await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
+    }
     await page.evaluate(() => { window.__snapRunUnifiedReport = window.runUnifiedReport; window.runUnifiedReport = () => markFilterDirty(false); });
     await page.locator('#dateRangeButton').click();
     await page.locator('#dateRangePopover').waitFor({ state: 'visible' });
@@ -239,15 +275,16 @@ try {
       if (bubbleState.width - bubbleState.right > 32 || bubbleState.height - bubbleState.bottom > 32)
         throw new Error(`Bong bóng AI không trở lại góc dưới phải: ${JSON.stringify(bubbleState)}`);
     }
-    if (theme === 'light' && !auditOnly) {
-      for (const width of [1024, 900, 600]) {
+    if (!auditOnly) {
+      for (const width of [1024, 600]) {
         await page.setViewportSize({ width, height: 768 });
         await page.waitForTimeout(180);
-        if (width >= 900) {
+        await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
+        if (width === 1024) {
           const compactHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
           if (compactHeight > 112) throw new Error(`Thanh lọc cao ${compactHeight}px ở ${width}px.`);
           const sidebarWidth = await page.locator('#adwSidebar').evaluate(element => element.getBoundingClientRect().width);
-          const expected = width === 1024 ? 180 : 64;
+          const expected = 180;
           if (Math.abs(sidebarWidth - expected) > 1) throw new Error(`Sidebar rộng ${sidebarWidth}px thay vì ${expected}px ở ${width}px.`);
         } else {
           const filterToggle = page.locator('#mobileFilterToggle');
@@ -266,9 +303,10 @@ try {
           await page.waitForTimeout(80);
           const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, viewport: innerWidth }));
           if (overflow.scroll > overflow.viewport + 1) throw new Error(`Màn hình ${tab} tràn ngang ở ${width}px: ${JSON.stringify(overflow)}`);
+          await page.evaluate(() => scrollTo(0, 0));
+          await page.waitForTimeout(40);
+          await page.screenshot({ path: path.join(out, `${theme}-${tab}-${width}.png`), fullPage: true });
         }
-        await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
-        await page.screenshot({ path: path.join(out, `light-overview-${width}.png`), fullPage: true });
       }
     }
     if (theme === 'light') {

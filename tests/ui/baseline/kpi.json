@@ -1,0 +1,13 @@
+{
+  "kpi_total_text": "8.000",
+  "kpi_connect_rate_text": "54,5%",
+  "kpi_answer_text": "63,9%",
+  "kpi_minutes_text": "21.881 phút",
+  "kpi_peak_text": "10",
+  "kpi_avg_billsec_text": "301,3 giây",
+  "kpi_max_cf_text": "1",
+  "kpi_median_rn_text": "—",
+  "kpi_dup_dest_text": "0,0%",
+  "kpi_invalid_dest_text": "0,0%",
+  "kpi_connect_excl_fail_text": "59,0%"
+}

@@ -1,9 +1,6 @@
 # MPT Call Dashboard
 
-Dashboard phan tich Call Data MPT voi workflow mot man hinh:
-1. Chon/sua ket noi MPT ngay tren Dashboard
-2. Chon Account, ngay, huong... trong **Nguon du lieu MPT**
-3. Nhan **Tai / Cap nhat bao cao** -> du lieu va bieu do cap nhat tai cho
+Dashboard phân tích dữ liệu cuộc gọi MPT theo một luồng làm việc thống nhất: chọn kết nối và phạm vi xem trên thanh lọc, dùng **Cập nhật** khi cần tải thêm dữ liệu từ MPT, rồi đọc KPI và báo cáo ngay trên cùng màn hình.
 
 ## Chay
 
@@ -56,14 +53,14 @@ devnull khi khong co console nen van chay binh thuong.
 
 ## Flow su dung
 
-1. Mo Dashboard tai `http://127.0.0.1:8787/`
-2. Trong **Nguon du lieu MPT**, chon ket noi da luu; danh sach Account duoc nap tu dong.
-3. Neu them moi: mo **Quan ly ket noi**, nhap Domain/Username/Password -> **Kiem tra ket noi** -> **Luu ket noi**.
-4. Chon mot hoac nhieu Account. Khong chon account nao = All Account.
-5. Chon ngay bat dau, ngay ket thuc
-6. Chon Direction, Hangup Cause, Call Type, Telco (neu can)
-7. Nhan **Tai / Cap nhat bao cao** -> Dashboard cap nhat ngay, khong chuyen trang.
-8. Dung **Bo loc chinh** de loc nhanh ngay, gio va Account tren du lieu da tai ma khong goi lai MPT.
+1. Mở Dashboard tại `http://127.0.0.1:8787/`.
+2. Chọn **Kết nối**, **Thời gian** và **Tài khoản đang xem** trên thanh lọc. Mở **Bộ lọc khác** khi cần lọc hướng gọi, nhà mạng, nguyên nhân kết thúc, loại gọi hoặc số điện thoại.
+3. Bộ lọc chỉ đọc dữ liệu đã lưu. Dòng độ mới ở header cho biết phạm vi và thời điểm đồng bộ gần nhất.
+4. Bấm **Cập nhật** để tải dữ liệu mới từ MPT. Mũi tên cạnh nút mở **Tài khoản cần tải**; phạm vi này độc lập với tài khoản đang xem.
+5. Nếu chưa có kết nối, vào **Cài đặt → Kết nối MPT**, nhập Domain/Username/Password, kiểm tra rồi lưu.
+6. Đọc KPI Tổng quan trước, sau đó chuyển nhóm báo cáo bằng sidebar. Mỗi nhóm mở tối đa 4–6 báo cáo chính; dùng **Hiển thị thêm** để xem phân tích chuyên sâu.
+7. Bấm KPI hoặc chip trạng thái để mở drilldown; nhấn `Esc` để đóng và quay lại đúng vị trí.
+8. Mở trợ lý AI bằng nút nổi hoặc `Ctrl+/`. Trợ lý chỉ dùng phạm vi lọc đã áp dụng.
 
 ## Hieu nang
 
@@ -113,16 +110,19 @@ mat khau MPT**. Dung dat thu muc portable len o dia/USB dung chung cong khai.
 
 ## Giao diện
 
-Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
+Dashboard dùng hệ thiết kế Ubuntu/Yaru và đáp ứng từ 600–1440 px:
 
-- **Header bar** cố định: tên app, dòng trạng thái nguồn dữ liệu, nút **Quản lý kết nối** và menu ☰.
-- **Sidebar** thay cho thanh tab ngang: 5 nhóm báo cáo, hàng đang chọn tô cam.
-- **Thanh lọc** dính ngay dưới header cho **Bộ lọc chính** — thứ dùng liên tục.
-- **Dialog** kiểu Adwaita cho Nguồn dữ liệu MPT, Tải file thủ công, Tùy chọn phân tích & màu sắc, Gán tên Account.
-  Đóng bằng nút X, nút Đóng, phím Esc hoặc bấm ra ngoài.
-- Dialog Nguồn dữ liệu MPT giữ footer hành động trong vùng nhìn thấy; phần nội dung dài tự cuộn riêng trên màn hình thấp.
-- **Menu ☰** gom Xuất PNG/PDF, Đặt lại bố cục, Chế độ tối (công tắc kiểu GNOME).
-- **Sáng/tối** theo hệ thống khi người dùng chưa tự chọn; biểu đồ Plotly dùng chung nền, phông và bảng màu Yaru.
+- **Header cố định**: độ mới dữ liệu, một hành động chính **Cập nhật**, phạm vi tài khoản cần tải và menu ứng dụng.
+- **Thanh lọc gọn**: kết nối, ngày và tài khoản luôn hiện; bộ lọc phụ nằm trong popover và bộ lọc đang áp dụng hiện thành chip có thể xóa.
+- **Sidebar 7 nhóm**: Tổng quan, Chất lượng, Vận hành, Dữ liệu & Tài khoản, Cước phí, Vòng đời CID và Cài đặt. Ở màn hình nhỏ sidebar chuyển thành thanh điều hướng ngang.
+- **KPI Tổng quan** ưu tiên tổng cuộc, tỷ lệ kết nối, ASR và tổng phút. Màu trạng thái có cùng ý nghĩa trên KPI, biểu đồ và bảng.
+- **Progressive disclosure**: mỗi nhóm chỉ mở các báo cáo quyết định; báo cáo chuyên sâu nằm dưới **Hiển thị thêm N báo cáo**.
+- **Trạng thái rỗng và skeleton** giải thích bước tiếp theo, không dùng KPI 0 hoặc màn chờ modal khi chỉ đổi bộ lọc.
+- **Cài đặt** chia theo danh mục; nơi duy nhất quản lý kết nối MPT là **Cài đặt → Kết nối MPT**.
+- **Sáng/tối** theo hệ thống khi chưa có lựa chọn riêng. Plotly dùng chung token màu, font và định dạng số vi-VN; font và thư viện nằm trong `vendor/` để chạy offline.
+- Toàn bộ popover, dialog, drilldown và side sheet hỗ trợ bàn phím, `Esc`, focus rõ ràng và trả focus về nút mở.
+
+Quy ước giao diện cho người phát triển nằm tại [`docs/ui-guidelines.md`](docs/ui-guidelines.md).
 - Font **Ubuntu Sans** nằm trong `vendor/`; vì Ubuntu Sans không có glyph tiếng Việt nên subset tiếng Việt của
   Noto Sans đi kèm để phủ dải đó — vẫn chạy được khi mất Internet.
 
@@ -166,6 +166,7 @@ Dashboard dựng theo UI/UX của Ubuntu (Yaru + GNOME HIG):
 ```powershell
 python -m unittest discover -s tests -v   # Python: server, đóng gói, cấu trúc HTML/worker/core
 node --test tests/core.test.mjs           # Node: đối chiếu số của dashboard-core.js + buildCube
+node tests/ui/snap.mjs                    # 7 màn hình × 2 theme × 3 độ rộng, KPI baseline và axe
 ```
 
 `python -m unittest` cũng tự gọi `node --test` nếu có Node.
