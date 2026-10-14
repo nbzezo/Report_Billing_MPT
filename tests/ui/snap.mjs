@@ -90,6 +90,14 @@ try {
         const visibleGateway = await page.evaluate(() => GATEWAY_REPORT_IDS.filter(id => { const card = resolveReportCard(id); return card && !card.hidden && getComputedStyle(card).display !== 'none'; }));
         if (visibleGateway.length) throw new Error(`Gateway còn hiện báo cáo phụ thuộc mapping: ${visibleGateway.join(', ')}`);
       }
+      if (tab === 'billing') {
+        if (await page.locator('#billUseOwnRange').isChecked()) throw new Error('Cước phí không mặc định dùng khoảng thời gian chính.');
+        if (!(await page.locator('#billingOwnRangeFields').isHidden())) throw new Error('Ô ngày riêng của Cước phí vẫn hiện khi công tắc đang tắt.');
+        if (!(await page.locator('#billingRateEmpty').isVisible())) throw new Error('Cước phí chưa hướng dẫn nhập đơn giá khi giá trống.');
+        if ((await page.locator('#billKpiCostText').textContent()).trim() !== '—') throw new Error('Thành tiền đang hiện 0 thay vì để trống khi chưa có đơn giá.');
+        const visibleBillingCharts = await page.evaluate(() => BILLING_CHART_IDS.filter(id => { const card = resolveReportCard(id); return card && !card.hidden; }));
+        if (visibleBillingCharts.length) throw new Error(`Biểu đồ tiền bằng 0 vẫn hiện khi chưa có đơn giá: ${visibleBillingCharts.join(', ')}`);
+      }
       if (!auditOnly) {
         await page.screenshot({ path: path.join(out, `${theme}-${tab}.png`) });
         await page.screenshot({ path: path.join(out, `${theme}-${tab}-full.png`), fullPage: true });
@@ -150,6 +158,12 @@ try {
     await page.keyboard.press('Escape');
     if (!(await page.locator('#askDashboardPanel').isHidden())) throw new Error('Side sheet không đóng bằng Escape.');
     if (!(await page.locator('#askDashboardToggle').evaluate(element => element === document.activeElement))) throw new Error('Side sheet không trả focus về nút mở.');
+    await page.locator('#tabsBar .tab-btn[data-tab="billing"]').click();
+    await page.locator('#billRateEmptyInput').fill('250');
+    await page.locator('#billingRateEmpty .primary-btn').click();
+    await page.waitForFunction(() => document.getElementById('billingRateEmpty')?.hidden && !resolveReportCard('chart_billing_by_period')?.hidden);
+    if ((await page.locator('#billKpiCostText').textContent()).trim() === '—') throw new Error('Thành tiền chưa cập nhật sau khi nhập đơn giá trong trạng thái rỗng.');
+    if (!auditOnly) await page.screenshot({ path: path.join(out, `${theme}-billing-with-rate.png`), fullPage: true });
     if (theme === 'light') {
       await page.setViewportSize({ width: 900, height: 768 });
       await page.keyboard.press('Control+/');

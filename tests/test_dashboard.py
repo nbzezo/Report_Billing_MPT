@@ -1248,6 +1248,22 @@ class FrontendRegressionTests(unittest.TestCase):
             self.assertIn(token, self.dashboard_html)
         self.assertNotIn("body.innerHTML='<div class=\"report-stat-note\">Không có số liệu", self.dashboard_html)
 
+    def test_billing_defaults_to_main_range_and_requires_rate_for_money_charts(self):
+        for token in (
+            'id="billUseOwnRange"',
+            'id="billingOwnRangeFields"',
+            'id="billingRateEmpty"',
+            "function syncBillingRangeMode()",
+            "function updateBillingRateState(cfg)",
+            "startDate: ownRange ? val('billStartDate') : val('startDate')",
+            "setKpi('billKpiCostText', cfg.rate ? UIFormat.vnd(t.cost) : '—')",
+            'Xuất CSV tổng hợp',
+            'Xuất chi tiết từng cuộc',
+            '<summary>Cách tính</summary>',
+        ):
+            self.assertIn(token, self.dashboard_html)
+        self.assertNotIn('Export CSV tổng hợp', self.dashboard_html)
+
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
         self.assertTrue(worker.exists())

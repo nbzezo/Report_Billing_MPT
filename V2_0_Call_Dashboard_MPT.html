@@ -224,7 +224,7 @@ function updateRN_CF_KPIs(rows){
       <button id="applyFilter" type="button" hidden>Áp dụng bộ lọc</button>
     </div>
     <div id="activeFilterRow" class="active-filter-row" hidden><span>Đang áp dụng:</span><div id="activeFilterChips" class="active-filter-chips"></div><button type="button" id="clearActiveFilters" class="flat-btn">Xóa tất cả</button></div>
-    <span id="billingIndependentBadge" class="billing-independent-badge"><span>Tab Cước phí dùng khoảng thời gian riêng.</span><button type="button" id="quickSyncBillingFromTop">Dùng khoảng trên</button></span>
+    <span id="billingIndependentBadge" class="billing-independent-badge"><span>Cước phí đang dùng khoảng thời gian riêng.</span><button type="button" id="quickSyncBillingFromTop">Dùng khoảng chính</button></span>
     <div class="filter-status-line sr-status"><div id="mainFilterScope" role="status" aria-live="polite"></div><div id="databaseStatus" role="status" aria-live="polite"></div><div id="rowCapNotice" role="status" aria-live="polite" hidden></div></div>
   </div>
 
@@ -1074,7 +1074,7 @@ function updateRN_CF_KPIs(rows){
       <h3 style="margin:0 0 4px 0">Cấu hình tính cước</h3>
       <div class="muted billing-intro" style="font-size:12px">
         Nguyên tắc <b>6s + 1</b>: <code>billsec</code> ≤ 6s tính tròn 6s, trên 6s tính đúng từng giây.
-        Tổng giây sau làm tròn ÷ 60 → phút → × đơn giá. Khoảng thời gian ở tab này <b>độc lập</b> với bộ lọc chính phía trên.
+        Tổng giây sau làm tròn ÷ 60 → phút → × đơn giá. Mặc định tab dùng khoảng thời gian của bộ lọc chính.
       </div>
       <div id="billingScopeNotice" class="filter-scope" style="margin-top:8px" role="status" aria-live="polite"></div>
 
@@ -1103,6 +1103,11 @@ function updateRN_CF_KPIs(rows){
         </div>
 
         <div class="control-group"><div class="control-title">Khoảng thời gian</div>
+          <div class="control-row billing-check-row">
+            <label><input id="billUseOwnRange" type="checkbox"/> Dùng khoảng thời gian riêng cho Cước phí</label>
+          </div>
+          <div id="billingMainRangeSummary" class="billing-main-range muted"></div>
+          <div id="billingOwnRangeFields" class="billing-range-fields" hidden>
           <div class="control-row">
             <label>Từ ngày <input id="billStartDate" type="date"/></label>
             <label>Giờ <input id="billStartTime" type="time" value="00:00"/></label>
@@ -1117,6 +1122,7 @@ function updateRN_CF_KPIs(rows){
             <button type="button" id="billQuick7">7 ngày</button>
             <button type="button" id="billQuick30">30 ngày</button>
             <button type="button" id="billSyncMain">Theo bộ lọc chính</button>
+          </div>
           </div>
         </div>
 
@@ -1155,8 +1161,8 @@ function updateRN_CF_KPIs(rows){
           <span id="billingRangeLabel" class="muted"></span>
         </div>
         <div class="billing-export-actions">
-          <button id="billExport">Export CSV tổng hợp</button>
-          <button id="billExportDetail">Export chi tiết từng cuộc</button>
+          <button id="billExport">Xuất CSV tổng hợp</button>
+          <button id="billExportDetail">Xuất chi tiết từng cuộc</button>
         </div>
       </div>
     </div>
@@ -1164,10 +1170,10 @@ function updateRN_CF_KPIs(rows){
     <div id="panel_billing_kpi" class="card full" data-tab="billing" draggable="true">
       <h3 style="margin:0 0 8px 0">Kết quả tính cước</h3>
       <div class="kpi-row">
-        <div class="kpi-group">
+        <div class="kpi-group" id="billingMoneyGroup">
           <div class="kpi-group-title">Thành tiền</div>
           <div class="kpi-group-grid" style="grid-template-columns:1fr">
-            <div class="kpi tone-green" id="billKpiCost"><div class="kpi-value kpi-value-lg" id="billKpiCostText">—</div><div class="muted">Tổng thành tiền (VNĐ)</div></div>
+            <div class="kpi" id="billKpiCost"><div class="kpi-value kpi-value-lg" id="billKpiCostText">—</div><div class="muted">Tổng thành tiền (VNĐ)</div></div>
             <div class="kpi" id="billKpiForecast" title="Cước thực tế từ ngày 1 + ước tính các ngày còn lại theo trung bình cùng thứ trong 4 tuần gần nhất. Khoảng thấp – cao = P20 – P80."><div class="kpi-value" id="billKpiForecastText">—</div><div class="muted" id="billKpiForecastLabel">Dự đoán cuối tháng (VNĐ)</div><div class="muted" id="billKpiForecastRange" style="font-size:11px"></div></div>
           </div>
         </div>
@@ -1175,24 +1181,29 @@ function updateRN_CF_KPIs(rows){
           <div class="kpi-group-title">Khối lượng cuộc gọi</div>
           <div class="kpi-group-grid">
             <div class="kpi compact" id="billKpiCalls"><div class="kpi-value" id="billKpiCallsText">—</div><div class="muted">Cuộc gọi trong khoảng</div></div>
-            <div class="kpi compact tone-green" id="billKpiBilledCalls"><div class="kpi-value" id="billKpiBilledCallsText">—</div><div class="muted">Cuộc tính cước</div></div>
-            <div class="kpi compact tone-orange" id="billKpiNotBilled"><div class="kpi-value" id="billKpiNotBilledText">—</div><div class="muted">Cuộc không tính cước</div></div>
+            <div class="kpi compact" id="billKpiBilledCalls"><div class="kpi-value" id="billKpiBilledCallsText">—</div><div class="muted">Cuộc tính cước</div></div>
+            <div class="kpi compact" id="billKpiNotBilled"><div class="kpi-value" id="billKpiNotBilledText">—</div><div class="muted">Cuộc không tính cước</div></div>
           </div>
         </div>
         <div class="kpi-group">
           <div class="kpi-group-title">Thời lượng &amp; block</div>
           <div class="kpi-group-grid">
-            <div class="kpi compact" id="billKpiRawSec"><div class="kpi-value" id="billKpiRawSecText">—</div><div class="muted">Billsec thực (s)</div></div>
-            <div class="kpi compact" id="billKpiBilledSec"><div class="kpi-value" id="billKpiBilledSecText">—</div><div class="muted">Giây sau làm tròn (s)</div></div>
-            <div class="kpi compact tone-orange" id="billKpiDiffSec"><div class="kpi-value" id="billKpiDiffSecText">—</div><div class="muted">Chênh do block</div></div>
+            <div class="kpi compact" id="billKpiRawSec"><div class="kpi-value" id="billKpiRawSecText">—</div><div class="muted">Thời lượng thực</div></div>
+            <div class="kpi compact" id="billKpiBilledSec"><div class="kpi-value" id="billKpiBilledSecText">—</div><div class="muted">Thời lượng sau làm tròn</div></div>
+            <div class="kpi compact" id="billKpiDiffSec"><div class="kpi-value" id="billKpiDiffSecText">—</div><div class="muted">Chênh do block</div></div>
             <div class="kpi compact" id="billKpiMinutes"><div class="kpi-value" id="billKpiMinutesText">—</div><div class="muted">Phút tính cước</div></div>
           </div>
         </div>
       </div>
       <div id="billingRangeSubLabel" class="muted" style="margin-top:8px"></div>
-      <div id="billingFormula" class="muted" style="margin-top:4px;font-size:12px"></div>
-      <div id="billingForecast" class="muted" style="margin-top:4px;font-size:12px"></div>
+      <details id="billingCalculationDetails" class="billing-calculation-details">
+        <summary>Cách tính</summary>
+        <div id="billingFormula" class="billing-calculation-copy"></div>
+        <div id="billingForecast" class="billing-calculation-copy"></div>
+      </details>
     </div>
+
+    <div id="billingRateEmpty" class="card full empty-state--group" data-tab="billing" data-group-empty hidden></div>
 
     <div id="chart_billing_by_period" class="card large" data-tab="billing" draggable="true"></div>
     <div id="chart_billing_by_telco" class="card large" data-tab="billing" draggable="true"></div>
@@ -4082,7 +4093,7 @@ const REPORT_LAYOUT={
     'table_cid_action_queue','table_cid_comparison'
   ]},
   billing:{ primary:99, order:[
-    'panel_billing_config','panel_billing_kpi',
+    'panel_billing_config','panel_billing_kpi','billingRateEmpty',
     'chart_billing_by_period','chart_billing_by_telco','chart_billing_by_prefix',
     'table_billing_by_period','table_billing_by_account'
   ]}
@@ -4843,14 +4854,18 @@ function fmtInt(v){ return UIFormat.int(v); }
 function getBillingConfig(){
   const val = id=>{ const el=document.getElementById(id); return el ? el.value : ''; };
   const chk = id=>{ const el=document.getElementById(id); return el ? !!el.checked : false; };
+  const ownRange=chk('billUseOwnRange');
   return {
     rate: Math.max(0, Number(val('billRate'))||0),
     firstBlock: Math.max(1, parseInt(val('billFirstBlock'),10)||6),
     nextBlock: Math.max(1, parseInt(val('billNextBlock'),10)||1),
     roundStep: Number(val('billRound'))||0,
     onlyConnected: chk('billOnlyConnected'),
-    startDate: val('billStartDate'), endDate: val('billEndDate'),
-    startTime: val('billStartTime') || '00:00', endTime: val('billEndTime') || '23:59',
+    ownRange,
+    startDate: ownRange ? val('billStartDate') : val('startDate'),
+    endDate: ownRange ? val('billEndDate') : val('endDate'),
+    startTime: ownRange ? (val('billStartTime') || '00:00') : (val('startTime') || '00:00'),
+    endTime: ownRange ? (val('billEndTime') || '23:59') : (val('endTime') || '23:59'),
     groupBy: val('billGroupBy') || 'day',
     metric: val('billMetric') || 'cost',
     account: val('billAccount') || '',
@@ -4874,7 +4889,8 @@ function saveBillingConfig(){
     const c = getBillingConfig();
     localStorage.setItem(BILLING_CFG_KEY, JSON.stringify({
       rate:c.rate, firstBlock:c.firstBlock, nextBlock:c.nextBlock,
-      roundStep:c.roundStep, onlyConnected:c.onlyConnected, groupBy:c.groupBy, metric:c.metric
+      roundStep:c.roundStep, onlyConnected:c.onlyConnected, ownRange:c.ownRange,
+      groupBy:c.groupBy, metric:c.metric
     }));
   }catch(e){}
 }
@@ -4891,6 +4907,8 @@ function loadBillingConfig(){
   if(rd && saved.roundStep!==undefined) rd.value = String(saved.roundStep);
   const oc = document.getElementById('billOnlyConnected');
   if(oc && saved.onlyConnected!==undefined) oc.checked = !!saved.onlyConnected;
+  const own = document.getElementById('billUseOwnRange');
+  if(own && saved.ownRange!==undefined) own.checked = !!saved.ownRange;
   const gb = document.getElementById('billGroupBy');
   if(gb && saved.groupBy) gb.value = saved.groupBy;
   const mt = document.getElementById('billMetric');
@@ -4911,6 +4929,59 @@ function loadBillingConfig(){
 function getBillingRows(cfg){ return billingRows(enriched || [], cfg); }
 
 let lastBilling = null;
+
+function syncBillingRangeMode(){
+  const own=!!document.getElementById('billUseOwnRange')?.checked;
+  const fields=document.getElementById('billingOwnRangeFields');
+  const summary=document.getElementById('billingMainRangeSummary');
+  if(fields) fields.hidden=!own;
+  document.body.setAttribute('data-billing-own-range',own?'true':'false');
+  if(summary){
+    summary.hidden=own;
+    const start=document.getElementById('startDate')?.value||'—';
+    const end=document.getElementById('endDate')?.value||'—';
+    summary.textContent=`Theo bộ lọc chính: ${UIFormat.date(start)} → ${UIFormat.date(end)}`;
+  }
+}
+
+const BILLING_CHART_IDS=['chart_billing_by_period','chart_billing_by_telco','chart_billing_by_prefix'];
+function updateBillingRateState(cfg){
+  const empty=document.getElementById('billingRateEmpty');
+  const hasRate=cfg.rate>0;
+  const money=document.getElementById('billingMoneyGroup');
+  if(money) money.hidden=!hasRate;
+  BILLING_CHART_IDS.forEach(id=>{ const card=resolveReportCard(id); if(card) card.hidden=!hasRate; });
+  if(!empty) return;
+  empty.hidden=hasRate;
+  if(hasRate||empty.dataset.ready==='1') return;
+  empty.dataset.ready='1';
+  const state=renderEmptyState(empty,{
+    icon:'₫',
+    title:'Nhập đơn giá/phút để tính thành tiền',
+    description:'Phút tính cước, giây làm tròn và chênh lệch do block vẫn được tính ở phía trên.',
+  });
+  const controls=document.createElement('div');
+  controls.className='billing-empty-rate-field';
+  const label=document.createElement('label');
+  label.htmlFor='billRateEmptyInput';
+  label.textContent='Đơn giá/phút (VNĐ)';
+  const input=document.createElement('input');
+  input.id='billRateEmptyInput'; input.type='number'; input.min='0'; input.step='1'; input.placeholder='Ví dụ: 250';
+  const button=document.createElement('button');
+  button.type='button'; button.className='primary-btn'; button.textContent='Áp dụng đơn giá';
+  const apply=()=>{
+    const rate=Math.max(0,Number(input.value)||0);
+    if(!rate){ input.focus(); return; }
+    const source=document.getElementById('billRate');
+    if(source) source.value=String(rate);
+    saveBillingConfig();
+    renderBillingTab();
+  };
+  button.addEventListener('click',apply);
+  input.addEventListener('keydown',event=>{ if(event.key==='Enter') apply(); });
+  controls.append(label,input,button);
+  state.appendChild(controls);
+}
 
 /** Nạp danh sách account / telco và khoảng ngày mặc định cho tab cước. */
 function initBillingFilters(resetRange){
@@ -4961,6 +5032,7 @@ function setBillingRangePreset(preset){
 
 async function renderBillingTab(){
   initBillingFilters(false);
+  syncBillingRangeMode();
   const cfg = getBillingConfig();
   const scopeNotice=document.getElementById('billingScopeNotice');
   if(scopeNotice){
@@ -4969,7 +5041,7 @@ async function renderBillingTab(){
     const partial=loaded && !outside && (cfg.startDate<loaded.min || cfg.endDate>loaded.max);
     scopeNotice.className='filter-scope'+((outside||partial)?' warn':'');
     scopeNotice.innerHTML=loaded
-      ? `<b>Phạm vi Cước phí:</b> ${cfg.startDate||'—'} → ${cfg.endDate||'—'} · nguồn CDR ${loaded.min} → ${loaded.max} · ${Number(loaded.rows||loadedRowTotal||0).toLocaleString('vi-VN')} dòng${outside?' — khoảng chọn nằm ngoài dữ liệu đã tải':partial?' — một phần khoảng chọn chưa được tải':''}`
+      ? `<b>Phạm vi Cước phí${cfg.ownRange?' riêng':' theo bộ lọc chính'}:</b> ${cfg.startDate||'—'} → ${cfg.endDate||'—'} · nguồn CDR ${loaded.min} → ${loaded.max} · ${UIFormat.int(loaded.rows||loadedRowTotal||0)} dòng${outside?' — khoảng chọn nằm ngoài dữ liệu đã tải':partial?' — một phần khoảng chọn chưa được tải':''}`
       : '<b>Phạm vi Cước phí:</b> chưa có dữ liệu CDR.';
   }
   // computeBilling chạy trong worker (bộ lọc cước riêng); fallback main-thread.
@@ -5002,6 +5074,7 @@ async function renderBillingTab(){
 
   const t = res.totals;
   const metric = BILL_METRICS[cfg.metric] || BILL_METRICS.cost;
+  updateBillingRateState(cfg);
 
   const label = document.getElementById('billingRangeLabel');
   if(label){
@@ -5016,14 +5089,14 @@ async function renderBillingTab(){
 
   // --- Bộ KPI: dùng đúng markup .kpi/.kpi-group như các tab khác ---
   const setKpi = (id, val)=>{ const el=document.getElementById(id); if(el) el.innerText = val; };
-  setKpi('billKpiCostText', fmtVND(t.cost) + ' đ');
+  setKpi('billKpiCostText', cfg.rate ? UIFormat.vnd(t.cost) : '—');
   setKpi('billKpiCallsText', fmtInt(t.calls));
   setKpi('billKpiBilledCallsText', fmtInt(t.billedCalls));
   setKpi('billKpiNotBilledText', fmtInt(t.calls - t.billedCalls));
-  setKpi('billKpiRawSecText', fmtInt(t.rawSec) + ' s');
-  setKpi('billKpiBilledSecText', fmtInt(t.billedSec) + ' s');
-  setKpi('billKpiDiffSecText', '+' + fmtInt(t.diffSec) + ' s');
-  setKpi('billKpiMinutesText', fmtVND(t.minutes));
+  setKpi('billKpiRawSecText', UIFormat.seconds(t.rawSec));
+  setKpi('billKpiBilledSecText', UIFormat.seconds(t.billedSec));
+  setKpi('billKpiDiffSecText', '+' + UIFormat.seconds(t.diffSec));
+  setKpi('billKpiMinutesText', UIFormat.dec(t.minutes,2));
 
   const sub = document.getElementById('billingRangeSubLabel');
   if(sub){
@@ -5034,21 +5107,20 @@ async function renderBillingTab(){
 
   const f = document.getElementById('billingFormula');
   if(f){
-    f.style.color = (rowCount && !cfg.rate) ? 'var(--red)' : '';
     f.innerHTML = !rowCount
       ? 'Không có cuộc gọi nào trong khoảng đã chọn — hãy mở rộng khoảng thời gian hoặc bỏ lọc Account/Telco.'
-      : (`Công thức: ${fmtInt(t.billedSec)} s ÷ 60 = ${fmtVND(t.minutes)} phút × ${fmtVND(cfg.rate)} đ/phút = <b>${fmtVND(t.cost)} đ</b>`
-        + (cfg.rate ? '' : ' — <b>chưa nhập đơn giá/phút</b>, thành tiền đang là 0.')
-        + (cfg.onlyConnected
-            ? ` • Đang bỏ qua ${fmtInt(t.calls - t.billedCalls)} cuộc chưa kết nối (billsec = 0).`
-            : ` • Đang tính cả cuộc chưa kết nối — mỗi cuộc billsec = 0 vẫn bị tính ${cfg.firstBlock}s.`)
-        + ` Làm tròn tiền: ${cfg.roundStep ? 'đến '+fmtInt(cfg.roundStep)+'đ' : 'không làm tròn'}.`);
+      : (`<ol><li>${fmtInt(t.billedSec)} giây sau làm tròn ÷ 60 = ${fmtVND(t.minutes)} phút.</li>`
+        + `<li>${cfg.rate ? `${fmtVND(t.minutes)} phút × ${fmtVND(cfg.rate)} đ/phút = <b>${UIFormat.vnd(t.cost)}</b>.` : 'Chưa có đơn giá nên thành tiền được để trống.'}</li>`
+        + `<li>${cfg.onlyConnected
+            ? `Bỏ qua ${fmtInt(t.calls - t.billedCalls)} cuộc chưa kết nối (billsec = 0).`
+            : `Tính cả cuộc chưa kết nối; mỗi cuộc billsec = 0 được tính ${cfg.firstBlock} giây.`}</li>`
+        + `<li>Làm tròn tiền: ${cfg.roundStep ? 'đến '+fmtInt(cfg.roundStep)+' đ' : 'không làm tròn'}.</li></ol>`);
   }
 
   await renderSteps([
-    ()=> plotBillingByPeriod(res, cfg, metric, colors, forecast),
-    ()=> plotBillingByTelco(res, cfg, metric, colors),
-    ()=> plotBillingByPrefix(res, cfg, metric, colors),
+    ()=> { if(cfg.rate) plotBillingByPeriod(res, cfg, metric, colors, forecast); },
+    ()=> { if(cfg.rate) plotBillingByTelco(res, cfg, metric, colors); },
+    ()=> { if(cfg.rate) plotBillingByPrefix(res, cfg, metric, colors); },
     ()=> renderBillingPeriodTable(res, cfg),
     ()=> renderBillingAccountTable(res, cfg),
   ]);
@@ -5221,7 +5293,7 @@ function renderBillingPeriodTable(res, cfg){
     <td ${R}>${fmtInt(p.billedSec)}</td>
     <td ${R}>+${fmtInt(p.diffSec)}</td>
     <td ${R}>${fmtVND(p.minutes)}</td>
-    <td ${R}>${fmtVND(p.cost)}</td>
+    <td ${R}>${cfg.rate ? fmtVND(p.cost) : '—'}</td>
   </tr>`).join('') || `<tr><td ${L} colspan="8">Không có dữ liệu</td></tr>`;
   if(tf){
     const t = res.totals;
@@ -5233,7 +5305,7 @@ function renderBillingPeriodTable(res, cfg){
       <td ${R}>${fmtInt(t.billedSec)}</td>
       <td ${R}>+${fmtInt(t.diffSec)}</td>
       <td ${R}>${fmtVND(t.minutes)}</td>
-      <td ${R}>${fmtVND(t.cost)}</td>
+      <td ${R}>${cfg.rate ? fmtVND(t.cost) : '—'}</td>
     </tr>` : '';
   }
 }
@@ -5247,7 +5319,7 @@ function renderBillingAccountTable(res, cfg){
     <td ${L}>${reportTableEscape(group)}</td><td ${L}>${reportTableEscape(name)}</td>
     <td ${R}>${fmtInt(o.calls)}</td><td ${R}>${fmtInt(o.billedCalls)}</td>
     <td ${R}>${fmtInt(o.rawSec)}</td><td ${R}>${fmtInt(o.billedSec)}</td>
-    <td ${R}>${fmtVND(o.minutes)}</td><td ${R}>${fmtVND(o.cost)}</td>
+    <td ${R}>${fmtVND(o.minutes)}</td><td ${R}>${cfg.rate ? fmtVND(o.cost) : '—'}</td>
   </tr>`;
   const html = res.accounts.map(a=> row('Account', `${getAccountNameForId(a.key)} (${a.key})`, a)).join('')
     + res.telcos.map(t=> row('Telco', t.key, t)).join('');
@@ -5322,7 +5394,7 @@ async function exportBillingDetail(){
   loadBillingConfig();
   const rerender = ()=>{ saveBillingConfig(); renderBillingTab(); };
   ['billRate','billFirstBlock','billNextBlock','billRound','billOnlyConnected',
-   'billStartDate','billEndDate','billStartTime','billEndTime','billGroupBy',
+   'billUseOwnRange','billStartDate','billEndDate','billStartTime','billEndTime','billGroupBy',
    'billMetric','billAccount','billTelco'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
@@ -5344,8 +5416,11 @@ async function exportBillingDetail(){
     rerender();
   });
   on('quickSyncBillingFromTop', ()=>{
-    document.getElementById('billSyncMain')?.click();
-    if(typeof toast === 'function') toast('Đã đồng bộ bộ lọc chính xuống tab Cước phí.');
+    const own=document.getElementById('billUseOwnRange');
+    if(own) own.checked=false;
+    saveBillingConfig();
+    renderBillingTab();
+    if(typeof toast === 'function') toast('Cước phí đang dùng khoảng thời gian của bộ lọc chính.');
   });
   on('billExport', exportBillingSummary);
   on('billExportDetail', exportBillingDetail);

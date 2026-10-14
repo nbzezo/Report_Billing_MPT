@@ -311,6 +311,10 @@
     #panel_billing_config .billing-check-row input{flex:0 0 auto}
     #panel_billing_config .billing-quick-actions{display:flex;flex-wrap:wrap;gap:8px}
     #panel_billing_config .billing-quick-actions button{min-height:32px;padding:5px 12px}
+    #panel_billing_config .billing-range-fields{display:grid;gap:10px}
+    #panel_billing_config .billing-range-fields[hidden]{display:none}
+    #panel_billing_config .billing-range-fields .control-row label{grid-template-columns:1fr;gap:5px}
+    #panel_billing_config .billing-main-range{padding:10px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface-2);line-height:1.4}
     #panel_billing_config .billing-action-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:10px 12px;border:1px solid var(--border);border-radius:var(--radius);background:var(--view-bg)}
     #panel_billing_config .billing-action-main{display:flex;align-items:center;gap:10px;min-width:0}
     #panel_billing_config #billingRangeLabel{min-width:0;line-height:1.35}
@@ -527,13 +531,9 @@ body.adw #updateReport{border-color:var(--accent);color:var(--accent-fg);backgro
 body.adw #updateReport:hover:not(:disabled){background:var(--accent-hover)}
 body.adw #applyFilter.dirty{animation:adwPulseDirty 1.8s infinite ease-in-out}
 @keyframes adwPulseDirty{0%,100%{box-shadow:0 0 0 2px rgba(233,84,32,.28)}50%{box-shadow:0 0 0 5px rgba(233,84,32,.46)}}
-body.adw[data-active-tab="billing"] .adw-filterbar .filter-scope-row,
-body.adw[data-active-tab="billing"] .adw-filterbar .report-filter-row{background:color-mix(in srgb,var(--view-bg) 55%,transparent);transition:background .18s ease}
-body.adw[data-active-tab="billing"] .adw-filterbar:hover .filter-scope-row,
-body.adw[data-active-tab="billing"] .adw-filterbar:hover .report-filter-row{background:transparent}
 body.adw .billing-independent-badge{display:none;align-items:center;gap:8px;padding:4px 10px;border-radius:999px;background:rgba(229,165,10,.16);color:var(--text);font-size:12px;font-weight:600}
 body.adw .billing-independent-badge button{min-height:24px;padding:2px 8px;font-size:12px}
-body.adw[data-active-tab="billing"] .billing-independent-badge{display:inline-flex}
+body.adw[data-active-tab="billing"][data-billing-own-range="true"] .billing-independent-badge{display:inline-flex}
 body.adw table th[style*="border"],
 body.adw table td[style*="border"]{border-color:var(--divider)!important}
 body.adw table{font-variant-numeric:tabular-nums}
@@ -1107,6 +1107,16 @@ body.adw .empty-state--app>.empty-state{min-height:298px}
 body.adw .chart-report-card.has-empty-state{min-height:160px!important;height:auto!important}
 body.adw .chart-report-card.has-empty-state>[id^="chart_"]{height:auto!important;min-height:160px!important}
 body.adw .chart-report-card.has-empty-state .report-statistics{display:none}
+body.adw .billing-calculation-details{margin-top:var(--sp-3);padding-top:var(--sp-2);border-top:1px solid var(--border);font-size:var(--fs-sm)}
+body.adw .billing-calculation-details>summary{width:max-content;color:var(--accent-text);font-weight:700;cursor:pointer}
+body.adw .billing-calculation-copy{margin-top:var(--sp-2);color:var(--text-2);line-height:1.5}
+body.adw .billing-calculation-copy ol{margin:0;padding-left:22px}
+body.adw .billing-calculation-copy li+li{margin-top:var(--sp-1)}
+body.adw .billing-empty-rate-field{display:grid;grid-template-columns:minmax(180px,260px) auto;gap:var(--sp-2);align-items:end;margin-top:var(--sp-4);text-align:left}
+body.adw .billing-empty-rate-field label{grid-column:1/-1;color:var(--text-2);font-size:var(--fs-sm);font-weight:600}
+body.adw .billing-empty-rate-field input{width:100%;height:36px;box-sizing:border-box}
+body.adw #panel_billing_kpi .kpi-row{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+@media(max-width:900px){body.adw .billing-empty-rate-field{grid-template-columns:1fr}body.adw .billing-empty-rate-field label{grid-column:auto}}
 body.adw .loading-error{margin-top:var(--sp-3);color:var(--st-fail-fg);background:var(--st-fail-bg);padding:var(--sp-3);border-radius:var(--r-md)}
 
 /* UX-23: KPI Tổng quan theo hai tầng, màu chỉ xuất hiện khi vượt ngưỡng. */
