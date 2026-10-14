@@ -623,13 +623,25 @@ function updateRN_CF_KPIs(rows){
 <div id="reportGrid" class="grid report-grid">
     <section id="settings_panel" class="card settings-card full" data-tab="settings">
       <div class="settings-header"><h2 class="settings-title">Cài đặt</h2><p class="settings-intro">Cấu hình kết nối, ánh xạ, phân tích, hiển thị và AI tại đây.</p></div>
-      <div class="settings-stack">
-        <details id="settingsConnection" class="settings-section" open><summary>Kết nối MPT</summary><label for="settingsMptProfile">Kết nối đã lưu</label><select class="u-inline-777e4c81" id="settingsMptProfile"><option value="">-- Chọn kết nối --</option></select><div id="settingsConnectionStatus" class="muted" role="status" aria-live="polite"></div><div id="settingsConnectionContent"></div></details>
-        <details id="settingsData" class="settings-section"><summary>Dữ liệu &amp; bảo trì</summary><div id="settingsDataContent"></div></details>
-        <details id="settingsMapping" class="settings-section"><summary>Tên hiển thị tài khoản</summary><div id="settingsMappingContent"></div></details>
-        <details id="settingsGateway" class="settings-section"><summary>Gateway ↔ Tài khoản</summary><div id="settingsGatewayContent"></div></details>
-        <details id="settingsAnalysis" class="settings-section"><summary>Phân tích &amp; ngưỡng cảnh báo</summary><div id="settingsAnalysisContent"><div class="kpi-threshold-settings"><p class="adw-row-sub">Giá trị mặc định đề xuất; có thể điều chỉnh theo mục tiêu vận hành.</p><div class="threshold-grid"><label>ASR cảnh báo dưới (%)<input id="alertThreshold" type="number" min="0" max="100" step="1" value="40"></label><label>Kết nối: cảnh báo dưới (%)<input id="thresholdConnectWarn" type="number" min="0" max="100" value="40"></label><label>Kết nối: nghiêm trọng dưới (%)<input id="thresholdConnectBad" type="number" min="0" max="100" value="30"></label><label>Đích lỗi: cảnh báo trên (%)<input id="thresholdInvalidWarn" type="number" min="0" max="100" value="2"></label><label>Đích lỗi: nghiêm trọng trên (%)<input id="thresholdInvalidBad" type="number" min="0" max="100" value="5"></label><label>Đích lặp: cảnh báo trên (%)<input id="thresholdRepeatWarn" type="number" min="0" max="100" value="10"></label><label>Lỗi: cảnh báo trên (%)<input id="thresholdFailWarn" type="number" min="0" max="100" value="8"></label><label>Lỗi: nghiêm trọng trên (%)<input id="thresholdFailBad" type="number" min="0" max="100" value="15"></label></div></div></div></details>
-        <details id="settingsAI" class="settings-section"><summary>Trợ lý AI</summary><div id="settingsAIContent"></div><div id="settingsAIActions"></div></details>
+      <div class="settings-layout">
+        <nav class="settings-catalog" aria-label="Danh mục cài đặt">
+          <button type="button" class="settings-catalog-item active" data-settings-target="settingsConnection">Kết nối MPT</button>
+          <button type="button" class="settings-catalog-item" data-settings-target="settingsMapping">Tên hiển thị tài khoản</button>
+          <button type="button" class="settings-catalog-item" data-settings-target="settingsGateway">Gateway ↔ Tài khoản</button>
+          <button type="button" class="settings-catalog-item" data-settings-target="settingsAnalysis">Phân tích &amp; cảnh báo</button>
+          <button type="button" class="settings-catalog-item" data-settings-target="settingsAppearance">Giao diện</button>
+          <button type="button" class="settings-catalog-item" data-settings-target="settingsAI">Trợ lý AI</button>
+          <button type="button" class="settings-catalog-item" data-settings-target="settingsData">Dữ liệu &amp; bảo trì</button>
+        </nav>
+        <div class="settings-stack">
+        <details id="settingsConnection" class="settings-section" open><summary>Kết nối MPT</summary><p class="settings-section-description">Quản lý miền, tài khoản và thông tin đăng nhập dùng để tải báo cáo.</p><label for="settingsMptProfile">Kết nối đã lưu</label><select class="u-inline-777e4c81" id="settingsMptProfile"><option value="">-- Chọn kết nối --</option></select><div id="settingsConnectionStatus" class="muted" role="status" aria-live="polite"></div><div id="settingsConnectionContent"></div></details>
+        <details id="settingsMapping" class="settings-section"><summary>Tên hiển thị tài khoản</summary><p class="settings-section-description">Đặt tên dễ nhận biết cho từng mã tài khoản trên báo cáo.</p><div id="settingsMappingContent"></div></details>
+        <details id="settingsGateway" class="settings-section"><summary>Gateway ↔ Tài khoản</summary><p class="settings-section-description">Gán Gateway cho tài khoản để mở các báo cáo sức khỏe định tuyến.</p><div id="settingsGatewayContent"></div></details>
+        <details id="settingsAnalysis" class="settings-section"><summary>Phân tích &amp; ngưỡng cảnh báo</summary><p class="settings-section-description">Điều chỉnh cách phân tích và ngưỡng dùng để đánh dấu KPI bất thường.</p><div id="settingsAnalysisContent"><div class="kpi-threshold-settings"><p class="adw-row-sub">Giá trị mặc định đề xuất; có thể điều chỉnh theo mục tiêu vận hành.</p><div class="threshold-grid"><label>ASR cảnh báo dưới (%)<input id="alertThreshold" type="number" min="0" max="100" step="1" value="40"></label><label>Kết nối: cảnh báo dưới (%)<input id="thresholdConnectWarn" type="number" min="0" max="100" value="40"></label><label>Kết nối: nghiêm trọng dưới (%)<input id="thresholdConnectBad" type="number" min="0" max="100" value="30"></label><label>Đích lỗi: cảnh báo trên (%)<input id="thresholdInvalidWarn" type="number" min="0" max="100" value="2"></label><label>Đích lỗi: nghiêm trọng trên (%)<input id="thresholdInvalidBad" type="number" min="0" max="100" value="5"></label><label>Đích lặp: cảnh báo trên (%)<input id="thresholdRepeatWarn" type="number" min="0" max="100" value="10"></label><label>Lỗi: cảnh báo trên (%)<input id="thresholdFailWarn" type="number" min="0" max="100" value="8"></label><label>Lỗi: nghiêm trọng trên (%)<input id="thresholdFailBad" type="number" min="0" max="100" value="15"></label></div></div></div><div class="settings-local-actions"><button type="button" class="primary-btn" data-settings-save="analysis">Lưu ngưỡng cảnh báo</button><span id="settingsAnalysisSaved" class="settings-saved-status" role="status" aria-live="polite"></span></div></details>
+        <details id="settingsAppearance" class="settings-section"><summary>Giao diện</summary><p class="settings-section-description">Chọn chế độ sáng hoặc tối và bảng màu dùng cho biểu đồ.</p><div id="settingsAppearanceContent"></div><div class="settings-local-actions"><button type="button" class="primary-btn" data-settings-save="appearance">Lưu giao diện</button><span id="settingsAppearanceSaved" class="settings-saved-status" role="status" aria-live="polite"></span></div></details>
+        <details id="settingsAI" class="settings-section"><summary>Trợ lý AI</summary><p class="settings-section-description">Chọn nhà cung cấp, model và tính năng được phép dùng AI.</p><div id="settingsAIContent"></div><div id="settingsAIActions"></div></details>
+        <details id="settingsData" class="settings-section"><summary>Dữ liệu &amp; bảo trì</summary><p class="settings-section-description">Theo dõi cơ sở dữ liệu, nhập tệp và thực hiện các tác vụ bảo trì cục bộ.</p><div id="settingsDataContent"></div></details>
+        </div>
       </div>
     </section>
     <div id="chart_conn_donut" class="card small" data-tab="overview" draggable="true"></div>
@@ -2313,6 +2325,8 @@ function showSettingsSection(id){
   showTab('settings');
   const section=document.getElementById(id);
   if(section){
+    document.querySelectorAll('.settings-section').forEach(item=>item.classList.toggle('settings-active',item===section));
+    document.querySelectorAll('.settings-catalog-item').forEach(item=>item.classList.toggle('active',item.dataset.settingsTarget===id));
     section.open=true;
     requestAnimationFrame(()=>section.scrollIntoView({behavior:'smooth',block:'start'}));
   }
@@ -2335,6 +2349,11 @@ function initSettingsPanel(){
   document.getElementById('mptDeleteProfile')?.classList.add('btn-danger');
   move('#mappingDialog .adw-dialog-body','settingsMappingContent');
   move('#optionsDialog .adw-dialog-body','settingsAnalysisContent');
+  const appearance=document.getElementById('settingsAppearanceContent');
+  const schemeRow=document.getElementById('colorScheme')?.closest('.control-row');
+  const appearanceTools=document.querySelector('.tools-control');
+  if(schemeRow&&appearance) appearance.appendChild(schemeRow);
+  if(appearanceTools&&appearance) appearance.appendChild(appearanceTools);
   move('#llmConfigDialog .adw-dialog-body','settingsAIContent');
   document.querySelector('#llmConfigDialog .adw-dialog-footer [data-close-dialog]')?.remove();
   move('#llmConfigDialog .adw-dialog-footer','settingsAIActions');
@@ -2349,6 +2368,20 @@ function initSettingsPanel(){
   }
   const threshold=document.getElementById('alertThreshold')?.closest('.kpi-setting');
   if(threshold) document.getElementById('settingsAnalysisContent')?.prepend(threshold);
+  document.querySelectorAll('.settings-catalog-item').forEach(button=>button.addEventListener('click',()=>showSettingsSection(button.dataset.settingsTarget)));
+  document.querySelectorAll('.settings-section').forEach(section=>section.addEventListener('toggle',()=>{
+    if(section.open) showSettingsSection(section.id);
+  }));
+  document.querySelector('[data-settings-save="analysis"]')?.addEventListener('click',()=>{
+    localStorage.setItem(KPI_THRESH_KEY,JSON.stringify(currentKpiThresholds()));
+    const status=document.getElementById('settingsAnalysisSaved');
+    if(status) status.textContent='Đã lưu trên thiết bị này.';
+  });
+  document.querySelector('[data-settings-save="appearance"]')?.addEventListener('click',()=>{
+    const status=document.getElementById('settingsAppearanceSaved');
+    if(status) status.textContent='Đã lưu trên thiết bị này.';
+  });
+  document.getElementById('settingsConnection')?.classList.add('settings-active');
 }
 
 function initAdwChrome(){

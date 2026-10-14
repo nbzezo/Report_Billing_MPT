@@ -1327,6 +1327,21 @@ class FrontendRegressionTests(unittest.TestCase):
         ):
             self.assertIn(token, self.dashboard_html)
 
+    def test_settings_use_sticky_catalog_and_dedicated_sections(self):
+        for token in (
+            'class="settings-layout"',
+            'class="settings-catalog"',
+            'data-settings-target="settingsConnection"',
+            'data-settings-target="settingsAppearance"',
+            'id="settingsAppearanceContent"',
+            'id="settingsAnalysisSaved"',
+            'id="settingsAppearanceSaved"',
+            "document.querySelectorAll('.settings-catalog-item')",
+            "position:sticky;top:calc(var(--chrome-h) + 16px)",
+            "body.adw .settings-section.settings-active{display:block}",
+        ):
+            self.assertIn(token, self.dashboard_html)
+
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
         self.assertTrue(worker.exists())

@@ -114,6 +114,12 @@ try {
         const visibleBillingCharts = await page.evaluate(() => BILLING_CHART_IDS.filter(id => { const card = resolveReportCard(id); return card && !card.hidden; }));
         if (visibleBillingCharts.length) throw new Error(`Biểu đồ tiền bằng 0 vẫn hiện khi chưa có đơn giá: ${visibleBillingCharts.join(', ')}`);
       }
+      if (tab === 'settings') {
+        await page.locator('[data-settings-target="settingsAppearance"]').click();
+        if (!(await page.locator('#settingsAppearance').isVisible()) || await page.locator('#settingsConnection').isVisible()) throw new Error('Danh mục Cài đặt không chuyển đúng nội dung cột phải.');
+        await page.locator('[data-settings-save="appearance"]').click();
+        if ((await page.locator('#settingsAppearanceSaved').textContent()).trim() !== 'Đã lưu trên thiết bị này.') throw new Error('Cài đặt Giao diện chưa báo trạng thái lưu tại chỗ.');
+      }
       if (!auditOnly) {
         await page.screenshot({ path: path.join(out, `${theme}-${tab}.png`) });
         await page.screenshot({ path: path.join(out, `${theme}-${tab}-full.png`), fullPage: true });
