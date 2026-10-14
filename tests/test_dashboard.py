@@ -2,6 +2,7 @@ import importlib.util
 import csv
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -1289,6 +1290,17 @@ class FrontendRegressionTests(unittest.TestCase):
         ):
             self.assertNotIn(stale_copy, self.dashboard_html)
 
+    def test_css_cleanup_stays_within_ux30_budgets(self):
+        html = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+        css = (ROOT / "dashboard.css").read_text(encoding="utf-8")
+        core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
+        self.assertLess(len(re.findall(r'style="[^"]*"', html)), 80)
+        self.assertLessEqual(css.count("!important"), 5)
+        token_end = "/* /UX-30: centralized legacy and chart color tokens. */"
+        self.assertIn(token_end, css)
+        self.assertEqual(re.findall(r"#[0-9a-fA-F]{3,8}\b", css.split(token_end, 1)[1]), [])
+        self.assertLessEqual(len(re.findall(r"#[0-9a-fA-F]{3,8}\b", html + core)), 10)
+
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
         self.assertTrue(worker.exists())
@@ -1869,8 +1881,8 @@ class GatewayHangupCauseChartTests(unittest.TestCase):
         self.assertIn("Không gộp nguyên nhân nhỏ", self.HTML)
         self.assertIn("customdata[1]:.2f", self.HTML)
         self.assertIn(":not(#chart_gateway_hangup_cause_pie)", self.HTML)
-        self.assertIn(".chart-report-card>#chart_gateway_hangup_cause_pie{height:auto!important;min-height:430px;display:block}", self.HTML)
-        self.assertIn("#report_chart_gateway_hangup_cause_pie{height:auto;min-height:0!important;overflow:hidden}", self.HTML)
+        self.assertIn(".chart-report-card>#chart_gateway_hangup_cause_pie{height:auto;min-height:430px;display:block}", self.HTML)
+        self.assertIn("#report_chart_gateway_hangup_cause_pie{height:auto;min-height:0;overflow:hidden}", self.HTML)
         self.assertIn("function fitGatewayHangupCauseCard(plot)", self.HTML)
         self.assertIn("card.style.height=`${chartHeight + detailsHeight + 16}px`", self.HTML)
         self.assertIn("layout-full>[id^=\"chart_\"]:not(#chart_gateway_hangup_cause_pie)", self.HTML)

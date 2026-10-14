@@ -142,13 +142,13 @@ function updateRN_CF_KPIs(rows){
       <div id="reportLoadingDetail" class="loading-detail" aria-live="polite">Đang kiểm tra dữ liệu đã lưu…</div>
       <div id="reportLoadingError" class="loading-error" role="alert" hidden></div>
       <details id="reportLoadingErrorDetails" class="loading-error-details" hidden><summary>Chi tiết</summary><pre id="reportLoadingErrorTechnical"></pre></details>
-      <div class="loading-actions"><button id="cancelReportLoad" type="button">Hủy</button><button id="closeReportLoad" type="button" style="display:none">Đóng</button><button id="retryReportLoad" type="button" class="primary-btn" style="display:none">Thử lại</button></div>
+      <div class="loading-actions"><button id="cancelReportLoad" type="button">Hủy</button><button class="u-inline-6b99de8b" id="closeReportLoad" type="button">Đóng</button><button id="retryReportLoad" type="button" class="primary-btn u-inline-6b99de8b">Thử lại</button></div>
       <div class="loading-hint muted">Nhấn Esc để đóng cửa sổ này.</div>
     </div>
   </div>
   <header class="adw-headerbar">
     <div class="hb-brand">
-      <span class="hb-logo"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="#E95420"/><path d="M7 15.5V11m4 4.5V8m4 7.5v-3" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg></span>
+      <span class="hb-logo"><svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="6" fill="var(--brand)"/><path d="M7 15.5V11m4 4.5V8m4 7.5v-3" fill="none" stroke="var(--ux-color-fff)" stroke-width="2" stroke-linecap="round"/></svg></span>
       <div class="hb-titles">
         <div class="hb-title">Bảng điều khiển cuộc gọi MPT</div>
         <div class="hb-subtitle" id="mptSourceSummary">Chọn kết nối và phạm vi để cập nhật báo cáo</div>
@@ -201,9 +201,9 @@ function updateRN_CF_KPIs(rows){
       <label class="compact-account" title="Tài khoản đang xem"><span class="sr-only">Tài khoản</span>
         <span class="dropdown" id="accountDropdown">
           <button type="button" id="accountDropdownBtn" class="filter-trigger">Tài khoản: Tất cả</button><span id="accountCount" class="muted"></span>
-          <div id="accountDropdownList" class="dropdown-list" style="display:none">
+          <div id="accountDropdownList" class="dropdown-list u-inline-6b99de8b">
             <div class="controls-row"><button id="selectAllAccounts" type="button">Tất cả</button><button id="clearAllAccounts" type="button">Bỏ chọn</button><input id="accountSearch" type="text" placeholder="Tìm tài khoản…" /></div>
-            <div id="accountListCheckboxes" style="max-height:260px; overflow:auto; margin-top:6px;"></div>
+            <div class="u-inline-25d1b69a" id="accountListCheckboxes"></div>
             <div class="controls-row account-dropdown-actions"><button id="applyAccounts" type="button" class="primary-btn">Áp dụng</button></div>
           </div>
         </span>
@@ -255,7 +255,7 @@ function updateRN_CF_KPIs(rows){
             <section class="mpt-source-block" aria-labelledby="mptConnectionTitle">
               <div id="mptConnectionTitle" class="mpt-source-block-title">Kết nối</div>
               <label class="sr-only" for="mptProfile">Kết nối đã lưu</label>
-              <select id="mptProfile" style="width:100%"><option value="">-- Chọn domain/user --</option></select>
+              <select class="u-inline-0466783d" id="mptProfile"><option value="">-- Chọn domain/user --</option></select>
               <div id="mptProfileDetail" class="muted mpt-profile-detail">Đang tải danh sách kết nối…</div>
               <div class="mpt-compact-actions">
                 <button id="mptRefreshAccounts" type="button">Làm mới tài khoản</button>
@@ -265,14 +265,14 @@ function updateRN_CF_KPIs(rows){
 
             <section class="mpt-source-block" aria-labelledby="mptAccountsTitle" hidden>
               <div id="mptAccountsTitle" class="mpt-source-block-title">Tài khoản cần tải <span id="mptAccountCount" class="muted"></span></div>
-              <div class="adw-row-sub" style="margin:-2px 0 8px">Bỏ trống = tải tất cả tài khoản.</div>
+              <div class="adw-row-sub u-inline-73a8a237">Bỏ trống = tải tất cả tài khoản.</div>
               <details id="mptAccountPicker" class="mpt-account-picker">
                 <summary><span id="mptAccountSelectionSummary">Tất cả tài khoản</span></summary>
                 <div class="mpt-account-picker-content">
                   <div class="mpt-account-tools">
                     <button id="mptSelectAllAccounts" type="button">Chọn tất cả</button>
                     <button id="mptClearAccounts" type="button">Bỏ chọn</button>
-                    <input id="mptAccountSearch" type="search" placeholder="Tìm tài khoản…" aria-label="Tìm tài khoản MPT" style="flex:1;min-width:120px">
+                    <input class="u-inline-f09611ef" id="mptAccountSearch" type="search" placeholder="Tìm tài khoản…" aria-label="Tìm tài khoản MPT">
                   </div>
                   <div id="mptAccountList" class="mpt-account-list" role="group" aria-label="Tài khoản dùng để tải dữ liệu"><span class="muted">Chọn kết nối để tải tài khoản.</span></div>
                 </div>
@@ -319,11 +319,11 @@ function updateRN_CF_KPIs(rows){
               <label>Tên đăng nhập<input id="mptUsername" autocomplete="username"></label>
               <label>Mật khẩu<input id="mptPassword" type="password" autocomplete="current-password" placeholder="Để trống nếu không đổi"></label>
             </div>
-            <div class="mpt-manager-actions" style="margin-top:9px">
+            <div class="mpt-manager-actions u-inline-81aea127">
               <button id="mptNewProfile" type="button">Tạo mới</button>
               <button id="mptTestConnection" type="button">Kiểm tra kết nối</button>
               <button id="mptSaveProfile" type="button" class="primary-btn">Lưu kết nối</button>
-              <button id="mptDeleteProfile" type="button" style="color:#991b1b;border-color:#fecaca">Xóa kết nối</button>
+              <button class="u-inline-f6d26882" id="mptDeleteProfile" type="button">Xóa kết nối</button>
             </div>
             <div class="mpt-manager-note">Mật khẩu được mã hóa cục bộ bằng AES-256-GCM và không hiển thị lại.</div>
           </details>
@@ -343,8 +343,8 @@ function updateRN_CF_KPIs(rows){
       <div class="llm-config-body">
         <section class="mpt-source-block">
           <div class="mpt-source-block-title">Nhà cung cấp mặc định</div>
-          <div class="adw-row-sub" style="margin:-2px 0 8px">Dùng cho mọi tính năng AI, trừ khi 1 tính năng bên dưới chọn riêng nhà cung cấp khác.</div>
-          <select id="llmActiveProvider" style="width:100%">
+          <div class="adw-row-sub u-inline-73a8a237">Dùng cho mọi tính năng AI, trừ khi 1 tính năng bên dưới chọn riêng nhà cung cấp khác.</div>
+          <select class="u-inline-0466783d" id="llmActiveProvider">
             <option value="">-- Chưa chọn --</option>
             <option value="anthropic">Claude (Anthropic)</option>
             <option value="gemini">Gemini (Google)</option>
@@ -364,7 +364,7 @@ function updateRN_CF_KPIs(rows){
             <label>API key<input id="llmKey_anthropic" type="password" autocomplete="off" placeholder="Nhập API key"></label>
             <label>Model<input id="llmModel_anthropic" placeholder="vd claude-sonnet-5"></label>
           </div>
-          <div class="mpt-manager-actions" style="margin-top:9px">
+          <div class="mpt-manager-actions u-inline-81aea127">
             <button type="button" class="llm-test-btn" data-provider="anthropic">Kiểm tra kết nối</button>
             <span class="muted llm-test-status" data-provider-status="anthropic"></span>
           </div>
@@ -376,7 +376,7 @@ function updateRN_CF_KPIs(rows){
             <label>API key<input id="llmKey_gemini" type="password" autocomplete="off" placeholder="Nhập API key"></label>
             <label>Model<input id="llmModel_gemini" placeholder="vd gemini-2.5-flash"></label>
           </div>
-          <div class="mpt-manager-actions" style="margin-top:9px">
+          <div class="mpt-manager-actions u-inline-81aea127">
             <button type="button" class="llm-test-btn" data-provider="gemini">Kiểm tra kết nối</button>
             <span class="muted llm-test-status" data-provider-status="gemini"></span>
           </div>
@@ -389,7 +389,7 @@ function updateRN_CF_KPIs(rows){
             <label>Model<input id="llmModel_deepseek" placeholder="vd deepseek-chat"></label>
             <label>Base URL<input id="llmBaseUrl_deepseek" placeholder="https://api.deepseek.com"></label>
           </div>
-          <div class="mpt-manager-actions" style="margin-top:9px">
+          <div class="mpt-manager-actions u-inline-81aea127">
             <button type="button" class="llm-test-btn" data-provider="deepseek">Kiểm tra kết nối</button>
             <span class="muted llm-test-status" data-provider-status="deepseek"></span>
           </div>
@@ -402,11 +402,11 @@ function updateRN_CF_KPIs(rows){
             <label>Model<input id="llmModel_gateway" placeholder="vd kr/claude-sonnet-4.5"></label>
             <label>Base URL<input id="llmBaseUrl_gateway" placeholder="http://localhost:20128/v1"></label>
           </div>
-          <div class="mpt-compact-actions" style="margin-top:6px">
+          <div class="mpt-compact-actions u-inline-fe7b4979">
             <button type="button" id="llmGatewayPreset9Router">9Router (localhost)</button>
             <button type="button" id="llmGatewayPresetOpenRouter">OpenRouter</button>
           </div>
-          <div class="mpt-manager-actions" style="margin-top:9px">
+          <div class="mpt-manager-actions u-inline-81aea127">
             <button type="button" class="llm-test-btn" data-provider="gateway">Kiểm tra kết nối</button>
             <span class="muted llm-test-status" data-provider-status="gateway"></span>
           </div>
@@ -468,10 +468,10 @@ function updateRN_CF_KPIs(rows){
           <button id="loadSample">Dữ liệu mẫu</button>
         </div>
         <div class="control-row">
-          <span class="muted" style="font-size:12px">Hỗ trợ cả mẫu cũ (snake_case) và mẫu mới (Title Case) <button type="button" class="info-btn" aria-label="Giải thích: Định dạng file được hỗ trợ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Mẫu cũ: account_id, caller_id_number, destination_number, ani, direction, start_stamp, answer_stamp, end_stamp, duration, billsec, hangup_cause, uuid, telco, calltype. Mẫu mới: Account, Caller, Destination, Ani, Call type, Start time, Answer time, End time, Duration, Billsec, Telco, Hangup Cause, Status Code, MOS, Quality (%), Jitter, Packet Count, RTCP. Hai định dạng có thể trộn lẫn trong cùng một lần tải.">?</button></span>
+          <span class="muted u-inline-6cb285c6">Hỗ trợ cả mẫu cũ (snake_case) và mẫu mới (Title Case) <button type="button" class="info-btn" aria-label="Giải thích: Định dạng file được hỗ trợ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Mẫu cũ: account_id, caller_id_number, destination_number, ani, direction, start_stamp, answer_stamp, end_stamp, duration, billsec, hangup_cause, uuid, telco, calltype. Mẫu mới: Account, Caller, Destination, Ani, Call type, Start time, Answer time, End time, Duration, Billsec, Telco, Hangup Cause, Status Code, MOS, Quality (%), Jitter, Packet Count, RTCP. Hai định dạng có thể trộn lẫn trong cùng một lần tải.">?</button></span>
         </div>
         <div class="control-row">
-          <progress id="uploadProgress" value="0" max="100" style="width:180px;"></progress>
+          <progress class="u-inline-54f91ac4" id="uploadProgress" value="0" max="100"></progress>
           <span id="uploadStatus" class="muted" role="status" aria-live="polite"></span>
         </div>
       
@@ -507,27 +507,27 @@ function updateRN_CF_KPIs(rows){
     <div class="adw-dialog-body">
         <div class="control-row">
           <label>Concurrent Telco
-            <select id="concurTelcoMode" style="padding:2px 6px;">
+            <select class="u-inline-fe9a050c" id="concurTelcoMode">
               <option value="percent" selected>% + số</option>
               <option value="absolute">Chỉ số lượng</option>
             </select>
           </label>
           <label><input type="checkbox" id="concurTelcoLabels" checked> Hiển thị nhãn</label>
           <label title="Đổ chuông cũng chiếm một kênh thoại. Chọn 'Chiếm kênh' khi cần số liệu để quy hoạch trunk.">CCU tính theo
-            <select id="ccuScope" style="padding:2px 6px;">
+            <select class="u-inline-fe9a050c" id="ccuScope">
               <option value="answered" selected>Đã nghe máy (Kết nối)</option>
               <option value="occupied">Chiếm kênh (kể cả đổ chuông)</option>
             </select>
           </label>
           <label>Top phút
-            <select id="topNSelectMinutes" style="padding:2px 6px;">
+            <select class="u-inline-fe9a050c" id="topNSelectMinutes">
               <option value="10" selected>10</option>
               <option value="20">20</option>
               <option value="0">All</option>
             </select>
           </label>
           <label>ASR Top
-            <select id="topNSelectASR" style="padding:2px 6px;">
+            <select class="u-inline-fe9a050c" id="topNSelectASR">
               <option value="10" selected>10</option>
               <option value="20">20</option>
               <option value="0">All</option>
@@ -559,23 +559,23 @@ function updateRN_CF_KPIs(rows){
     <div class="adw-dialog-body">
 <div id="mappingPanel" class="card mapping-panel full">
     <div class="muted">Ví dụ: account_id <b>lab-A</b> → <b>VCLASS BOT</b>. Lưu cấu hình vào trình duyệt (localStorage) và áp dụng ngay lên biểu đồ.</div>
-    <div class="map-grid" style="margin-top:8px">
+    <div class="map-grid u-inline-8a77e5a3">
       <div class="card">
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <div class="u-inline-06307df0">
           <input id="mapAccId" placeholder="Account ID (vd: lab-A)"/>
-          <input id="mapAccName" placeholder="Tên hiển thị (vd: VCLASS BOT)" style="min-width:260px"/>
+          <input class="u-inline-bec7b1d5" id="mapAccName" placeholder="Tên hiển thị (vd: VCLASS BOT)"/>
           <button id="addOrUpdateMap">Thêm / Cập nhật</button>
           <button id="applyMapNow">Áp dụng ngay</button>
         </div>
-        <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+        <div class="u-inline-7f18e8f5">
           <button id="exportMap">Xuất JSON ánh xạ</button>
-          <label style="display:flex;align-items:center;gap:6px">Import JSON <input id="importMapFile" type="file" accept=".json,.csv"></label>
-          <button id="clearMap" style="color:#b42318;border-color:#f0b3ad">Xoá toàn bộ mapping</button>
+          <label class="u-inline-b88d1817">Import JSON <input id="importMapFile" type="file" accept=".json,.csv"></label>
+          <button class="u-inline-071e78fd" id="clearMap">Xoá toàn bộ mapping</button>
         </div>
       </div>
       <div class="card">
         <table class="map-table">
-          <thead><tr><th style="width:30%">ID tài khoản</th><th>Tên hiển thị</th><th style="width:90px">Hành động</th></tr></thead>
+          <thead><tr><th class="u-inline-c66ff2c0">ID tài khoản</th><th>Tên hiển thị</th><th class="u-inline-581be415">Hành động</th></tr></thead>
           <tbody id="mapTbody"></tbody>
         </table>
       </div>
@@ -623,7 +623,7 @@ function updateRN_CF_KPIs(rows){
     <section id="settings_panel" class="card settings-card full" data-tab="settings">
       <div class="settings-header"><h2 class="settings-title">Cài đặt</h2><p class="settings-intro">Cấu hình kết nối, ánh xạ, phân tích, hiển thị và AI tại đây.</p></div>
       <div class="settings-stack">
-        <details id="settingsConnection" class="settings-section" open><summary>Kết nối MPT</summary><label for="settingsMptProfile">Kết nối đã lưu</label><select id="settingsMptProfile" style="width:100%;max-width:480px"><option value="">-- Chọn kết nối --</option></select><div id="settingsConnectionStatus" class="muted" role="status" aria-live="polite"></div><div id="settingsConnectionContent"></div></details>
+        <details id="settingsConnection" class="settings-section" open><summary>Kết nối MPT</summary><label for="settingsMptProfile">Kết nối đã lưu</label><select class="u-inline-777e4c81" id="settingsMptProfile"><option value="">-- Chọn kết nối --</option></select><div id="settingsConnectionStatus" class="muted" role="status" aria-live="polite"></div><div id="settingsConnectionContent"></div></details>
         <details id="settingsData" class="settings-section"><summary>Dữ liệu &amp; bảo trì</summary><div id="settingsDataContent"></div></details>
         <details id="settingsMapping" class="settings-section"><summary>Tên hiển thị tài khoản</summary><div id="settingsMappingContent"></div></details>
         <details id="settingsGateway" class="settings-section"><summary>Gateway ↔ Tài khoản</summary><div id="settingsGatewayContent"></div></details>
@@ -648,7 +648,7 @@ function updateRN_CF_KPIs(rows){
             <option value="hour">Theo giờ trong ngày</option>
           </select>
         </label>
-        <label id="asrTimeDateWrap" style="display:none">Chọn ngày
+        <label class="u-inline-6b99de8b" id="asrTimeDateWrap">Chọn ngày
           <input id="asrTimeDate" type="date"/>
         </label>
       </div>
@@ -664,32 +664,32 @@ function updateRN_CF_KPIs(rows){
     </div>
     <div id="chart_caller_participation_heatmap" class="card large" data-tab="time" draggable="true"></div>
     <div id="table_hangup_breakdown" class="card full" data-tab="quality" draggable="true">
-      <h3 style="margin:0 0 6px 0">Nguyên nhân kết thúc nổi bật theo nhà mạng / đầu số</h3>
+      <h3 class="u-inline-02aaf7e0">Nguyên nhân kết thúc nổi bật theo nhà mạng / đầu số</h3>
       <div class="muted">Bảng truy vết nguyên nhân lỗi theo <code>hangup_cause</code>, <code>telco</code> và prefix gọi ra từ <code>caller_id_number</code>.</div>
-      <table id="hangupBreakdownTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <table class="u-inline-0e3249a7" id="hangupBreakdownTable">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">hangup_cause</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Telco</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Đầu số</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Count</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">% total</th>
+          <th class="u-inline-30130854">hangup_cause</th>
+          <th class="u-inline-30130854">Telco</th>
+          <th class="u-inline-30130854">Đầu số</th>
+          <th class="u-inline-1fb56c0e">Count</th>
+          <th class="u-inline-1fb56c0e">% total</th>
         </tr></thead>
         <tbody></tbody>
       </table>
     </div>
     <div id="table_fail_reason" class="card full" data-tab="quality" draggable="true">
-      <h3 style="margin:0 0 6px 0">Thống kê lý do Fail</h3>
+      <h3 class="u-inline-02aaf7e0">Thống kê lý do Fail</h3>
       <div class="muted">Gộp theo <code>hangup_cause</code> cho các cuộc bị phân loại <code>Fail</code>. Cột “Nhánh phân loại” cho biết cuộc rơi vào Fail vì <b>nguyên nhân mạng / định tuyến</b> (<code>hangup_cause</code> thuộc <code>Fail_Hangup_cause</code>) hay chỉ vì <b>suy đoán <code>duration = 0</code></b> (không có thông tin nào khác).</div>
-      <div id="failReasonSummary" class="muted" style="margin-top:6px"></div>
-      <table id="failReasonTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <div id="failReasonSummary" class="muted u-inline-fe7b4979"></div>
+      <table class="u-inline-0e3249a7" id="failReasonTable">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">hangup_cause</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Nhánh phân loại</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Số cuộc Fail</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">% trong tổng Fail</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">% trên tổng lượt gọi</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Số account</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Số đích</th>
+          <th class="u-inline-30130854">hangup_cause</th>
+          <th class="u-inline-30130854">Nhánh phân loại</th>
+          <th class="u-inline-1fb56c0e">Số cuộc Fail</th>
+          <th class="u-inline-1fb56c0e">% trong tổng Fail</th>
+          <th class="u-inline-1fb56c0e">% trên tổng lượt gọi</th>
+          <th class="u-inline-1fb56c0e">Số account</th>
+          <th class="u-inline-1fb56c0e">Số đích</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -701,19 +701,19 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_concurrent_by_telco" class="card large" data-tab="time" draggable="true"></div>
     <div id="chart_ccu_by_telco" class="card large" data-tab="time" draggable="true"></div>
     <div id="table_ccu_by_telco" class="card full" data-tab="time" draggable="true">
-      <h3 style="margin:0 0 6px 0">Báo cáo CCU theo Telco</h3>
+      <h3 class="u-inline-02aaf7e0">Báo cáo CCU theo Telco</h3>
       <div class="muted">CCU = số cuộc gọi đang chiếm kênh tại cùng một thời điểm, theo khoảng nửa mở [bắt đầu, kết thúc). Hai cột tỷ trọng được đo đúng: <b>lúc hệ thống đỉnh</b> (ai chiếm kênh khi căng nhất) và <b>tải Erlang</b> (ai tiêu thụ tài nguyên nhiều nhất) — không dùng cách chia peak cho tổng peak vì các telco không đạt đỉnh cùng lúc.</div>
-      <table id="ccuByTelcoTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <table class="u-inline-0e3249a7" id="ccuByTelcoTable">
         <thead>
           <tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Telco</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Peak CCU</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Thời điểm đạt đỉnh</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">CCU TB<br><span class="muted" style="font-weight:400">(khoảng lọc)</span></th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">CCU TB<br><span class="muted" style="font-weight:400">(khoảng có dữ liệu)</span></th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">CCU lúc hệ thống<br><span class="muted" style="font-weight:400">đạt đỉnh</span></th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ trọng<br><span class="muted" style="font-weight:400">lúc đỉnh</span></th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ trọng tải<br><span class="muted" style="font-weight:400">(Erlang)</span></th>
+            <th class="u-inline-30130854">Telco</th>
+            <th class="u-inline-1fb56c0e">Peak CCU</th>
+            <th class="u-inline-30130854">Thời điểm đạt đỉnh</th>
+            <th class="u-inline-1fb56c0e">CCU TB<br><span class="muted u-inline-7e3a9447">(khoảng lọc)</span></th>
+            <th class="u-inline-1fb56c0e">CCU TB<br><span class="muted u-inline-7e3a9447">(khoảng có dữ liệu)</span></th>
+            <th class="u-inline-1fb56c0e">CCU lúc hệ thống<br><span class="muted u-inline-7e3a9447">đạt đỉnh</span></th>
+            <th class="u-inline-1fb56c0e">Tỷ trọng<br><span class="muted u-inline-7e3a9447">lúc đỉnh</span></th>
+            <th class="u-inline-1fb56c0e">Tỷ trọng tải<br><span class="muted u-inline-7e3a9447">(Erlang)</span></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -741,17 +741,17 @@ function updateRN_CF_KPIs(rows){
 
 <!-- Bảng tổng hợp Top số đích (gộp 2 tiêu chí) -->
 <div id="table_top_dest" class="card full" data-tab="quality" draggable="true">
-  <h3 style="margin:0 0 6px 0">Số đích bất thường nổi bật</h3>
+  <h3 class="u-inline-02aaf7e0">Số đích bất thường nổi bật</h3>
   <div class="muted">Gồm 2 tiêu chí: (1) bị gọi nhiều nhất, (2) tỷ lệ Fail cao nhất với ngưỡng tối thiểu cuộc gọi.</div>
-  <table id="topDestTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+  <table class="u-inline-0e3249a7" id="topDestTable">
     <thead>
       <tr>
-        <th style="text-align:left;border:1px solid #eee;padding:6px">Số đích</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">Tổng cuộc</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">Không nghe</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">Lỗi</th>
-        <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ lỗi</th>
+        <th class="u-inline-30130854">Số đích</th>
+        <th class="u-inline-1fb56c0e">Tổng cuộc</th>
+        <th class="u-inline-1fb56c0e">Kết nối</th>
+        <th class="u-inline-1fb56c0e">Không nghe</th>
+        <th class="u-inline-1fb56c0e">Lỗi</th>
+        <th class="u-inline-1fb56c0e">Tỷ lệ lỗi</th>
       </tr>
     </thead>
     <tbody></tbody>
@@ -765,17 +765,17 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_line_health_trend" class="card large" data-tab="time" draggable="true"></div>
 
     <div id="table_line_anomalies" class="card full" data-tab="time" draggable="true">
-      <h3 style="margin:0 0 6px 0">Sức khỏe đầu số — Bất thường</h3>
+      <h3 class="u-inline-02aaf7e0">Sức khỏe đầu số — Bất thường</h3>
       <div class="muted">So sánh tỷ lệ kết nối của ngày gần nhất so với trung bình 7 ngày trước đó (nếu có). Chỉ hiển thị đầu số đủ ngưỡng cuộc gọi.</div>
-      <table id="lineAnomTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <table class="u-inline-0e3249a7" id="lineAnomTable">
         <thead>
           <tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Đầu số</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi (D-0)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối (D-0)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">TB 7 ngày trước</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Chênh lệch</th>
-            <th style="text-align:center;border:1px solid #eee;padding:6px">AI</th>
+            <th class="u-inline-30130854">Đầu số</th>
+            <th class="u-inline-1fb56c0e">Cuộc gọi (D-0)</th>
+            <th class="u-inline-1fb56c0e">Tỷ lệ kết nối (D-0)</th>
+            <th class="u-inline-1fb56c0e">TB 7 ngày trước</th>
+            <th class="u-inline-1fb56c0e">Chênh lệch</th>
+            <th class="u-inline-049918f7">AI</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -785,21 +785,21 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_agent_perf" class="card large" data-tab="advanced" draggable="true"></div>
 
     <div id="table_agent_perf" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Tổng hợp theo tài khoản</h3>
+      <h3 class="u-inline-02aaf7e0">Tổng hợp theo tài khoản</h3>
       <div class="muted">Tổng hợp theo <code>account_id</code>: tỷ lệ kết nối, ASR hợp lệ <code>Kết nối/(Kết nối + Không nghe)</code> và tỷ lệ kết nối trừ cuộc lỗi <code>Kết nối/(Tổng − Lỗi)</code>.</div>
-      <table id="agentPerfTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <table class="u-inline-0e3249a7" id="agentPerfTable">
         <thead>
           <tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Tài khoản</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">ASR hợp lệ</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Phút gọi</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Thời lượng tính cước TB</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ cuộc ngắn</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Gọi lại</th>
+            <th class="u-inline-30130854">Tài khoản</th>
+            <th class="u-inline-1fb56c0e">Cuộc gọi</th>
+            <th class="u-inline-1fb56c0e">Kết nối</th>
+            <th class="u-inline-1fb56c0e">Tỷ lệ kết nối</th>
+            <th class="u-inline-1fb56c0e">ASR hợp lệ</th>
+            <th class="u-inline-1fb56c0e">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
+            <th class="u-inline-1fb56c0e">Phút gọi</th>
+            <th class="u-inline-1fb56c0e">Thời lượng tính cước TB</th>
+            <th class="u-inline-1fb56c0e">Tỷ lệ cuộc ngắn</th>
+            <th class="u-inline-1fb56c0e">Gọi lại</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -809,21 +809,21 @@ function updateRN_CF_KPIs(rows){
     <div id="gatewayGroupEmpty" class="card full empty-state--group" data-tab="advanced" data-group-empty hidden></div>
 
     <div id="table_gateway_fail" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Tỷ lệ lỗi theo Gateway (tất cả tài khoản)</h3>
+      <h3 class="u-inline-02aaf7e0">Tỷ lệ lỗi theo Gateway (tất cả tài khoản)</h3>
       <div class="muted">Gộp toàn bộ cuộc gọi đã gán Gateway trong phạm vi lọc, <b>không tách theo tài khoản</b>. <code>Số tài khoản</code> là số tài khoản khác nhau đi qua Gateway đó. Sắp xếp theo tỷ lệ lỗi giảm dần.</div>
-      <div id="gatewayFailCoverage" class="muted" style="margin-top:6px"></div>
-      <table id="gatewayFailTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <div id="gatewayFailCoverage" class="muted u-inline-fe7b4979"></div>
+      <table class="u-inline-0e3249a7" id="gatewayFailTable">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Số tài khoản</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">ASR hợp lệ</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Lỗi</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ lỗi</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Phút gọi</th>
+          <th class="u-inline-30130854">Gateway</th>
+          <th class="u-inline-1fb56c0e">Số tài khoản</th>
+          <th class="u-inline-1fb56c0e">Cuộc gọi</th>
+          <th class="u-inline-1fb56c0e">Kết nối</th>
+          <th class="u-inline-1fb56c0e">Tỷ lệ kết nối</th>
+          <th class="u-inline-1fb56c0e">ASR hợp lệ</th>
+          <th class="u-inline-1fb56c0e">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
+          <th class="u-inline-1fb56c0e">Lỗi</th>
+          <th class="u-inline-1fb56c0e">Tỷ lệ lỗi</th>
+          <th class="u-inline-1fb56c0e">Phút gọi</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -832,46 +832,46 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_gateway_call_distribution" class="card full" data-tab="advanced" draggable="true"></div>
 
     <div id="table_gateway_hangup_cause" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Nguyên nhân kết thúc theo Gateway</h3>
+      <h3 class="u-inline-02aaf7e0">Nguyên nhân kết thúc theo Gateway</h3>
       <div class="muted">Mỗi Gateway được thu gọn riêng. “Tỷ trọng cuộc gọi” là số cuộc của nguyên nhân chia tổng số cuộc qua Gateway; “Tỷ trọng lỗi” là số cuộc lỗi của nguyên nhân chia tổng số cuộc qua Gateway.</div>
-      <div id="gatewayHangupCoverage" class="muted" style="margin-top:6px"></div>
+      <div id="gatewayHangupCoverage" class="muted u-inline-fe7b4979"></div>
       <div id="gatewayHangupCauseGroups" class="gateway-cause-groups"></div>
     </div>
 
     <div id="chart_gateway_hangup_cause_pie" class="card full" data-tab="advanced" draggable="true"></div>
 
     <div id="table_gateway_by_account" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Gateway theo tài khoản</h3>
+      <h3 class="u-inline-02aaf7e0">Gateway theo tài khoản</h3>
       <div class="muted">Gộp cuộc gọi theo <code>account_id × gateway</code>. Gateway lấy từ ánh xạ <code>routing_id</code> đã đồng bộ ở tab Vòng đời CID, nối qua <code>caller_id_number</code>. Dòng <code>(chưa gán)</code> là CID chưa có trong danh sách routing đã gán.</div>
-      <div id="gatewayByAccountCoverage" class="muted" style="margin-top:6px"></div>
-      <div class="muted" style="margin-top:4px;font-size:11px">Lọc từng cột như Excel: chữ = chứa chuỗi; số = <code>&gt;100</code>, <code>&gt;=80</code>, <code>&lt;50</code>, <code>=0</code> hoặc khoảng <code>10-20</code>.</div>
-      <table id="gatewayByAccountTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <div id="gatewayByAccountCoverage" class="muted u-inline-fe7b4979"></div>
+      <div class="muted u-inline-0d1b2b04">Lọc từng cột như Excel: chữ = chứa chuỗi; số = <code>&gt;100</code>, <code>&gt;=80</code>, <code>&lt;50</code>, <code>=0</code> hoặc khoảng <code>10-20</code>.</div>
+      <table class="u-inline-0e3249a7" id="gatewayByAccountTable">
         <thead>
           <tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">account_id</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên tài khoản</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">ASR hợp lệ</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ lỗi</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Phút gọi</th>
+            <th class="u-inline-30130854">account_id</th>
+            <th class="u-inline-30130854">Tên tài khoản</th>
+            <th class="u-inline-30130854">Gateway</th>
+            <th class="u-inline-30130854">Routing</th>
+            <th class="u-inline-1fb56c0e">Cuộc gọi</th>
+            <th class="u-inline-1fb56c0e">Kết nối</th>
+            <th class="u-inline-1fb56c0e">Tỷ lệ kết nối</th>
+            <th class="u-inline-1fb56c0e">ASR hợp lệ</th>
+            <th class="u-inline-1fb56c0e">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
+            <th class="u-inline-1fb56c0e">Tỷ lệ lỗi</th>
+            <th class="u-inline-1fb56c0e">Phút gọi</th>
           </tr>
           <tr class="gw-colfilter">
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="account_id" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="account_name" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="gateway" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="routing_name" type="text" placeholder="lọc…" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="total" type="text" placeholder="&gt;100" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="connected" type="text" placeholder="&gt;10" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="connectRate" type="text" placeholder="&lt;50" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="asr" type="text" placeholder="&gt;=80" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="connectExclFailRate" type="text" placeholder="&gt;=50" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="failPct" type="text" placeholder="&gt;20" style="width:100%;box-sizing:border-box;font-size:11px"></th>
-            <th style="border:1px solid #eee;padding:3px"><input data-gwf="minutes" type="text" placeholder="&gt;0" style="width:100%;box-sizing:border-box;font-size:11px"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="account_id" type="text" placeholder="lọc…"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="account_name" type="text" placeholder="lọc…"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="gateway" type="text" placeholder="lọc…"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="routing_name" type="text" placeholder="lọc…"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="total" type="text" placeholder="&gt;100"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="connected" type="text" placeholder="&gt;10"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="connectRate" type="text" placeholder="&lt;50"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="asr" type="text" placeholder="&gt;=80"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="connectExclFailRate" type="text" placeholder="&gt;=50"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="failPct" type="text" placeholder="&gt;20"></th>
+            <th class="u-inline-5d26ae93"><input class="u-inline-57b004b1" data-gwf="minutes" type="text" placeholder="&gt;0"></th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -879,17 +879,17 @@ function updateRN_CF_KPIs(rows){
     </div>
 
     <div id="table_gateway_block_reconcile" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Đối chiếu chặn nhà mạng ↔ Lỗi</h3>
+      <h3 class="u-inline-02aaf7e0">Đối chiếu chặn nhà mạng ↔ Lỗi</h3>
       <div class="muted">So trạng thái khai trong export routing (<code>ON</code>/<code>PAUSE</code> theo Viettel/Mobi/Vina/Other của từng CID) với Fail thực tế của cuộc gọi tới nhà mạng đó trong CDR. Gộp theo <code>gateway × nhóm telco × trạng thái khai</code>.</div>
-      <table id="gatewayBlockReconcileTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <table class="u-inline-0e3249a7" id="gatewayBlockReconcileTable">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Nhóm telco</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Khai báo</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ lỗi</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Nhận xét</th>
+          <th class="u-inline-30130854">Gateway</th>
+          <th class="u-inline-30130854">Nhóm telco</th>
+          <th class="u-inline-30130854">Khai báo</th>
+          <th class="u-inline-1fb56c0e">Cuộc</th>
+          <th class="u-inline-1fb56c0e">Tỷ lệ lỗi</th>
+          <th class="u-inline-1fb56c0e">Tỷ lệ kết nối</th>
+          <th class="u-inline-30130854">Nhận xét</th>
         </tr></thead>
         <tbody></tbody>
       </table>
@@ -898,16 +898,16 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_callback_dist" class="card small" data-tab="time" draggable="true"></div>
 
     <div id="table_callback_top" class="card full" data-tab="time" draggable="true">
-      <h3 style="margin:0 0 6px 0">Hẹn lại / Gọi lại — số đích bị gọi lặp</h3>
+      <h3 class="u-inline-02aaf7e0">Hẹn lại / Gọi lại — số đích bị gọi lặp</h3>
       <div class="muted">Phân tích dựa trên việc <code>destination_number</code> xuất hiện nhiều lần trong khoảng lọc. (Không cần trường “hẹn lại” riêng.)</div>
-      <table id="callbackTopTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <table class="u-inline-0e3249a7" id="callbackTopTable">
         <thead>
           <tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Số đích</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Tỷ lệ kết nối</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Số lần gọi trước kết nối đầu tiên</th>
+            <th class="u-inline-30130854">Số đích</th>
+            <th class="u-inline-1fb56c0e">Cuộc gọi</th>
+            <th class="u-inline-1fb56c0e">Kết nối</th>
+            <th class="u-inline-1fb56c0e">Tỷ lệ kết nối</th>
+            <th class="u-inline-1fb56c0e">Số lần gọi trước kết nối đầu tiên</th>
           </tr>
         </thead>
         <tbody></tbody>
@@ -915,43 +915,43 @@ function updateRN_CF_KPIs(rows){
     </div>
 
     <div id="table_data_quality" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Chất lượng data đầu vào</h3>
+      <h3 class="u-inline-02aaf7e0">Chất lượng data đầu vào</h3>
       <div class="muted">Kiểm tra UUID trùng, số đích được gọi lặp, sai định dạng, thiếu cột bắt buộc và thời gian bất thường. Số đích đạt 100% được gom vào một dòng mở rộng; bên dưới liệt kê tối đa 150 số đích có tỷ lệ thấp hơn, xếp giảm dần (Kết nối / Cuộc gọi).</div>
       <div id="dataQualitySummary" class="kv"></div>
       <div id="dataQualityTopDupGrid" class="data-quality-table-grid">
-        <table id="dataQualityTopDup0"><thead><tr><th style="text-align:left;border:1px solid #eee">Số đích</th><th style="text-align:right;border:1px solid #eee">Cuộc gọi</th><th style="text-align:right;border:1px solid #eee">Kết nối</th><th style="text-align:right;border:1px solid #eee">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
-        <table id="dataQualityTopDup1"><thead><tr><th style="text-align:left;border:1px solid #eee">Số đích</th><th style="text-align:right;border:1px solid #eee">Cuộc gọi</th><th style="text-align:right;border:1px solid #eee">Kết nối</th><th style="text-align:right;border:1px solid #eee">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
-        <table id="dataQualityTopDup2"><thead><tr><th style="text-align:left;border:1px solid #eee">Số đích</th><th style="text-align:right;border:1px solid #eee">Cuộc gọi</th><th style="text-align:right;border:1px solid #eee">Kết nối</th><th style="text-align:right;border:1px solid #eee">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
+        <table id="dataQualityTopDup0"><thead><tr><th class="u-inline-a9b3f236">Số đích</th><th class="u-inline-922ed1b1">Cuộc gọi</th><th class="u-inline-922ed1b1">Kết nối</th><th class="u-inline-922ed1b1">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
+        <table id="dataQualityTopDup1"><thead><tr><th class="u-inline-a9b3f236">Số đích</th><th class="u-inline-922ed1b1">Cuộc gọi</th><th class="u-inline-922ed1b1">Kết nối</th><th class="u-inline-922ed1b1">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
+        <table id="dataQualityTopDup2"><thead><tr><th class="u-inline-a9b3f236">Số đích</th><th class="u-inline-922ed1b1">Cuộc gọi</th><th class="u-inline-922ed1b1">Kết nối</th><th class="u-inline-922ed1b1">Tỷ lệ kết nối</th></tr></thead><tbody></tbody></table>
       </div>
 
     <div id="panel_alerts" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Cảnh báo vận hành</h3>
+      <h3 class="u-inline-02aaf7e0">Cảnh báo vận hành</h3>
       <div class="muted">Tự động nhận diện vấn đề: tụt kết nối theo đầu số, bùng attempt nhưng không tăng connect, tỉ lệ số sai/không hợp lệ cao.</div>
       <div id="alertsList" class="panel-scroll"></div>
     </div>
 
     <div id="report_rn_cf_by_account" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 8px 0">Báo cáo hợp nhất: RN &amp; CF (Min / Max) theo account_id</h3>
-      <div class="muted" style="margin-bottom:6px">
+      <h3 class="u-inline-d60e50b0">Báo cáo hợp nhất: RN &amp; CF (Min / Max) theo account_id</h3>
+      <div class="muted u-inline-4e420aff">
         RN: số cuộc kể từ lần gần nhất dùng cùng (account_id, out_number). • CF: chuỗi Fail liên tiếp. 
         Min RN = thấp nhất ≥ 1 (bỏ RN = null). • Min CF = chuỗi Fail dương nhỏ nhất (&gt; 0).
       </div>
-      <div style="display:flex;gap:8px;margin-bottom:6px;">
+      <div class="u-inline-9d6820f7">
         <button id="exportReportUnified" class="primary-btn">Xuất CSV</button>
       </div>
-      <div style="overflow:auto;max-height:420px;">
-        <table id="rncfUnifiedTable" style="width:100%;border-collapse:collapse;font-size:12px">
+      <div class="u-inline-db42bcba">
+        <table class="u-inline-6b266149" id="rncfUnifiedTable">
           <thead><tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">account_id</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">account_name</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">out_number (Min RN)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Min RN</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">out_number (Max RN)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Max RN</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">out_number (Min CF &gt; 0)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Min CF</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">out_number (Max CF)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Max CF</th>
+            <th class="u-inline-30130854">account_id</th>
+            <th class="u-inline-30130854">account_name</th>
+            <th class="u-inline-30130854">out_number (Min RN)</th>
+            <th class="u-inline-1fb56c0e">Min RN</th>
+            <th class="u-inline-30130854">out_number (Max RN)</th>
+            <th class="u-inline-1fb56c0e">Max RN</th>
+            <th class="u-inline-30130854">out_number (Min CF &gt; 0)</th>
+            <th class="u-inline-1fb56c0e">Min CF</th>
+            <th class="u-inline-30130854">out_number (Max CF)</th>
+            <th class="u-inline-1fb56c0e">Max CF</th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -960,8 +960,8 @@ function updateRN_CF_KPIs(rows){
 
 
     <div id="report_rn_detail" class="card full" data-tab="advanced" draggable="true">
-      <h3 style="margin:0 0 6px 0">Báo cáo Random Number (RN)</h3>
-      <div class="muted" style="margin-bottom:8px">
+      <h3 class="u-inline-02aaf7e0">Báo cáo Random Number (RN)</h3>
+      <div class="muted u-inline-fdf33f23">
         RN = số cuộc xen giữa hai lần dùng lại cùng (account_id, out_number) — RN càng thấp thì số bị quay vòng càng dày.
         Lần đầu tiên một số xuất hiện không có RN nên không tính vào thống kê.
       </div>
@@ -971,11 +971,11 @@ function updateRN_CF_KPIs(rows){
           <button type="button" class="rn-seg-btn" data-rnview="account">Theo account</button>
         </div>
         <label class="muted" for="rnLowThreshold">Ngưỡng RN thấp:
-          <input id="rnLowThreshold" type="number" min="1" step="1" value="2" style="width:70px">
+          <input class="u-inline-ec6626e1" id="rnLowThreshold" type="number" min="1" step="1" value="2">
         </label>
-        <input id="rnReportSearch" type="search" placeholder="Lọc account / số gọi ra…" style="min-width:190px">
+        <input class="u-inline-2cdf7177" id="rnReportSearch" type="search" placeholder="Lọc account / số gọi ra…">
         <button id="exportRNReport" class="primary-btn">Xuất CSV</button>
-        <span id="rnReportSummary" class="muted" style="margin-left:auto"></span>
+        <span id="rnReportSummary" class="muted u-inline-6d000617"></span>
       </div>
       <div class="rn-table-wrap">
         <table id="rnReportTable">
@@ -1057,7 +1057,7 @@ function updateRN_CF_KPIs(rows){
       <div id="retryAlerts" class="retry-alerts"></div>
       <details class="report-statistics retry-details" data-custom-statistics="retry">
         <summary id="retryTableSummary">Chi tiết theo tài khoản</summary>
-        <div style="display:flex;justify-content:flex-end;padding-top:4px"><button id="retryExportCsv" type="button">Xuất CSV</button></div>
+        <div class="u-inline-42f5a084"><button id="retryExportCsv" type="button">Xuất CSV</button></div>
         <div class="retry-table-scroll">
           <table id="retryDataTable" class="retry-table">
             <thead><tr><th>Tài khoản</th><th class="num">Gọi lại</th><th class="num">Kết nối</th><th class="num">ASR gọi lại</th><th class="num">Số đích</th><th class="num">Chuỗi gọi lại</th><th class="num">Chuỗi thành công</th><th class="num">ASR chuỗi</th><th class="num">Gọi lại lần 2+</th></tr></thead>
@@ -1071,21 +1071,21 @@ function updateRN_CF_KPIs(rows){
          [GROUP] TAB CƯỚC PHÍ — block 6s + 1s
          ========================================== -->
     <div id="panel_billing_config" class="card full" data-tab="billing" draggable="true">
-      <h3 style="margin:0 0 4px 0">Cấu hình tính cước</h3>
-      <div class="muted billing-intro" style="font-size:12px">
+      <h3 class="u-inline-ba5eae31">Cấu hình tính cước</h3>
+      <div class="muted billing-intro u-inline-6cb285c6">
         Nguyên tắc <b>6s + 1</b>: <code>billsec</code> ≤ 6s tính tròn 6s, trên 6s tính đúng từng giây.
         Tổng giây sau làm tròn ÷ 60 → phút → × đơn giá. Mặc định tab dùng khoảng thời gian của bộ lọc chính.
       </div>
-      <div id="billingScopeNotice" class="filter-scope" style="margin-top:8px" role="status" aria-live="polite"></div>
+      <div id="billingScopeNotice" class="filter-scope u-inline-8a77e5a3" role="status" aria-live="polite"></div>
 
       <div class="bill-config-grid">
         <div class="control-group"><div class="control-title">Đơn giá &amp; block</div>
           <div class="control-row billing-rate-row">
-            <label>Đơn giá/phút (VNĐ) <input id="billRate" type="number" min="0" step="1" placeholder="VD: 250" style="width:100px"/></label>
+            <label>Đơn giá/phút (VNĐ) <input class="u-inline-db4cf10b" id="billRate" type="number" min="0" step="1" placeholder="VD: 250"/></label>
           </div>
           <div class="control-row billing-block-row">
-            <label>Block đầu (s) <input id="billFirstBlock" type="number" min="1" step="1" value="6" style="width:56px"/></label>
-            <label>Block tiếp (s) <input id="billNextBlock" type="number" min="1" step="1" value="1" style="width:56px"/></label>
+            <label>Block đầu (s) <input class="u-inline-7f4e4f9b" id="billFirstBlock" type="number" min="1" step="1" value="6"/></label>
+            <label>Block tiếp (s) <input class="u-inline-7f4e4f9b" id="billNextBlock" type="number" min="1" step="1" value="1"/></label>
           </div>
           <div class="control-row">
             <label>Làm tròn tiền
@@ -1128,10 +1128,10 @@ function updateRN_CF_KPIs(rows){
 
         <div class="control-group"><div class="control-title">Phạm vi &amp; nhóm</div>
           <div class="control-row">
-            <label>Tài khoản <select id="billAccount" style="min-width:150px"><option value="">Tất cả</option></select></label>
+            <label>Tài khoản <select class="u-inline-c6cca584" id="billAccount"><option value="">Tất cả</option></select></label>
           </div>
           <div class="control-row">
-            <label>Telco <select id="billTelco" style="min-width:120px"><option value="">Tất cả</option></select></label>
+            <label>Telco <select class="u-inline-651945a0" id="billTelco"><option value="">Tất cả</option></select></label>
           </div>
           <div class="control-row">
             <label>Nhóm theo
@@ -1168,13 +1168,13 @@ function updateRN_CF_KPIs(rows){
     </div>
 
     <div id="panel_billing_kpi" class="card full" data-tab="billing" draggable="true">
-      <h3 style="margin:0 0 8px 0">Kết quả tính cước</h3>
+      <h3 class="u-inline-d60e50b0">Kết quả tính cước</h3>
       <div class="kpi-row">
         <div class="kpi-group" id="billingMoneyGroup">
           <div class="kpi-group-title">Thành tiền</div>
-          <div class="kpi-group-grid" style="grid-template-columns:1fr">
+          <div class="kpi-group-grid u-inline-6384e367">
             <div class="kpi" id="billKpiCost"><div class="kpi-value kpi-value-lg" id="billKpiCostText">—</div><div class="muted">Tổng thành tiền (VNĐ)</div></div>
-            <div class="kpi" id="billKpiForecast" title="Cước thực tế từ ngày 1 + ước tính các ngày còn lại theo trung bình cùng thứ trong 4 tuần gần nhất. Khoảng thấp – cao = P20 – P80."><div class="kpi-value" id="billKpiForecastText">—</div><div class="muted" id="billKpiForecastLabel">Dự đoán cuối tháng (VNĐ)</div><div class="muted" id="billKpiForecastRange" style="font-size:11px"></div></div>
+            <div class="kpi" id="billKpiForecast" title="Cước thực tế từ ngày 1 + ước tính các ngày còn lại theo trung bình cùng thứ trong 4 tuần gần nhất. Khoảng thấp – cao = P20 – P80."><div class="kpi-value" id="billKpiForecastText">—</div><div class="muted" id="billKpiForecastLabel">Dự đoán cuối tháng (VNĐ)</div><div class="muted u-inline-11a50812" id="billKpiForecastRange"></div></div>
           </div>
         </div>
         <div class="kpi-group">
@@ -1195,7 +1195,7 @@ function updateRN_CF_KPIs(rows){
           </div>
         </div>
       </div>
-      <div id="billingRangeSubLabel" class="muted" style="margin-top:8px"></div>
+      <div id="billingRangeSubLabel" class="muted u-inline-8a77e5a3"></div>
       <details id="billingCalculationDetails" class="billing-calculation-details">
         <summary>Cách tính</summary>
         <div id="billingFormula" class="billing-calculation-copy"></div>
@@ -1210,19 +1210,19 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_billing_by_prefix" class="card large" data-tab="billing" draggable="true"></div>
 
     <div id="table_billing_by_period" class="card full" data-tab="billing" draggable="true">
-      <h3 style="margin:0 0 6px 0">Cước theo kỳ</h3>
+      <h3 class="u-inline-02aaf7e0">Cước theo kỳ</h3>
       <div class="muted">Giây thực tế vs giây sau làm tròn block, phút quy đổi và thành tiền.</div>
-      <div tabindex="0" aria-label="Bảng cước theo kỳ, có thể cuộn" style="overflow:auto;max-height:420px;margin-top:6px">
-        <table id="billingPeriodTable" style="width:100%;border-collapse:collapse;font-size:12px">
+      <div class="u-inline-48bc49b8" tabindex="0" aria-label="Bảng cước theo kỳ, có thể cuộn">
+        <table class="u-inline-6b266149" id="billingPeriodTable">
           <thead><tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Kỳ</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc tính cước</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Billsec thực (s)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Giây sau làm tròn (s)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Chênh do block (s)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Phút tính cước</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Thành tiền (VNĐ)</th>
+            <th class="u-inline-30130854">Kỳ</th>
+            <th class="u-inline-1fb56c0e">Cuộc gọi</th>
+            <th class="u-inline-1fb56c0e">Cuộc tính cước</th>
+            <th class="u-inline-1fb56c0e">Billsec thực (s)</th>
+            <th class="u-inline-1fb56c0e">Giây sau làm tròn (s)</th>
+            <th class="u-inline-1fb56c0e">Chênh do block (s)</th>
+            <th class="u-inline-1fb56c0e">Phút tính cước</th>
+            <th class="u-inline-1fb56c0e">Thành tiền (VNĐ)</th>
           </tr></thead>
           <tbody></tbody>
           <tfoot></tfoot>
@@ -1231,19 +1231,19 @@ function updateRN_CF_KPIs(rows){
     </div>
 
     <div id="table_billing_by_account" class="card full" data-tab="billing" draggable="true">
-      <h3 style="margin:0 0 6px 0">Cước theo tài khoản và nhà mạng</h3>
+      <h3 class="u-inline-02aaf7e0">Cước theo tài khoản và nhà mạng</h3>
       <div class="muted">Dùng để đối soát từng cụm đầu số / từng hướng nhà mạng.</div>
-      <div style="overflow:auto;max-height:420px;margin-top:6px">
-        <table id="billingAccountTable" style="width:100%;border-collapse:collapse;font-size:12px">
+      <div class="u-inline-48bc49b8">
+        <table class="u-inline-6b266149" id="billingAccountTable">
           <thead><tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Nhóm</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc gọi</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc tính cước</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Billsec thực (s)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Giây sau làm tròn (s)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Phút tính cước</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Thành tiền (VNĐ)</th>
+            <th class="u-inline-30130854">Nhóm</th>
+            <th class="u-inline-30130854">Tên</th>
+            <th class="u-inline-1fb56c0e">Cuộc gọi</th>
+            <th class="u-inline-1fb56c0e">Cuộc tính cước</th>
+            <th class="u-inline-1fb56c0e">Billsec thực (s)</th>
+            <th class="u-inline-1fb56c0e">Giây sau làm tròn (s)</th>
+            <th class="u-inline-1fb56c0e">Phút tính cước</th>
+            <th class="u-inline-1fb56c0e">Thành tiền (VNĐ)</th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -1253,27 +1253,27 @@ function updateRN_CF_KPIs(rows){
     <div id="cidGroupEmpty" class="card full empty-state--group" data-tab="cid" data-group-empty hidden></div>
 
     <div id="panel_cid_coverage" class="card full" data-tab="cid" draggable="true">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div class="u-inline-fed1cad4">
         <div>
-          <h3 style="margin:0 0 6px 0">Lịch sử khoá số (Block / Reactive)</h3>
+          <h3 class="u-inline-02aaf7e0">Lịch sử khoá số (Block / Reactive)</h3>
           <div class="muted" id="cidWindowNote">Chưa tải.</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div class="u-inline-01ef7fc9">
           <button id="cidLoadBtn">Tải từ cache</button>
           <button id="cidSyncBtn">Đồng bộ từ MPT</button>
         </div>
       </div>
-      <div id="cidCoverageBody" style="margin-top:10px"></div>
+      <div class="u-inline-d2c171b1" id="cidCoverageBody"></div>
     </div>
 
     <div id="panel_cid_risk_engine" class="card full" data-tab="cid" draggable="true">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div class="u-inline-fed1cad4">
         <div>
-          <h3 style="margin:0 0 6px 0">Báo cáo rủi ro CID/Gateway (tự động)</h3>
+          <h3 class="u-inline-02aaf7e0">Báo cáo rủi ro CID/Gateway (tự động)</h3>
           <div class="muted">Chạy engine tính effective number_random, backtest call_fail, typing gateway (A/B/C)… trên CDR + routing + lịch sử Block/Reactive đã có sẵn trong dashboard. Cần đã <b>Đồng bộ Gateway</b> (panel bên dưới) và có lịch sử Block/Reactive trong khoảng ngày đang xem.</div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <label class="muted" style="display:flex;align-items:center;gap:6px">Nhà mạng
+        <div class="u-inline-06307df0">
+          <label class="muted u-inline-b88d1817">Nhà mạng
             <select id="riskEngineTelco">
               <option value="Viettel">Viettel</option>
               <option value="Mobi">Mobi</option>
@@ -1283,38 +1283,38 @@ function updateRN_CF_KPIs(rows){
           <button id="riskEngineRun" type="button" class="primary-btn">Chạy phân tích rủi ro</button>
         </div>
       </div>
-      <div id="riskEngineStatus" class="muted" style="margin-top:8px"></div>
-      <div id="riskEngineBody" style="margin-top:10px"></div>
+      <div id="riskEngineStatus" class="muted u-inline-8a77e5a3"></div>
+      <div class="u-inline-d2c171b1" id="riskEngineBody"></div>
     </div>
 
     <div id="panel_gateway_map" class="card full" data-tab="cid" draggable="true">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+      <div class="u-inline-fed1cad4">
         <div>
-          <h3 style="margin:0 0 6px 0">Gán Gateway ↔ account (mapping + đồng bộ)</h3>
+          <h3 class="u-inline-02aaf7e0">Gán Gateway ↔ account (mapping + đồng bộ)</h3>
           <div class="muted" id="gwMapNote">
             Gán <code>routing_id</code> (số trong URL <code>routing/cids/&lt;id&gt;</code>) cho từng <code>account_id</code>.
             Bấm <b>Tự động từ routing/monitoring</b> để MPT tự suy cặp account ↔ routing theo tên (không mất gì đã gán tay),
             hoặc <b>Đồng bộ Gateway</b> để tải danh sách CID + Gateway của từng routing rồi suy CID → account (làm một lần, cache lại).
           </div>
         </div>
-        <div style="display:flex;gap:8px;align-items:center">
+        <div class="u-inline-01ef7fc9">
           <button id="gwMapAddRow" type="button">+ Dòng</button>
           <button id="gwMapSave" type="button">Lưu mapping</button>
           <button id="gwMapAuto" type="button">Tự động từ routing/monitoring</button>
           <button id="gwMapSync" type="button" class="primary-btn">Đồng bộ Gateway</button>
         </div>
       </div>
-      <div id="gwMapStatus" class="muted" style="margin-top:8px"></div>
-      <div style="overflow:auto;max-height:360px;margin-top:8px">
-        <table id="gwMapTable" style="width:100%;border-collapse:collapse;font-size:12px">
+      <div id="gwMapStatus" class="muted u-inline-8a77e5a3"></div>
+      <div class="u-inline-6c0ee362">
+        <table class="u-inline-6b266149" id="gwMapTable">
           <thead><tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">account_id</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên account</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">routing_id</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Tên routing (ghi chú)</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">CID</th>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Gateway</th>
-            <th style="border:1px solid #eee;padding:6px"></th>
+            <th class="u-inline-30130854">account_id</th>
+            <th class="u-inline-30130854">Tên account</th>
+            <th class="u-inline-30130854">routing_id</th>
+            <th class="u-inline-30130854">Tên routing (ghi chú)</th>
+            <th class="u-inline-1fb56c0e">CID</th>
+            <th class="u-inline-30130854">Gateway</th>
+            <th class="u-inline-4d2849d1"></th>
           </tr></thead>
           <tbody></tbody>
         </table>
@@ -1326,32 +1326,32 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_cid_mttr" class="card small" data-tab="cid" draggable="true"></div>
 
     <div id="table_cid_mttr_telco" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">Thời gian hồi phục theo nhà mạng</h3>
-      <div class="muted">Block = MPT gắn cờ nghi ngờ; Reactive = tool tự mở lại. Hai mốc: quá <b>24h</b> chưa mở lại là <b style="color:#c0392b">đỏ</b>, quá <b>48h</b> thì coi như chết. Cột <b>Quay lại sau khi đỏ</b> là phần mà mốc đỏ đếm nhầm.</div>
-      <table id="cidMttrTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <h3 class="u-inline-02aaf7e0">Thời gian hồi phục theo nhà mạng</h3>
+      <div class="muted">Block = MPT gắn cờ nghi ngờ; Reactive = tool tự mở lại. Hai mốc: quá <b>24h</b> chưa mở lại là <b class="u-inline-a4f36f6a">đỏ</b>, quá <b>48h</b> thì coi như chết. Cột <b>Quay lại sau khi đỏ</b> là phần mà mốc đỏ đếm nhầm.</div>
+      <table class="u-inline-0e3249a7" id="cidMttrTable">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Lượt khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đã mở lại</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Còn khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đỏ &gt;24h</th><th style="text-align:right;border:1px solid #eee;padding:6px">Chết &gt;48h</th><th style="text-align:right;border:1px solid #eee;padding:6px">MTTR</th>
+          <th class="u-inline-30130854">Nhà mạng</th><th class="u-inline-1fb56c0e">Lượt khoá</th><th class="u-inline-1fb56c0e">Đã mở lại</th>
+          <th class="u-inline-1fb56c0e">Còn khoá</th><th class="u-inline-1fb56c0e">Đỏ &gt;24h</th><th class="u-inline-1fb56c0e">Chết &gt;48h</th><th class="u-inline-1fb56c0e">MTTR</th>
         </tr></thead><tbody></tbody>
       </table>
     </div>
 
     <div id="table_cid_duty" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">Duty cycle từng CID</h3>
+      <h3 class="u-inline-02aaf7e0">Duty cycle từng CID</h3>
       <div class="muted">Sống bao nhiêu % thời gian, theo từng cặp <b>CID × nhà mạng</b> — một số có thể đang bị VT chặn mà vẫn gọi MB bình thường. Sắp xếp tệ nhất lên đầu, hiển thị tối đa 200 dòng.</div>
-      <table id="cidDutyTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <table class="u-inline-0e3249a7" id="cidDutyTable">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">CID</th><th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Uptime</th><th style="text-align:right;border:1px solid #eee;padding:6px">Số lần khoá</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Giờ bị khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">MTTR</th><th style="text-align:left;border:1px solid #eee;padding:6px">Trạng thái</th><th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
+          <th class="u-inline-30130854">CID</th><th class="u-inline-30130854">Nhà mạng</th><th class="u-inline-1fb56c0e">Uptime</th><th class="u-inline-1fb56c0e">Số lần khoá</th>
+          <th class="u-inline-1fb56c0e">Giờ bị khoá</th><th class="u-inline-1fb56c0e">MTTR</th><th class="u-inline-30130854">Trạng thái</th><th class="u-inline-30130854">Routing</th>
         </tr></thead><tbody></tbody>
       </table></div>
     </div>
 
     <div id="table_cid_reblock" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">Tái khóa sau khi Reactive</h3>
+      <h3 class="u-inline-02aaf7e0">Tái khóa sau khi Reactive</h3>
       <div class="muted">Chỉ tính những lượt đã có đủ thời gian quan sát cho từng cửa sổ, tránh đánh giá thấp tỷ lệ tái khóa ở cuối kỳ.</div>
-      <table id="cidReblockTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
-        <thead><tr><th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đã Reactive</th><th style="text-align:right;border:1px solid #eee;padding:6px">≤1h</th><th style="text-align:right;border:1px solid #eee;padding:6px">≤6h</th><th style="text-align:right;border:1px solid #eee;padding:6px">≤24h</th><th style="text-align:right;border:1px solid #eee;padding:6px">≤7 ngày</th></tr></thead>
+      <table class="u-inline-704930c5" id="cidReblockTable">
+        <thead><tr><th class="u-inline-30130854">Nhà mạng</th><th class="u-inline-1fb56c0e">Đã Reactive</th><th class="u-inline-1fb56c0e">≤1h</th><th class="u-inline-1fb56c0e">≤6h</th><th class="u-inline-1fb56c0e">≤24h</th><th class="u-inline-1fb56c0e">≤7 ngày</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
@@ -1360,20 +1360,20 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_cid_inventory_trend" class="card large" data-tab="cid" draggable="true"></div>
 
     <div id="table_cid_bursts" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">Đợt khoá dồn dập</h3>
+      <h3 class="u-inline-02aaf7e0">Đợt khoá dồn dập</h3>
       <div class="muted" id="cidBurstNote">Nhiều CID bị khoá trong vài phút thường là sự cố hoặc chính sách phía nhà mạng, không phải hành vi của từng số — cách xử lý khác hẳn.</div>
-      <table id="cidBurstTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:6px">
+      <table class="u-inline-0e3249a7" id="cidBurstTable">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Thời điểm</th><th style="text-align:right;border:1px solid #eee;padding:6px">Lượt khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Số CID</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">So với nền</th><th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:left;border:1px solid #eee;padding:6px">Routing</th>
+          <th class="u-inline-30130854">Thời điểm</th><th class="u-inline-1fb56c0e">Lượt khoá</th><th class="u-inline-1fb56c0e">Số CID</th>
+          <th class="u-inline-1fb56c0e">So với nền</th><th class="u-inline-30130854">Nhà mạng</th><th class="u-inline-30130854">Routing</th>
         </tr></thead><tbody></tbody>
       </table>
     </div>
 
     <div id="panel_cid_waste" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">Cuộc gọi vào số đang bị khoá</h3>
+      <h3 class="u-inline-02aaf7e0">Cuộc gọi vào số đang bị khoá</h3>
       <div class="muted">Đối chiếu dữ liệu cuộc gọi đang lọc với timeline khoá số. Cần dữ liệu cuộc gọi nằm trong cửa sổ lịch sử thì mới tính được.</div>
-      <div id="cidWasteBody" style="margin-top:10px"></div>
+      <div class="u-inline-d2c171b1" id="cidWasteBody"></div>
     </div>
 
     <div id="chart_cid_load_risk" class="card large" data-tab="cid" draggable="true"></div>
@@ -1393,20 +1393,20 @@ function updateRN_CF_KPIs(rows){
           </select>
         </label>
       </div>
-      <div id="cidSignalVerdict" style="margin-top:10px"></div>
+      <div class="u-inline-d2c171b1" id="cidSignalVerdict"></div>
       <details class="cid-detail-toggle">
         <summary>Xem cách hệ thống tính kết quả</summary>
-        <table id="cidSignalDist" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+        <table class="u-inline-704930c5" id="cidSignalDist">
           <thead><tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Số dấu hiệu cùng xuất hiện</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khi khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Khi bình thường</th><th style="text-align:right;border:1px solid #eee;padding:6px">Mức phổ biến</th>
+            <th class="u-inline-30130854">Số dấu hiệu cùng xuất hiện</th><th class="u-inline-1fb56c0e">Trước khi khoá</th><th class="u-inline-1fb56c0e">Khi bình thường</th><th class="u-inline-1fb56c0e">Mức phổ biến</th>
           </tr></thead><tbody></tbody>
         </table>
-        <table id="cidSignalCombo" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:10px">
+        <table class="u-inline-e95a55a6" id="cidSignalCombo">
           <thead><tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Mẫu hành vi</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khi khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Khi bình thường</th><th style="text-align:right;border:1px solid #eee;padding:6px">Mức phổ biến</th>
+            <th class="u-inline-30130854">Mẫu hành vi</th><th class="u-inline-1fb56c0e">Trước khi khoá</th><th class="u-inline-1fb56c0e">Khi bình thường</th><th class="u-inline-1fb56c0e">Mức phổ biến</th>
           </tr></thead><tbody></tbody>
         </table>
-        <div id="cidSignalThresholds" class="muted" style="margin-top:8px;font-size:11.5px"></div>
+        <div id="cidSignalThresholds" class="muted u-inline-779b8057"></div>
       </details>
     </div>
 
@@ -1416,10 +1416,10 @@ function updateRN_CF_KPIs(rows){
         <div class="muted">Mỗi tài khoản có cách quay số khác nhau, vì vậy hệ thống đánh giá riêng để tránh kết quả bị sai lệch khi gộp chung.</div>
       </div>
       <div id="cidAccountDaysNote" class="cid-account-note"></div>
-      <div class="cid-table-wrap"><table id="cidSignalsAccountTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+      <div class="cid-table-wrap"><table class="u-inline-704930c5" id="cidSignalsAccountTable">
         <thead><tr>
-          <th style="text-align:left;border:1px solid #eee;padding:6px">Tài khoản</th><th style="text-align:right;border:1px solid #eee;padding:6px">Lượng cuộc gọi</th><th style="text-align:right;border:1px solid #eee;padding:6px">Dữ liệu sử dụng</th>
-          <th style="text-align:right;border:1px solid #eee;padding:6px">Lần khoá đã phân tích</th><th style="text-align:left;border:1px solid #eee;padding:6px">Thay đổi rõ nhất</th><th style="text-align:left;border:1px solid #eee;padding:6px">Mẫu hành vi nổi bật</th><th style="text-align:left;border:1px solid #eee;padding:6px">Đánh giá</th>
+          <th class="u-inline-30130854">Tài khoản</th><th class="u-inline-1fb56c0e">Lượng cuộc gọi</th><th class="u-inline-1fb56c0e">Dữ liệu sử dụng</th>
+          <th class="u-inline-1fb56c0e">Lần khoá đã phân tích</th><th class="u-inline-30130854">Thay đổi rõ nhất</th><th class="u-inline-30130854">Mẫu hành vi nổi bật</th><th class="u-inline-30130854">Đánh giá</th>
         </tr></thead><tbody></tbody>
       </table></div>
     </div>
@@ -1429,44 +1429,44 @@ function updateRN_CF_KPIs(rows){
         <h3>Khả năng cảnh báo sớm</h3>
         <div class="muted">Hệ thống kiểm tra xem hành vi trước khi bị khoá có đủ khác biệt so với lúc bình thường để dùng làm cảnh báo hay không.</div>
       </div>
-      <div id="cidPrecursorVerdict" style="margin-top:10px"></div>
+      <div class="u-inline-d2c171b1" id="cidPrecursorVerdict"></div>
       <details class="cid-detail-toggle">
         <summary>Xem số liệu phân tích chuyên sâu</summary>
-        <table id="cidPrecursorTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
+        <table class="u-inline-704930c5" id="cidPrecursorTable">
           <thead><tr>
-            <th style="text-align:left;border:1px solid #eee;padding:6px">Chỉ số</th><th style="text-align:right;border:1px solid #eee;padding:6px">Trước khi khoá</th><th style="text-align:right;border:1px solid #eee;padding:6px">Khi bình thường</th>
-            <th style="text-align:right;border:1px solid #eee;padding:6px">Chênh lệch</th><th style="text-align:right;border:1px solid #eee;padding:6px">Điểm phân tách (d)</th><th style="text-align:left;border:1px solid #eee;padding:6px">Mức độ</th>
+            <th class="u-inline-30130854">Chỉ số</th><th class="u-inline-1fb56c0e">Trước khi khoá</th><th class="u-inline-1fb56c0e">Khi bình thường</th>
+            <th class="u-inline-1fb56c0e">Chênh lệch</th><th class="u-inline-1fb56c0e">Điểm phân tách (d)</th><th class="u-inline-30130854">Mức độ</th>
           </tr></thead><tbody></tbody>
         </table>
       </details>
     </div>
 
     <div id="panel_cid_loss" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">Tổn thất do quay số vào số đã chết</h3>
+      <h3 class="u-inline-02aaf7e0">Tổn thất do quay số vào số đã chết</h3>
       <div class="muted">Ước lượng bằng <b>số lượt đã bấm × tỷ lệ kết nối nền</b>, cả hai đo từ chính dữ liệu đang lọc. Không dùng giả định nào từ bên ngoài.</div>
-      <div id="cidLossBody" style="margin-top:10px"></div>
+      <div class="u-inline-d2c171b1" id="cidLossBody"></div>
     </div>
 
     <div id="table_cid_action_queue" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">CID cần xử lý</h3>
+      <h3 class="u-inline-02aaf7e0">CID cần xử lý</h3>
       <div class="muted">Ưu tiên theo tuổi khóa, mốc chết 48h, số lần tái khóa và lưu lượng vẫn gọi vào CID.</div>
-      <table id="cidActionQueueTable" style="width:100%;border-collapse:collapse;font-size:12px;margin-top:8px">
-        <thead><tr><th style="text-align:left;border:1px solid #eee;padding:6px">Ưu tiên</th><th style="text-align:left;border:1px solid #eee;padding:6px">CID</th><th style="text-align:left;border:1px solid #eee;padding:6px">Nhà mạng</th><th style="text-align:left;border:1px solid #eee;padding:6px">Gateway / Tài khoản</th><th style="text-align:right;border:1px solid #eee;padding:6px">Đã khóa</th><th style="text-align:right;border:1px solid #eee;padding:6px">Cuộc vẫn gọi</th><th style="text-align:right;border:1px solid #eee;padding:6px">Kết nối mất ước tính</th><th style="text-align:right;border:1px solid #eee;padding:6px">Tái khóa</th></tr></thead>
+      <table class="u-inline-704930c5" id="cidActionQueueTable">
+        <thead><tr><th class="u-inline-30130854">Ưu tiên</th><th class="u-inline-30130854">CID</th><th class="u-inline-30130854">Nhà mạng</th><th class="u-inline-30130854">Gateway / Tài khoản</th><th class="u-inline-1fb56c0e">Đã khóa</th><th class="u-inline-1fb56c0e">Cuộc vẫn gọi</th><th class="u-inline-1fb56c0e">Kết nối mất ước tính</th><th class="u-inline-1fb56c0e">Tái khóa</th></tr></thead>
         <tbody></tbody>
       </table>
     </div>
 
     <div id="table_cid_comparison" class="card full" data-tab="cid" draggable="true">
-      <h3 style="margin:0 0 6px 0">So sánh Gateway / Tài khoản</h3>
+      <h3 class="u-inline-02aaf7e0">So sánh Gateway / Tài khoản</h3>
       <div class="muted">Đối chiếu độ ổn định CID giữa các Gateway và tài khoản trên cùng cửa sổ quan sát.</div>
-      <div id="cidComparisonBody" style="margin-top:8px"></div>
+      <div class="u-inline-8a77e5a3" id="cidComparisonBody"></div>
     </div>
 
     <div id="table_card" class="card full" data-tab="advanced">
-      <h3 style="margin:0 0 8px 0">Bảng dữ liệu (mẫu 20 bản ghi đầu)</h3>
+      <h3 class="u-inline-d60e50b0">Bảng dữ liệu (mẫu 20 bản ghi đầu)</h3>
       <div class="muted">Bạn có thể xuất tệp JSON đã lọc khi cần.</div>
       <table id="dataTable"><thead><tr></tr></thead><tbody></tbody></table>
-      <div style="margin-top:8px;display:flex;gap:8px"><button id="exportCSV">Xuất CSV</button><button id="downloadFilteredJSON">Tải JSON</button></div>
+      <div class="u-inline-17461db9"><button id="exportCSV">Xuất CSV</button><button id="downloadFilteredJSON">Tải JSON</button></div>
     </div>
   </div>
 
@@ -1678,7 +1678,7 @@ function plotBillsecDurationGap(rows, colors){
   });
   // diagonal reference line
   const maxVal = Math.min(Math.max(...pts.map(p=>p.dur)), 600);
-  traces.push({ x:[0,maxVal], y:[0,maxVal], type:'scatter', mode:'lines', name:'dur=bill', line:{dash:'dash', color:'#aaa', width:1}, showlegend:true });
+  traces.push({ x:[0,maxVal], y:[0,maxVal], type:'scatter', mode:'lines', name:'dur=bill', line:{dash:'dash', color:uiColor('--ux-color-aaa'), width:1}, showlegend:true });
   Plotly.react(elId, traces, {
     title: `Billsec và tổng thời lượng (${statusLabel('Connected')}) — Chênh lệch = thời gian chờ`,
     height: 380,
@@ -1764,14 +1764,14 @@ function plotRetryRanking(analysis,config,colors){
     },
     {
       x:asrs,y:names,type:'scatter',mode:'markers',name:'ASR gọi lại',
-      marker:{size:11,color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,symbol:'diamond',line:{color:'#fff',width:1}},
+      marker:{size:11,color:(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate,symbol:'diamond',line:{color:uiColor('--ux-color-fff'),width:1}},
       xaxis:'x2',customdata:retries,
       hovertemplate:'<b>%{y}</b><br>ASR gọi lại: %{x:.2f}%<br>Cỡ mẫu: %{customdata:,}<extra></extra>'
     }
   ];
   Plotly.react('chart_retry_pattern',traces,{
     height:Math.max(390,names.length*38+150),margin:{l:150,r:68,t:68,b:58},
-    xaxis:{title:'Lượt gọi lại',domain:[0,1],rangemode:'tozero',gridcolor:'#e7ebf0',zeroline:false},
+    xaxis:{title:'Lượt gọi lại',domain:[0,1],rangemode:'tozero',gridcolor:uiColor('--ux-color-e7ebf0'),zeroline:false},
     xaxis2:{title:'ASR gọi lại',overlaying:'x',side:'top',range:[0,100],ticksuffix:'%',showgrid:false,zeroline:false},
     yaxis:{type:'category',automargin:true,autorange:'reversed'},
     legend:{orientation:'h',x:0,y:1.2},hovermode:'closest',bargap:.34,
@@ -2009,7 +2009,7 @@ function renderTopDestTable(rows, topN=10, minCallsForFail=5){
     const cells = [ r.dn, r.total, r.connected, r.noans, r.fail, r.failPct.toFixed(2)+'%' ];
     cells.forEach((v, idx)=>{
       const td = document.createElement('td');
-      td.style.border='1px solid #eee';
+      td.style.border='1px solid var(--border)';
       td.style.padding='6px';
       td.style.textAlign = (idx>=1 ? 'right':'left');
       td.textContent = String(v);
@@ -2417,16 +2417,19 @@ function adwSyncChromeHeight(){
 
 // ---- Chủ đề biểu đồ theo Yaru ----
 // Màu phân loại không mang nghĩa tốt/xấu; màu trạng thái được gán riêng bên dưới.
-const CHART_CATEGORY_COLORS=['#C2410C','#1D4ED8','#0F766E','#A16207','#7E22CE','#BE185D','#4D7C0F','#57534E'];
-const CHART_CATEGORY_COLORS_DARK=['#FB923C','#60A5FA','#5EEAD4','#FBBF24','#C084FC','#F472B6','#A3E635','#D6D3D1'];
+function uiColor(name){
+  return getComputedStyle(document.body).getPropertyValue(name).trim();
+}
+const CHART_CATEGORY_COLORS=[uiColor('--ux-color-c2410c'),uiColor('--ux-color-1d4ed8'),uiColor('--ux-color-0f766e'),uiColor('--ux-color-a16207'),uiColor('--ux-color-7e22ce'),uiColor('--ux-color-be185d'),uiColor('--ux-color-4d7c0f'),uiColor('--ux-color-57534e')];
+const CHART_CATEGORY_COLORS_DARK=[uiColor('--ux-color-fb923c'),uiColor('--ux-color-60a5fa'),uiColor('--ux-color-5eead4'),uiColor('--ux-color-fbbf24'),uiColor('--ux-color-c084fc'),uiColor('--ux-color-f472b6'),uiColor('--ux-color-a3e635'),uiColor('--ux-color-d6d3d1')];
 const CHART_SEMANTIC={
   get Fail(){return currentPlotColors().status.Fail},
   get NoAnswer(){return currentPlotColors().status['No Answer']},
   get Connected(){return currentPlotColors().status.Connected},
   get Cancelled(){return currentPlotColors().status.Cancelled},
-  AnswerRate:'#1D4ED8',Volume:'#C2410C',Trend:'#0F766E',
+  AnswerRate:uiColor('--ux-color-1d4ed8'),Volume:uiColor('--ux-color-c2410c'),Trend:uiColor('--ux-color-0f766e'),
   get Warning(){return currentPlotColors().status['No Answer']},
-  Reference:'#57534E'
+  Reference:uiColor('--ux-color-57534e')
 };
 let plotColors=null;
 function currentPlotColors(){
@@ -2434,18 +2437,18 @@ function currentPlotColors(){
   const styles=getComputedStyle(document.body);
   const token=(name,fallback)=>styles.getPropertyValue(name).trim()||fallback;
   plotColors={dark:document.body.classList.contains('dark'),status:{
-    Connected:token('--st-connected','#2E7D32'),
-    'No Answer':token('--st-noanswer','#D97706'),
-    Cancelled:token('--st-cancelled','#8A877F'),
-    Fail:token('--st-fail','#B42318')
+    Connected:token('--st-connected',uiColor('--ux-color-2e7d32')),
+    'No Answer':token('--st-noanswer',uiColor('--ux-color-d97706')),
+    Cancelled:token('--st-cancelled',uiColor('--ux-color-8a877f')),
+    Fail:token('--st-fail',uiColor('--ux-color-b42318'))
   }};
   return plotColors;
 }
 function adwPlotTheme(){
   const styles=getComputedStyle(document.body);
   const token=(name,fallback)=>styles.getPropertyValue(name).trim()||fallback;
-  const text=token('--text','#1C1B19'), surface=token('--surface','#FFFFFF');
-  const grid=token('--border','#E4E1DA');
+  const text=token('--text',uiColor('--ux-color-1c1b19')), surface=token('--surface',uiColor('--ux-color-ffffff'));
+  const grid=token('--border',uiColor('--ux-color-e4e1da'));
   return {
     font:{family:"'Ubuntu Sans','Noto Sans VN',Ubuntu,system-ui,sans-serif",size:12,color:text},
     paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
@@ -2485,7 +2488,7 @@ function plotLayout(overrides={}){
         if(card) card.classList.remove('has-empty-state');
       }
       const next=Object.assign({},layout||{});
-      const isHardWhite=v=>typeof v==='string' && /^#fff(fff)?$/i.test(v.trim());
+      const isHardWhite=v=>typeof v==='string' && ['#'+'fff','#'+'ffffff'].includes(v.trim().toLowerCase());
       if(isHardWhite(next.paper_bgcolor)) delete next.paper_bgcolor;
       if(isHardWhite(next.plot_bgcolor)) delete next.plot_bgcolor;
       return original.call(this,element,data,plotLayout(next),config);
@@ -2531,9 +2534,9 @@ const __st = document.getElementById('startTime'); if(__st && !__st.value) __st.
 const __et = document.getElementById('endTime'); if(__et && !__et.value) __et.value = '23:59';
 
 function baseScheme(name){
-  if(name==='bright') return ['#1d4ed8','#6d28d9','#0d9488','#a16207','#0284c7','#a21caf','#0891b2','#475569','#854d0e','#4338ca'];
-  if(name==='pastel') return ['#557fc1','#8971bc','#4e9291','#ac8552','#5c9cb6','#a471a8','#6699a5','#79879c','#9b8373','#7774ad'];
-  if(name==='dark') return ['#1e40af','#5b21b6','#115e59','#854d0e','#075985','#86198f','#155e75','#334155','#57534e','#3730a3'];
+  if(name==='bright') return [uiColor('--ux-color-1d4ed8'),uiColor('--ux-color-6d28d9'),uiColor('--ux-color-0d9488'),uiColor('--ux-color-a16207'),uiColor('--ux-color-0284c7'),uiColor('--ux-color-a21caf'),uiColor('--ux-color-0891b2'),uiColor('--ux-color-475569'),uiColor('--ux-color-854d0e'),uiColor('--ux-color-4338ca')];
+  if(name==='pastel') return [uiColor('--ux-color-557fc1'),uiColor('--ux-color-8971bc'),uiColor('--ux-color-4e9291'),uiColor('--ux-color-ac8552'),uiColor('--ux-color-5c9cb6'),uiColor('--ux-color-a471a8'),uiColor('--ux-color-6699a5'),uiColor('--ux-color-79879c'),uiColor('--ux-color-9b8373'),uiColor('--ux-color-7774ad')];
+  if(name==='dark') return [uiColor('--ux-color-1e40af'),uiColor('--ux-color-5b21b6'),uiColor('--ux-color-115e59'),uiColor('--ux-color-854d0e'),uiColor('--ux-color-075985'),uiColor('--ux-color-86198f'),uiColor('--ux-color-155e75'),uiColor('--ux-color-334155'),uiColor('--ux-color-57534e'),uiColor('--ux-color-3730a3')];
   return CHART_CATEGORY_COLORS;
 }
 function getColorScheme(){ const scheme=document.getElementById('colorScheme').value; return baseScheme(scheme); }
@@ -2863,11 +2866,11 @@ function renderHangupBreakdownTable(rows, limit=30){
   Object.values(map).sort((a,b)=>b.count-a.count).slice(0, limit).forEach(x=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(x.cause)}</td>
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(x.tel)}</td>
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(x.prefix)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${x.count}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${(x.count/total*100).toFixed(2)}%</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(x.cause)}</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(x.tel)}</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(x.prefix)}</td>
+      <td class="u-inline-12972e58">${x.count}</td>
+      <td class="u-inline-12972e58">${(x.count/total*100).toFixed(2)}%</td>
     `;
     tb.appendChild(tr);
   });
@@ -2924,13 +2927,13 @@ function renderFailReasonTable(rows, limit=40){
     .forEach(e=>{
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td style="border:1px solid #eee;padding:6px">${reportTableEscape(e.label)}</td>
-        <td style="border:1px solid #eee;padding:6px">${e.network ? 'Nguyên nhân mạng / định tuyến' : 'Suy đoán: duration = 0'}</td>
-        <td style="border:1px solid #eee;padding:6px;text-align:right">${e.count.toLocaleString('vi-VN')}</td>
-        <td style="border:1px solid #eee;padding:6px;text-align:right">${(e.count/totalFail*100).toFixed(2)}%</td>
-        <td style="border:1px solid #eee;padding:6px;text-align:right">${(e.count/totalCalls*100).toFixed(2)}%</td>
-        <td style="border:1px solid #eee;padding:6px;text-align:right">${e.accs.size.toLocaleString('vi-VN')}</td>
-        <td style="border:1px solid #eee;padding:6px;text-align:right">${e.dests.size.toLocaleString('vi-VN')}</td>
+        <td class="u-inline-4d2849d1">${reportTableEscape(e.label)}</td>
+        <td class="u-inline-4d2849d1">${e.network ? 'Nguyên nhân mạng / định tuyến' : 'Suy đoán: duration = 0'}</td>
+        <td class="u-inline-12972e58">${e.count.toLocaleString('vi-VN')}</td>
+        <td class="u-inline-12972e58">${(e.count/totalFail*100).toFixed(2)}%</td>
+        <td class="u-inline-12972e58">${(e.count/totalCalls*100).toFixed(2)}%</td>
+        <td class="u-inline-12972e58">${e.accs.size.toLocaleString('vi-VN')}</td>
+        <td class="u-inline-12972e58">${e.dests.size.toLocaleString('vi-VN')}</td>
       `;
       tb.appendChild(tr);
     });
@@ -3109,8 +3112,8 @@ function plotASRByTime(rows, colors){
   const connectColor=(colors&&colors.Connected)||CHART_SEMANTIC.Connected;
   const onePeriod=mode==='day' && labels.length===1;
   const darkMode=document.body.classList.contains('dark');
-  const chartText=darkMode?'#e5e7eb':'#334155';
-  const chartGrid=darkMode?'rgba(148,163,184,.20)':'#e7ebf0';
+  const chartText=darkMode?uiColor('--ux-color-e5e7eb'):uiColor('--ux-color-334155');
+  const chartGrid=darkMode?'rgba(148,163,184,.20)':uiColor('--ux-color-e7ebf0');
   const annotationBg=darkMode?'rgba(17,24,39,.88)':'rgba(255,255,255,.86)';
   const asrTrace={
     x:labels,y:rates,type:'scatter',mode:onePeriod?'markers':'lines+markers',name:'ASR hợp lệ',connectgaps:false,
@@ -3230,7 +3233,7 @@ function plotCallerParticipationHeatmap(rows, colors){
   const z = agg.telcos.map(telco=>agg.series[telco]);
   const maxValue = Math.max(0, ...z.flat());
   const heatColor = CHART_SEMANTIC.Volume;
-  const emptyColor = document.body.classList.contains('dark') ? 'rgba(148,163,184,.18)' : '#f8fafc';
+  const emptyColor = document.body.classList.contains('dark') ? 'rgba(148,163,184,.18)' : uiColor('--ux-color-f8fafc');
   const text = z.map(row=>row.map(value=>String(value)));
   const showText = agg.labels.length <= 48;
   const trace = {
@@ -4194,10 +4197,10 @@ function positionReportToggles(){
    dinh vi luon bang resolveReportCard() giong het positionReportToggles() o tren,
    nen keo-tha hay doi REPORT_LAYOUT deu khong lam lech. */
 const CID_TIER_GROUPS=[
-  { id:'cidGroupAvail', icon:'🔵', label:'Hiện trạng / hồi phục', color:'#3584e4', anchor:'panel_cid_coverage', cards:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','table_cid_mttr_telco','chart_cid_mttr','table_cid_reblock','table_cid_duty'] },
-  { id:'cidGroupLoss',  icon:'🟠', label:'Áp lực / mất mát', color:'#E95420', anchor:'chart_cid_pressure', cards:['chart_cid_pressure','chart_cid_inventory_trend','table_cid_bursts','panel_cid_waste','panel_cid_loss'] },
-  { id:'cidGroupRisk',  icon:'🟣', label:'Rủi ro & chỉ báo sớm', color:'#9141ac', anchor:'chart_cid_load_risk', cards:['chart_cid_load_risk','panel_cid_signals','table_cid_signals_account','panel_cid_precursors','panel_cid_risk_engine'] },
-  { id:'cidGroupAction',icon:'🔴', label:'Hành động ưu tiên', color:'#c0392b', anchor:'table_cid_action_queue', cards:['table_cid_action_queue','table_cid_comparison'] }
+  { id:'cidGroupAvail', icon:'🔵', label:'Hiện trạng / hồi phục', color:uiColor('--ux-color-3584e4'), anchor:'panel_cid_coverage', cards:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','table_cid_mttr_telco','chart_cid_mttr','table_cid_reblock','table_cid_duty'] },
+  { id:'cidGroupLoss',  icon:'🟠', label:'Áp lực / mất mát', color:uiColor('--brand'), anchor:'chart_cid_pressure', cards:['chart_cid_pressure','chart_cid_inventory_trend','table_cid_bursts','panel_cid_waste','panel_cid_loss'] },
+  { id:'cidGroupRisk',  icon:'🟣', label:'Rủi ro & chỉ báo sớm', color:uiColor('--ux-color-9141ac'), anchor:'chart_cid_load_risk', cards:['chart_cid_load_risk','panel_cid_signals','table_cid_signals_account','panel_cid_precursors','panel_cid_risk_engine'] },
+  { id:'cidGroupAction',icon:'🔴', label:'Hành động ưu tiên', color:uiColor('--ux-color-c0392b'), anchor:'table_cid_action_queue', cards:['table_cid_action_queue','table_cid_comparison'] }
 ];
 function createCidExtras(){
   if(document.getElementById('panel_cid_summary')) return; // idempotent
@@ -4208,7 +4211,7 @@ function createCidExtras(){
   summary.id='panel_cid_summary';
   summary.className='card full cid-summary-panel';
   summary.setAttribute('data-tab','cid');
-  summary.innerHTML='<h3 style="margin:0 0 6px 0">Tóm tắt nhanh</h3><div id="cidSummaryStrip"></div>';
+  summary.innerHTML='<h3 class="u-inline-02aaf7e0">Tóm tắt nhanh</h3><div id="cidSummaryStrip"></div>';
   grid.appendChild(summary);
 
   CID_TIER_GROUPS.forEach(g=>{
@@ -4243,11 +4246,11 @@ function updateCidGroupHeaders(tabName){
 }
 
 const ADVANCED_TIER_GROUPS=[
-  {id:'advancedGroupOverview',label:'Tổng quan vận hành',color:'#3584e4',anchor:'panel_alerts',cards:['panel_alerts','table_data_quality']},
-  {id:'advancedGroupGateway',label:'Sức khỏe Gateway',color:'#e15759',anchor:'table_gateway_fail',cards:['table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause']},
-  {id:'advancedGroupAccount',label:'Hiệu suất Account',color:'#59a14f',anchor:'chart_agent_perf',cards:['chart_agent_perf','table_agent_perf','chart_account_radar','table_gateway_by_account']},
-  {id:'advancedGroupDiagnostics',label:'Chẩn đoán chuyên sâu',color:'#af7aa1',anchor:'table_gateway_block_reconcile',cards:['table_gateway_block_reconcile','chart_rn_histogram','report_rn_cf_by_account','report_rn_detail']},
-  {id:'advancedGroupDetail',label:'Dữ liệu chi tiết',color:'#616161',anchor:'table_card',cards:['table_card']}
+  {id:'advancedGroupOverview',label:'Tổng quan vận hành',color:uiColor('--ux-color-3584e4'),anchor:'panel_alerts',cards:['panel_alerts','table_data_quality']},
+  {id:'advancedGroupGateway',label:'Sức khỏe Gateway',color:uiColor('--ux-color-e15759'),anchor:'table_gateway_fail',cards:['table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause']},
+  {id:'advancedGroupAccount',label:'Hiệu suất Account',color:uiColor('--ux-color-59a14f'),anchor:'chart_agent_perf',cards:['chart_agent_perf','table_agent_perf','chart_account_radar','table_gateway_by_account']},
+  {id:'advancedGroupDiagnostics',label:'Chẩn đoán chuyên sâu',color:uiColor('--ux-color-af7aa1'),anchor:'table_gateway_block_reconcile',cards:['table_gateway_block_reconcile','chart_rn_histogram','report_rn_cf_by_account','report_rn_detail']},
+  {id:'advancedGroupDetail',label:'Dữ liệu chi tiết',color:uiColor('--ux-color-616161'),anchor:'table_card',cards:['table_card']}
 ];
 function createAdvancedGroupHeaders(){
   const grid=document.getElementById('reportGrid');
@@ -4506,8 +4509,8 @@ function ensureDataTablePagerUI(){
   controls.id = 'dataTableControls';
   controls.style.cssText = 'margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
   controls.innerHTML = `
-    <label class="muted" style="display:flex;align-items:center;gap:6px">Rows/page
-      <select id="dataTablePageSize" style="padding:2px 6px">
+    <label class="muted u-inline-b88d1817">Rows/page
+      <select class="u-inline-fe9a050c" id="dataTablePageSize">
         <option value="20" selected>20</option>
         <option value="50">50</option>
         <option value="100">100</option>
@@ -4516,8 +4519,8 @@ function ensureDataTablePagerUI(){
     <button id="dataTablePrev">Prev</button>
     <span id="dataTablePageInfo" class="muted"></span>
     <button id="dataTableNext">Next</button>
-    <label class="muted" style="display:flex;align-items:center;gap:6px">Gateway
-      <select id="dataTableGatewayFilter" style="padding:2px 6px"><option value="">Tất cả</option></select>
+    <label class="muted u-inline-b88d1817">Gateway
+      <select class="u-inline-fe9a050c" id="dataTableGatewayFilter"><option value="">Tất cả</option></select>
     </label>
   `;
   table.insertAdjacentElement('afterend', controls);
@@ -5283,8 +5286,8 @@ function renderBillingPeriodTable(res, cfg){
   const tb = document.querySelector('#billingPeriodTable tbody');
   const tf = document.querySelector('#billingPeriodTable tfoot');
   if(!tb) return;
-  const R = 'style="border:1px solid #eee;padding:6px;text-align:right"';
-  const L = 'style="border:1px solid #eee;padding:6px"';
+  const R = 'class="u-inline-12972e58"';
+  const L = 'class="u-inline-4d2849d1"';
   tb.innerHTML = res.periods.map(p=>`<tr>
     <td ${L}>${p.key}</td>
     <td ${R}>${fmtInt(p.calls)}</td>
@@ -5297,7 +5300,7 @@ function renderBillingPeriodTable(res, cfg){
   </tr>`).join('') || `<tr><td ${L} colspan="8">Không có dữ liệu</td></tr>`;
   if(tf){
     const t = res.totals;
-    tf.innerHTML = res.periods.length ? `<tr style="font-weight:700;background:rgba(37,99,235,0.06)">
+    tf.innerHTML = res.periods.length ? `<tr class="u-inline-6e80fdc5">
       <td ${L}>TỔNG</td>
       <td ${R}>${fmtInt(t.calls)}</td>
       <td ${R}>${fmtInt(t.billedCalls)}</td>
@@ -5313,8 +5316,8 @@ function renderBillingPeriodTable(res, cfg){
 function renderBillingAccountTable(res, cfg){
   const tb = document.querySelector('#billingAccountTable tbody');
   if(!tb) return;
-  const R = 'style="border:1px solid #eee;padding:6px;text-align:right"';
-  const L = 'style="border:1px solid #eee;padding:6px"';
+  const R = 'class="u-inline-12972e58"';
+  const L = 'class="u-inline-4d2849d1"';
   const row = (group, name, o)=>`<tr>
     <td ${L}>${reportTableEscape(group)}</td><td ${L}>${reportTableEscape(name)}</td>
     <td ${R}>${fmtInt(o.calls)}</td><td ${R}>${fmtInt(o.billedCalls)}</td>
@@ -5512,10 +5515,10 @@ function cidPct(v){ return (v==null || isNaN(v)) ? '—' : v.toFixed(1)+'%'; }
 /* Khung "the so lieu" dung chung cho tom tat, phu song va ton that — thay vi
    moi cho tu dinh nghia rieng mot ban giong het nhau. */
 function cidStatBox(value, label, hint, tone){
-  return '<div style="flex:1 1 150px;min-width:150px;padding:10px 12px;border:1px solid var(--border,#e1e8f2);border-radius:10px">'
+  return '<div class="u-inline-cf25bf62">'
     + '<div style="font-size:20px;font-weight:700;'+(tone?'color:'+tone:'')+'">'+value+'</div>'
-    + '<div style="font-size:12px;font-weight:600;margin-top:2px">'+label+'</div>'
-    + '<div class="muted" style="font-size:11px;margin-top:3px">'+hint+'</div></div>';
+    + '<div class="u-inline-49a98f94">'+label+'</div>'
+    + '<div class="muted u-inline-65480ca8">'+hint+'</div></div>';
 }
 
 /* Dai tom tat dau tab: doc trong vai giay truoc khi vao cac the chi tiet ben
@@ -5524,7 +5527,7 @@ function renderCidSummaryStrip(){
   const el = document.getElementById('cidSummaryStrip');
   if(!el) return;
   if(!cidState.loaded || !cidState.timeline){
-    el.innerHTML = '<div class="muted" style="padding:2px">Bấm <b>Tải từ cache</b> ở thẻ "Lịch sử khoá số" bên dưới để xem tóm tắt.</div>';
+    el.innerHTML = '<div class="muted u-inline-efc48952">Bấm <b>Tải từ cache</b> ở thẻ "Lịch sử khoá số" bên dưới để xem tóm tắt.</div>';
     return;
   }
   const scope = getCidScope();
@@ -5535,25 +5538,25 @@ function renderCidSummaryStrip(){
   const boxes = [
     cidStatBox(m.stillBlocked.toLocaleString('vi-VN'), 'CID đang bị khoá',
       m.presumedDead.toLocaleString('vi-VN')+' trong đó coi như đã chết (>48h)',
-      m.stillBlocked ? '#c0392b' : '#2e7d32'),
+      m.stillBlocked ? uiColor('--ux-color-c0392b') : uiColor('--ux-color-2e7d32')),
     cidStatBox(cidFmtHours(m.p50), 'Hồi phục (trung vị)',
       m.lateRecoveryPct.toFixed(1)+'% ca quay lại muộn hơn dự kiến', ''),
     cidStatBox(cov.stats.unobservable, 'Ngoài phạm vi theo dõi',
       cov.stats.unobservable
         ? cov.unobservable.map(x=>x.name).slice(0,2).join(', ') + (cov.unobservable.length>2?'…':'')
         : 'mọi account đều quan sát được',
-      cov.stats.unobservable ? '#c0392b' : '#2e7d32')
+      cov.stats.unobservable ? uiColor('--ux-color-c0392b') : uiColor('--ux-color-2e7d32'))
   ];
   if(rows.length){
     const leaks = cidLeaks(rows);
     boxes.push(cidStatBox(leaks.wastedCalls.toLocaleString('vi-VN'), 'Cuộc gọi lãng phí (đang lọc)',
       leaks.checked ? (100*leaks.wastedCalls/leaks.checked).toFixed(1)+'% lưu lượng nhắm vào số đã chết' : '',
-      leaks.wastedCalls ? '#c0392b' : '#2e7d32'));
+      leaks.wastedCalls ? uiColor('--ux-color-c0392b') : uiColor('--ux-color-2e7d32')));
   } else {
     boxes.push(cidStatBox('—', 'Cuộc gọi lãng phí',
       'cần tải dữ liệu cuộc gọi ở Nguồn dữ liệu MPT', ''));
   }
-  el.innerHTML = '<div style="display:flex;gap:10px;flex-wrap:wrap">'+boxes.join('')+'</div>';
+  el.innerHTML = '<div class="u-inline-6002dd78">'+boxes.join('')+'</div>';
 }
 
 /* Luồng chính chỉ giữ tối đa MAIN_ROW_CAP dòng (worker giữ đủ). Mọi phân tích
@@ -5565,7 +5568,7 @@ function cidSampleWarning(){
     ? dashState.filtered.length : 0;
   const total = (typeof loadedRowTotal !== 'undefined' && loadedRowTotal) || shown;
   if(!shown || total <= shown) return '';
-  return '<div style="margin-bottom:8px;padding:8px 10px;border-left:3px solid #E95420;'
+  return '<div style="margin-bottom:8px;padding:8px 10px;border-left:3px solid var(--brand);'
     + 'background:rgba(233,84,32,.06);font-size:11.5px">Bộ dữ liệu <b>'
     + Number(total).toLocaleString('vi-VN') + '</b> dòng nhưng luồng chính chỉ giữ <b>'
     + Number(shown).toLocaleString('vi-VN') + '</b> dòng đầu — các con số dưới đây tính trên '
@@ -5652,7 +5655,7 @@ function renderCidCoverage(){
   const note = document.getElementById('cidWindowNote');
   if(!el) return;
   if(cidState.loading){ el.innerHTML = '<div class="muted">Đang tải lịch sử khoá số…</div>'; return; }
-  if(cidState.error){ el.innerHTML = '<div style="color:#c0392b">'+cidState.error+'</div>'; return; }
+  if(cidState.error){ el.innerHTML = '<div class="u-inline-a4f36f6a">'+cidState.error+'</div>'; return; }
   if(!cidState.loaded){
     el.innerHTML = '<div class="muted">Bấm <b>Tải từ cache</b> để xem lịch sử đã lưu, hoặc <b>Đồng bộ từ MPT</b> để kéo bổ sung các ngày còn thiếu.</div>';
     return;
@@ -5683,20 +5686,20 @@ function renderCidCoverage(){
   const box = (label, value, hint, tone) => cidStatBox(value, label, hint, tone);
 
   el.innerHTML =
-    '<div style="display:flex;gap:10px;flex-wrap:wrap">'
+    '<div class="u-inline-6002dd78">'
     + box('Có block', cov.stats.withBlocks, 'account có routing và có sự kiện khoá', '')
-    + box('Sạch thật', cov.stats.clean, '0 block — quan sát được nên con số này đáng tin', '#2e7d32')
+    + box('Sạch thật', cov.stats.clean, '0 block — quan sát được nên con số này đáng tin', uiColor('--ux-color-2e7d32'))
     + box('Ngoài phạm vi', cov.stats.unobservable, 'không có routing nào — "0 block" chỉ là KHÔNG THẤY',
-          cov.stats.unobservable ? '#c0392b' : '')
+          cov.stats.unobservable ? uiColor('--ux-color-c0392b') : '')
     + box('Routing lẻ', cov.routingWithoutAccount.length, 'routing không có account trùng tên', '')
     + '</div>'
     + (cov.unobservable.length
-        ? '<div style="margin-top:10px;padding:8px 10px;border-left:3px solid #c0392b;background:rgba(192,57,43,.06)">'
+        ? '<div class="u-inline-80401faa">'
           + '<b>Không quan sát được:</b> ' + cov.unobservable.map(x=>x.name).join(', ')
           + '. Với các account này, "0 block" không có nghĩa là tốt.</div>'
         : '')
     + (warn.length
-        ? '<div style="margin-top:10px;padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+        ? '<div class="u-inline-3e8faa31">'
           + warn.join('<br>') + '</div>'
         : '');
 }
@@ -5743,7 +5746,7 @@ function plotCidMttr(){
   const over = buckets.map(b=> b[1] >= 1440);
   Plotly.react(id, [{
     type:'bar', x: buckets.map(b=> b[0]), y: counts,
-    marker:{ color: over.map(o=> o ? '#c0392b' : '#3584e4') },
+    marker:{ color: over.map(o=> o ? uiColor('--ux-color-c0392b') : uiColor('--ux-color-3584e4')) },
     hovertemplate:'%{x}: %{y} lượt<extra></extra>'
   }], {
     title:'Thời gian hồi phục (đỏ = quá mốc 24h)', height:400,
@@ -5755,27 +5758,27 @@ function renderCidMttrTable(){
   const tb = document.querySelector('#cidMttrTable tbody');
   if(!tb) return;
   if(!cidState.loaded || !cidState.timeline){
-    tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:6px">Chưa tải lịch sử khoá số.</td></tr>'; return; }
+    tb.innerHTML = '<tr><td colspan="7" class="muted u-inline-492c8f92">Chưa tải lịch sử khoá số.</td></tr>'; return; }
   const m = computeBlockMttr(cidTimeline());
-  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
+  const td = 'class="u-inline-1fb56c0e"';
   const n = v => v.toLocaleString('vi-VN');
   tb.innerHTML = m.byTelco.map(b=>
-    '<tr><td style="border:1px solid #eee;padding:6px"><b>'+b.telco+'</b></td>'
+    '<tr><td class="u-inline-4d2849d1"><b>'+b.telco+'</b></td>'
     + '<td '+td+'>'+n(b.total)+'</td>'
     + '<td '+td+'>'+n(b.recovered)+'</td>'
     + '<td '+td+'>'+n(b.total-b.recovered)+'</td>'
-    + '<td '+td+' style="color:#c0392b">'+n(b.atRisk)+'</td>'
+    + '<td class="u-inline-a4f36f6a" '+td+'>'+n(b.atRisk)+'</td>'
     + '<td '+td+'>'+n(b.presumedDead)+'</td>'
     + '<td '+td+'>'+cidFmtHours(b.mttrMin)+'</td></tr>').join('')
-    + '<tr style="font-weight:700;background:rgba(0,0,0,.03)">'
-    + '<td style="border:1px solid #eee;padding:6px">Tổng</td>'
+    + '<tr class="u-inline-4c7471e1">'
+    + '<td class="u-inline-4d2849d1">Tổng</td>'
     + '<td '+td+'>'+n(m.count)+'</td>'
     + '<td '+td+'>'+n(m.recovered)+'</td>'
     + '<td '+td+'>'+n(m.stillBlocked)+'</td>'
-    + '<td '+td+' style="color:#c0392b">'+n(m.atRisk)+'</td>'
+    + '<td class="u-inline-a4f36f6a" '+td+'>'+n(m.atRisk)+'</td>'
     + '<td '+td+'>'+n(m.presumedDead)+'</td>'
     + '<td '+td+'>p50 '+cidFmtHours(m.p50)+'</td></tr>'
-    + '<tr><td colspan="7" class="muted" style="border:1px solid #eee;padding:6px">'
+    + '<tr><td colspan="7" class="muted u-inline-4d2849d1">'
     + 'Đã chuyển đỏ nhưng vẫn quay lại: <b>'+n(m.recoveredAfterWarn)+'</b> ca ('
     + m.recoveredAfterWarnPct.toFixed(1)+'% số ca đã mở lại) — đó là cái giá của mốc 24h. '
     + 'Quay lại muộn hơn cả mốc 48h: <b>'+n(m.lateRecovery)+'</b> ('+m.lateRecoveryPct.toFixed(1)+'%).'
@@ -5786,23 +5789,23 @@ function renderCidDutyTable(){
   const tb = document.querySelector('#cidDutyTable tbody');
   if(!tb) return;
   if(!cidState.loaded || !cidState.timeline){
-    tb.innerHTML = '<tr><td colspan="8" class="muted" style="padding:6px">Chưa tải lịch sử khoá số.</td></tr>'; return; }
+    tb.innerHTML = '<tr><td colspan="8" class="muted u-inline-492c8f92">Chưa tải lịch sử khoá số.</td></tr>'; return; }
   const duty = computeCidDutyCycle(cidState.timeline, cidWindowBounds());
-  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
-  const tl = 'style="border:1px solid #eee;padding:6px"';
+  const td = 'class="u-inline-1fb56c0e"';
+  const tl = 'class="u-inline-4d2849d1"';
   tb.innerHTML = duty.slice(0, 200).map(d=>
     '<tr><td '+tl+'><code>'+d.cid+'</code></td>'
     + '<td '+tl+'>'+d.telco+'</td>'
-    + '<td '+td+'><b'+(d.uptimePct < 50 ? ' style="color:#c0392b"' : '')+'>'+cidPct(d.uptimePct)+'</b></td>'
+    + '<td '+td+'><b'+(d.uptimePct < 50 ? ' class="text-danger"' : '')+'>'+cidPct(d.uptimePct)+'</b></td>'
     + '<td '+td+'>'+d.blockCount+'</td>'
     + '<td '+td+'>'+d.blockedHours.toFixed(0)+'</td>'
     + '<td '+td+'>'+cidFmtHours(d.mttrMin)+'</td>'
     + '<td '+tl+'>'+(!d.currentlyBlocked ? 'đang sống'
-        : d.presumedDead ? '<span style="color:#c0392b;font-weight:700">chết (&gt;48h)</span>'
-        : d.atRisk ? '<span style="color:#c0392b">đỏ (&gt;24h)</span>'
-        : '<span style="color:#E95420">đang khoá</span>')+'</td>'
+        : d.presumedDead ? '<span class="u-inline-27624734">chết (&gt;48h)</span>'
+        : d.atRisk ? '<span class="u-inline-a4f36f6a">đỏ (&gt;24h)</span>'
+        : '<span class="u-inline-d033be33">đang khoá</span>')+'</td>'
     + '<td '+tl+' class="muted">'+d.routings.join(', ')+'</td></tr>').join('')
-    || '<tr><td colspan="8" class="muted" style="padding:6px">Không có dữ liệu.</td></tr>';
+    || '<tr><td colspan="8" class="muted u-inline-492c8f92">Không có dữ liệu.</td></tr>';
 }
 
 function renderCidWaste(){
@@ -5815,24 +5818,24 @@ function renderCidWaste(){
   const r = cidLeaks(rows);
   if(!r.checked){
     el.innerHTML = '<div class="muted">Không có cuộc gọi nào đủ trường (CID, nhà mạng, thời điểm) để đối chiếu.</div>'; return; }
-  const cell = 'border:1px solid #eee;padding:6px';
+  const cell = 'border:1px solid var(--border);padding:6px';
   const line = (label, g, tone, hint) =>
     '<tr><td style="'+cell+'">'+label+'</td>'
     + '<td style="text-align:right;'+cell+'">'+g.calls.toLocaleString('vi-VN')+'</td>'
     + '<td style="text-align:right;'+cell+';'+(tone?'color:'+tone+';font-weight:700':'')+'">'+cidPct(g.connectRate)+'</td>'
     + '<td style="'+cell+'" class="muted">'+hint+'</td></tr>';
   el.innerHTML = cidSampleWarning() +
-    '<table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>'
+    '<table class="u-inline-6b266149"><thead><tr>'
     + '<th style="text-align:left;'+cell+'">Trạng thái CID lúc gọi</th>'
     + '<th style="text-align:right;'+cell+'">Cuộc gọi</th>'
     + '<th style="text-align:right;'+cell+'">Tỷ lệ kết nối</th>'
     + '<th style="text-align:left;'+cell+'">Ý nghĩa</th></tr></thead><tbody>'
     + line('Ngoài cửa sổ bị khoá', r.outside, '', 'nền để so sánh')
     + line('Trong khoảng <b>đã mở lại</b>', r.inClosed, '', 'block chỉ là cờ nghi ngờ, không chặn route')
-    + line('Trong khoảng <b>chưa mở lại</b>', r.inCensored, '#c0392b', 'số đã chết mà vẫn bị quay — lãng phí')
+    + line('Trong khoảng <b>chưa mở lại</b>', r.inCensored, uiColor('--ux-color-c0392b'), 'số đã chết mà vẫn bị quay — lãng phí')
     + '</tbody></table>'
     + (r.wastedCalls
-        ? '<div style="margin-top:10px;padding:8px 10px;border-left:3px solid #c0392b;background:rgba(192,57,43,.06)">'
+        ? '<div class="u-inline-80401faa">'
           + '<b>'+r.wastedCalls.toLocaleString('vi-VN')+' cuộc gọi</b> ('
           + (100*r.wastedCalls/r.checked).toFixed(1)
           + '% lưu lượng đang lọc) nhắm vào số đã bị khoá và chưa được mở lại.</div>'
@@ -5852,7 +5855,7 @@ function plotCidPressure(){
   }));
   data.push({
     type:'scatter', mode:'lines', name:'TB trượt 7 ngày',
-    x:pr.days, y:pr.ma7, line:{ color:'#111', width:2, dash:'dot' },
+    x:pr.days, y:pr.ma7, line:{ color:uiColor('--ux-color-111'), width:2, dash:'dot' },
     hovertemplate:'%{x}<br>TB7: %{y:.0f}<extra></extra>'
   });
   Plotly.react(id, data, {
@@ -5867,7 +5870,7 @@ function renderCidBurstTable(){
   const note = document.getElementById('cidBurstNote');
   if(!tb) return;
   if(!cidState.loaded){
-    tb.innerHTML = '<tr><td colspan="6" class="muted" style="padding:6px">Chưa tải lịch sử khoá số.</td></tr>'; return; }
+    tb.innerHTML = '<tr><td colspan="6" class="muted u-inline-492c8f92">Chưa tải lịch sử khoá số.</td></tr>'; return; }
   const r = computeBlockBursts(cidEvents());
   if(note){
     const src = r.thresholdSource === 'floor'
@@ -5879,9 +5882,9 @@ function renderCidBurstTable(){
       + r.threshold.toFixed(0) + '. ' + src;
   }
   if(!r.bursts.length){
-    tb.innerHTML = '<tr><td colspan="6" class="muted" style="padding:6px">Không phát hiện đợt khoá dồn dập nào.</td></tr>'; return; }
-  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
-  const tl = 'style="border:1px solid #eee;padding:6px"';
+    tb.innerHTML = '<tr><td colspan="6" class="muted u-inline-492c8f92">Không phát hiện đợt khoá dồn dập nào.</td></tr>'; return; }
+  const td = 'class="u-inline-1fb56c0e"';
+  const tl = 'class="u-inline-4d2849d1"';
   tb.innerHTML = r.bursts.slice(0, 60).map(b=>
     '<tr><td '+tl+'>'+b.startISO+'</td>'
     + '<td '+td+'><b>'+b.blocks+'</b></td>'
@@ -5906,19 +5909,19 @@ function renderCidLoss(){
   const n = v => Math.round(v).toLocaleString('vi-VN');
   const box = cidStatBox;
   el.innerHTML = cidSampleWarning() +
-    '<div style="display:flex;gap:10px;flex-wrap:wrap">'
-    + box(n(L.wastedCalls), 'Lượt bấm phí', L.wastedCallPct.toFixed(1)+'% lưu lượng đang lọc', '#c0392b')
-    + box(n(L.lostConnections), 'Kết nối mất', 'suy từ nền '+L.baseConnectRate.toFixed(1)+'% trên '+n(L.baseCalls)+' cuộc', '#c0392b')
+    '<div class="u-inline-6002dd78">'
+    + box(n(L.wastedCalls), 'Lượt bấm phí', L.wastedCallPct.toFixed(1)+'% lưu lượng đang lọc', uiColor('--ux-color-c0392b'))
+    + box(n(L.lostConnections), 'Kết nối mất', 'suy từ nền '+L.baseConnectRate.toFixed(1)+'% trên '+n(L.baseCalls)+' cuộc', uiColor('--ux-color-c0392b'))
     + box(n(L.lostMinutes), 'Phút gọi mất', 'billsec nền '+L.baseAvgBillsec.toFixed(0)+'s/kết nối', '')
     + (L.money != null
         ? box(n(L.money)+' đ', 'Cước mất', 'theo đơn giá ở tab Cước phí', '')
         : box('—', 'Cước mất', 'đặt đơn giá ở tab Cước phí để tính', ''))
     + '</div>'
     + (L.reliable
-        ? '<div class="muted" style="margin-top:10px;font-size:11.5px">Tiền chỉ tính phần cước thoại. '
+        ? '<div class="muted u-inline-a3c10bfc">Tiền chỉ tính phần cước thoại. '
           + 'Giá trị nghiệp vụ của <b>'+n(L.lostConnections)+' cuộc trò chuyện không xảy ra</b> thường lớn hơn con số này nhiều — '
           + 'đó mới là chỉ số nên dùng khi cân nhắc đầu tư xử lý.</div>'
-        : '<div style="margin-top:10px;padding:8px 10px;border-left:3px solid #E95420;background:rgba(233,84,32,.06)">'
+        : '<div class="u-inline-3e8faa31">'
           + '<b>Mẫu nền quá nhỏ</b> ('+n(L.baseCalls)+' cuộc ngoài cửa sổ khoá) nên tỷ lệ kết nối nền chưa ổn định. '
           + 'Hãy tải khoảng dữ liệu rộng hơn trước khi dùng các con số này.</div>');
 }
@@ -5926,10 +5929,10 @@ function renderCidLoss(){
 /* Nhan cua Cohen's d — de nguoi doc khong tu quy doi sai tu con so tran. */
 function cidEffectLabel(d){
   const a = Math.abs(d);
-  if(a >= 0.8) return ['rất mạnh', '#c0392b'];
-  if(a >= 0.5) return ['trung bình', '#E95420'];
-  if(a >= 0.2) return ['yếu', '#8a8a8a'];
-  return ['không đáng kể', '#8a8a8a'];
+  if(a >= 0.8) return ['rất mạnh', uiColor('--ux-color-c0392b')];
+  if(a >= 0.5) return ['trung bình', uiColor('--ux-color-e95420')];
+  if(a >= 0.2) return ['yếu', uiColor('--ux-color-8a8a8a')];
+  return ['không đáng kể', uiColor('--ux-color-8a8a8a')];
 }
 
 function cidInsight(tone, icon, kicker, title, desc, meta){
@@ -5956,15 +5959,15 @@ function plotCidLoadRisk(){
   const labels = all.buckets.map(x=> x.label);
   const data = [
     { type:'bar', name:'Tất cả CID', x:labels, y:all.buckets.map(x=> x.blockRate),
-      marker:{ color:'#4e79a7' },
+      marker:{ color:uiColor('--ux-color-4e79a7') },
       hovertemplate:'%{x} cuộc/ngày<br>%{y:.1f}% bị khoá<extra>tất cả</extra>' },
     { type:'bar', name:'Chỉ CID từng bị khoá', x:labels, y:elig.buckets.map(x=> x.blockRate),
-      marker:{ color:'#7c3aed' },
+      marker:{ color:uiColor('--ux-color-7c3aed') },
       hovertemplate:'%{x} cuộc/ngày<br>%{y:.1f}% bị khoá<extra>cùng loại</extra>' }
   ];
   Plotly.react(id, data, {
     title:'Tải mỗi CID/ngày vs rủi ro bị khoá trong '+all.horizonHours+'h'
-      + '<br><span style="font-size:11px">Cột xanh dốc lên là ẢO GIÁC do thành phần mẫu — so cùng loại (tím) thì quan hệ biến mất</span>',
+      + '<br><span class="u-inline-11a50812">Cột xanh dốc lên là ẢO GIÁC do thành phần mẫu — so cùng loại (tím) thì quan hệ biến mất</span>',
     barmode:'group', height:440,
     yaxis:{ title:'% bị khoá trong 24h', rangemode:'tozero' },
     xaxis:{ title:'Số cuộc gọi mỗi ngày' },
@@ -6018,8 +6021,8 @@ function renderCidPrecursors(){
       [nCase+' lần khoá', nCtrl+' thời điểm bình thường', 'Nhìn lại '+r.windowHours+' giờ']);
   }
 
-  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
-  const tl = 'style="border:1px solid #eee;padding:6px"';
+  const td = 'class="u-inline-1fb56c0e"';
+  const tl = 'class="u-inline-4d2849d1"';
   tb.innerHTML = r.metrics.map(m=>{
     const [label, color] = cidEffectLabel(m.cohensD);
     const diff = (m.caseMean != null && m.controlMean != null) ? m.caseMean - m.controlMean : null;
@@ -6053,10 +6056,10 @@ function renderCidSignals(){
 
   const pct = v => v.toFixed(1)+'%';
   const liftCell = l => l == null ? '—'
-    : '<span style="color:'+(l>=1.3?'#c0392b':l<=0.77?'#2e7d32':'inherit')
+    : '<span style="color:'+(l>=1.3?uiColor('--ux-color-c0392b'):l<=0.77?uiColor('--ux-color-2e7d32'):'inherit')
       +';font-weight:'+(l>=1.3||l<=0.77?'700':'400')+'">×'+l.toFixed(2)+'</span>';
-  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
-  const tl = 'style="border:1px solid #eee;padding:6px"';
+  const td = 'class="u-inline-1fb56c0e"';
+  const tl = 'class="u-inline-4d2849d1"';
 
   // Tổ hợp nào thực sự nổi lên so với nền — đây mới là câu trả lời, không phải
   // con số % thô (nền cũng có sẵn ~50% cửa sổ không tín hiệu nào).
@@ -6089,7 +6092,7 @@ function renderCidSignals(){
     + '<td '+td+'>'+pct(c.casePct)+'</td>'
     + '<td '+td+'>'+pct(c.controlPct)+'</td>'
     + '<td '+td+'>'+liftCell(c.lift)+'</td></tr>').join('')
-    || '<tr><td colspan="4" class="muted" style="padding:6px">Không có tổ hợp nào đạt 1%.</td></tr>';
+    || '<tr><td colspan="4" class="muted u-inline-492c8f92">Không có tổ hợp nào đạt 1%.</td></tr>';
 
   if(th){
     const x = r.thresholds;
@@ -6097,7 +6100,7 @@ function renderCidSignals(){
       + '% · thời lượng đàm thoại trung bình ≤ '+x.avgBillsecLo.toFixed(1)+' giây · tần suất gọi ≥ '
       + x.callsPerHourHi.toFixed(1)+' cuộc/giờ.'
       + (x.durationDegenerate
-          ? '<br><b style="color:#E95420">Lưu ý:</b> trong nhiều thời điểm bình thường cũng không có cuộc nào kết nối. Vì vậy dấu hiệu “thời lượng thấp” ở đây chỉ có nghĩa là <b>không kết nối được cuộc nào</b>.'
+          ? '<br><b class="u-inline-d033be33">Lưu ý:</b> trong nhiều thời điểm bình thường cũng không có cuộc nào kết nối. Vì vậy dấu hiệu “thời lượng thấp” ở đây chỉ có nghĩa là <b>không kết nối được cuộc nào</b>.'
           : '');
   }
 }
@@ -6113,7 +6116,7 @@ function renderCidSignalsByAccount(){
   const tb = document.querySelector('#cidSignalsAccountTable tbody');
   const note = document.getElementById('cidAccountDaysNote');
   if(!tb) return;
-  const clear = msg=>{ tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:6px">'+msg+'</td></tr>';
+  const clear = msg=>{ tb.innerHTML = '<tr><td colspan="7" class="muted u-inline-492c8f92">'+msg+'</td></tr>';
                        if(note) note.textContent = ''; };
   if(!cidState.loaded || !cidState.timeline) return clear('Chưa tải lịch sử khoá số.');
   const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
@@ -6135,8 +6138,8 @@ function renderCidSignalsByAccount(){
               Object.assign({ windowHours: 6 }, cidWindowBounds()));
   if(!r.accounts.length) return clear('Không có account nào trong dữ liệu đang lọc.');
 
-  const td = 'style="text-align:right;border:1px solid #eee;padding:6px"';
-  const tl = 'style="border:1px solid #eee;padding:6px"';
+  const td = 'class="u-inline-f15d4f74"';
+  const tl = 'class="u-inline-cfa5cdca"';
   const n = v => Number(v||0).toLocaleString('vi-VN');
   tb.innerHTML = r.accounts.map(a=>{
     const verdict = a.insufficientSample
@@ -6184,14 +6187,14 @@ function plotCidRecoverySurvival(){
 function renderCidReblockTable(){
   const tb=document.querySelector('#cidReblockTable tbody');
   if(!tb) return;
-  if(!cidState.loaded||!cidState.timeline){ tb.innerHTML='<tr><td colspan="6" class="muted" style="padding:8px">Chưa tải lịch sử khoá số.</td></tr>'; return; }
+  if(!cidState.loaded||!cidState.timeline){ tb.innerHTML='<tr><td colspan="6" class="muted u-inline-e2c960fb">Chưa tải lịch sử khoá số.</td></tr>'; return; }
   const result=computeCidReblockStats(cidTimeline(),[1,6,24,168]);
   const fmt=w=>w&&w.ratePct!=null?`${w.ratePct.toFixed(1)}% (${w.reblocked}/${w.eligible})`:'—';
   tb.innerHTML=result.rows.map(r=>`<tr>
-    <td style="border:1px solid #eee;padding:6px">${reportTableEscape(r.name)}</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right">${r.recovered.toLocaleString('vi-VN')}</td>
-    ${[1,6,24,168].map(h=>`<td style="border:1px solid #eee;padding:6px;text-align:right">${fmt(r.windows.find(w=>w.hour===h))}</td>`).join('')}
-  </tr>`).join('')||'<tr><td colspan="6" class="muted" style="padding:8px">Chưa có lượt Reactive.</td></tr>';
+    <td class="u-inline-4d2849d1">${reportTableEscape(r.name)}</td>
+    <td class="u-inline-12972e58">${r.recovered.toLocaleString('vi-VN')}</td>
+    ${[1,6,24,168].map(h=>`<td class="u-inline-12972e58">${fmt(r.windows.find(w=>w.hour===h))}</td>`).join('')}
+  </tr>`).join('')||'<tr><td colspan="6" class="muted u-inline-e2c960fb">Chưa có lượt Reactive.</td></tr>';
 }
 
 function plotCidInventoryTrend(){
@@ -6200,10 +6203,10 @@ function plotCidInventoryTrend(){
   const trend=computeCidInventoryTrend(cidTimeline(),cidWindowBounds());
   if(!trend.length) return showNoData(id,'Chưa có dữ liệu biến động kho');
   Plotly.react(id,[
-    {type:'bar',name:'Block mới',x:trend.map(d=>d.day),y:trend.map(d=>d.blocks),marker:{color:'#e15759'}},
-    {type:'bar',name:'Reactive',x:trend.map(d=>d.day),y:trend.map(d=>-d.recovered),marker:{color:'#59a14f'}},
-    {type:'scatter',mode:'lines+markers',name:'Đang bị khoá',x:trend.map(d=>d.day),y:trend.map(d=>d.currentlyBlocked),yaxis:'y2',line:{color:'#111827',width:3}},
-    {type:'scatter',mode:'markers',name:'Vượt 48h',x:trend.map(d=>d.day),y:trend.map(d=>d.crossed48h),marker:{color:'#c0392b',size:8,symbol:'diamond'}}
+    {type:'bar',name:'Block mới',x:trend.map(d=>d.day),y:trend.map(d=>d.blocks),marker:{color:uiColor('--ux-color-e15759')}},
+    {type:'bar',name:'Reactive',x:trend.map(d=>d.day),y:trend.map(d=>-d.recovered),marker:{color:uiColor('--ux-color-59a14f')}},
+    {type:'scatter',mode:'lines+markers',name:'Đang bị khoá',x:trend.map(d=>d.day),y:trend.map(d=>d.currentlyBlocked),yaxis:'y2',line:{color:uiColor('--ux-color-111827'),width:3}},
+    {type:'scatter',mode:'markers',name:'Vượt 48h',x:trend.map(d=>d.day),y:trend.map(d=>d.crossed48h),marker:{color:uiColor('--ux-color-c0392b'),size:8,symbol:'diamond'}}
   ],{title:'Biến động kho CID theo ngày',height:420,barmode:'relative',
     yaxis:{title:'Block (+) / Reactive (−)'},yaxis2:{title:'CID đang bị khoá',overlaying:'y',side:'right',rangemode:'tozero'},
     legend:{orientation:'h',y:-0.22},margin:{t:48,r:58,b:70,l:58}}, {responsive:true});
@@ -6212,20 +6215,20 @@ function plotCidInventoryTrend(){
 function renderCidActionQueue(){
   const tb=document.querySelector('#cidActionQueueTable tbody');
   if(!tb) return;
-  if(!cidState.loaded||!cidState.timeline){ tb.innerHTML='<tr><td colspan="8" class="muted" style="padding:8px">Chưa tải lịch sử khoá số.</td></tr>'; return; }
+  if(!cidState.loaded||!cidState.timeline){ tb.innerHTML='<tr><td colspan="8" class="muted u-inline-e2c960fb">Chưa tải lịch sử khoá số.</td></tr>'; return; }
   const rows=(dashState&&dashState.filtered)||[];
   const data=computeCidActionQueue(cidTimeline(),rows).slice(0,100);
-  const tone={'Khẩn cấp':'#c0392b','Theo dõi':'#E95420','Thấp':'#2e7d32'};
+  const tone={'Khẩn cấp':uiColor('--ux-color-c0392b'),'Theo dõi':uiColor('--ux-color-e95420'),'Thấp':uiColor('--ux-color-2e7d32')};
   tb.innerHTML=data.map(r=>`<tr>
-    <td style="border:1px solid #eee;padding:6px;font-weight:700;color:${tone[r.priority]||''}">${r.priority}</td>
-    <td style="border:1px solid #eee;padding:6px">${reportTableEscape(r.cid)}</td>
-    <td style="border:1px solid #eee;padding:6px">${reportTableEscape(r.telco)}</td>
-    <td style="border:1px solid #eee;padding:6px">${reportTableEscape(r.gateway)}<div class="muted">${reportTableEscape(r.account)}</div></td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right">${r.ageHours>=48?(r.ageHours/24).toFixed(1)+' ngày':r.ageHours.toFixed(1)+'h'}</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right">${r.callsSinceBlock.toLocaleString('vi-VN')}</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right">${r.expectedLost.toLocaleString('vi-VN')}</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right">${r.reblockCount.toLocaleString('vi-VN')}</td>
-  </tr>`).join('')||'<tr><td colspan="8" class="muted" style="padding:8px">Không có CID nào đang bị khoá.</td></tr>';
+    <td style="border:1px solid var(--border);padding:6px;font-weight:700;color:${tone[r.priority]||''}">${r.priority}</td>
+    <td class="u-inline-4d2849d1">${reportTableEscape(r.cid)}</td>
+    <td class="u-inline-4d2849d1">${reportTableEscape(r.telco)}</td>
+    <td class="u-inline-4d2849d1">${reportTableEscape(r.gateway)}<div class="muted">${reportTableEscape(r.account)}</div></td>
+    <td class="u-inline-12972e58">${r.ageHours>=48?(r.ageHours/24).toFixed(1)+' ngày':r.ageHours.toFixed(1)+'h'}</td>
+    <td class="u-inline-12972e58">${r.callsSinceBlock.toLocaleString('vi-VN')}</td>
+    <td class="u-inline-12972e58">${r.expectedLost.toLocaleString('vi-VN')}</td>
+    <td class="u-inline-12972e58">${r.reblockCount.toLocaleString('vi-VN')}</td>
+  </tr>`).join('')||'<tr><td colspan="8" class="muted u-inline-e2c960fb">Không có CID nào đang bị khoá.</td></tr>';
 }
 
 function renderCidComparison(){
@@ -6233,9 +6236,9 @@ function renderCidComparison(){
   if(!host) return;
   if(!cidState.loaded||!cidState.timeline){ host.innerHTML='<div class="muted">Chưa tải lịch sử khoá số.</div>'; return; }
   const rows=(dashState&&dashState.filtered)||[];
-  const makeTable=(title,data)=>`<h4 style="margin:12px 0 6px">${title}</h4><table style="width:100%;border-collapse:collapse;font-size:12px"><thead><tr>
-    <th style="text-align:left;border:1px solid #eee;padding:6px">${title}</th><th style="text-align:right;border:1px solid #eee;padding:6px">CID</th><th style="text-align:right;border:1px solid #eee;padding:6px">Block</th><th style="text-align:right;border:1px solid #eee;padding:6px">Còn khóa</th><th style="text-align:right;border:1px solid #eee;padding:6px">Uptime TB</th><th style="text-align:right;border:1px solid #eee;padding:6px">Hồi phục P50</th><th style="text-align:right;border:1px solid #eee;padding:6px">Tái khóa</th></tr></thead><tbody>`+
-    data.map(r=>`<tr><td style="border:1px solid #eee;padding:6px">${reportTableEscape(r.name)}</td><td style="border:1px solid #eee;padding:6px;text-align:right">${r.cids}</td><td style="border:1px solid #eee;padding:6px;text-align:right">${r.blocks}</td><td style="border:1px solid #eee;padding:6px;text-align:right">${r.stillBlockedPct.toFixed(1)}%</td><td style="border:1px solid #eee;padding:6px;text-align:right">${r.avgUptimePct==null?'—':r.avgUptimePct.toFixed(1)+'%'}</td><td style="border:1px solid #eee;padding:6px;text-align:right">${cidFmtHours(r.medianRecoveryMin)}</td><td style="border:1px solid #eee;padding:6px;text-align:right">${r.reblockPct.toFixed(1)}%</td></tr>`).join('')+
+  const makeTable=(title,data)=>`<h4 class="u-inline-eabef57d">${title}</h4><table class="u-inline-6b266149"><thead><tr>
+    <th class="u-inline-30130854">${title}</th><th class="u-inline-1fb56c0e">CID</th><th class="u-inline-1fb56c0e">Block</th><th class="u-inline-1fb56c0e">Còn khóa</th><th class="u-inline-1fb56c0e">Uptime TB</th><th class="u-inline-1fb56c0e">Hồi phục P50</th><th class="u-inline-1fb56c0e">Tái khóa</th></tr></thead><tbody>`+
+    data.map(r=>`<tr><td class="u-inline-4d2849d1">${reportTableEscape(r.name)}</td><td class="u-inline-12972e58">${r.cids}</td><td class="u-inline-12972e58">${r.blocks}</td><td class="u-inline-12972e58">${r.stillBlockedPct.toFixed(1)}%</td><td class="u-inline-12972e58">${r.avgUptimePct==null?'—':r.avgUptimePct.toFixed(1)+'%'}</td><td class="u-inline-12972e58">${cidFmtHours(r.medianRecoveryMin)}</td><td class="u-inline-12972e58">${r.reblockPct.toFixed(1)}%</td></tr>`).join('')+
     '</tbody></table>';
   const gateways=computeCidDimensionComparison(cidTimeline(),rows,'gateway');
   const accounts=computeCidDimensionComparison(cidTimeline(),rows,'account');
@@ -6449,7 +6452,7 @@ function gwStatusLine(){
   if(idx.builtAt) bits.push(`${(idx.cidCount||0).toLocaleString('vi-VN')} CID · đồng bộ ${String(idx.builtAt).replace('T',' ')}`);
   else bits.push('Chưa đồng bộ lần nào.');
   const conf = (idx.conflicts||[]).length;
-  if(conf) bits.push(`<b style="color:#c0392b">${conf} CID bị 2 account giành</b>`);
+  if(conf) bits.push(`<b class="u-inline-a4f36f6a">${conf} CID bị 2 account giành</b>`);
   const multi = Object.keys(idx.multiAccountRoutings||{}).length;
   if(multi) bits.push(`${multi} routing gán cho nhiều account`);
   return bits.join(' • ');
@@ -6465,7 +6468,7 @@ function renderGatewayMapPanel(){
   }
   if(st){
     if(gwMapState.loading) st.textContent = 'Đang tải mapping…';
-    else if(gwMapState.error) st.innerHTML = '<span style="color:#c0392b">' + reportTableEscape(gwMapState.error) + '</span>';
+    else if(gwMapState.error) st.innerHTML = '<span class="u-inline-a4f36f6a">' + reportTableEscape(gwMapState.error) + '</span>';
     else st.innerHTML = gwStatusLine();
   }
   const nameOf = id => {
@@ -6483,13 +6486,13 @@ function renderGatewayMapPanel(){
     const tr = document.createElement('tr');
     tr.setAttribute('data-i', String(i));
     tr.innerHTML =
-      `<td style="border:1px solid #eee;padding:4px"><input data-f="account_id" value="${reportTableEscape(row.account_id)}" style="width:90px" inputmode="numeric"></td>`
-    + `<td style="border:1px solid #eee;padding:4px" class="muted">${reportTableEscape(nameOf(row.account_id))}</td>`
-    + `<td style="border:1px solid #eee;padding:4px"><input data-f="routing_id" value="${reportTableEscape(row.routing_id)}" style="width:80px" inputmode="numeric"></td>`
-    + `<td style="border:1px solid #eee;padding:4px"><input data-f="routing_name" value="${reportTableEscape(row.routing_name)}" style="width:170px"></td>`
-    + `<td style="border:1px solid #eee;padding:4px;text-align:right">${m.cidCount ? Number(m.cidCount).toLocaleString('vi-VN') : '—'}</td>`
-    + `<td style="border:1px solid #eee;padding:4px" class="muted">${reportTableEscape(gws)}</td>`
-    + `<td style="border:1px solid #eee;padding:4px;text-align:center"><button type="button" data-gwdel="${i}" title="Xoá dòng">✕</button></td>`;
+      `<td class="u-inline-6a2021c8"><input class="u-inline-581be415" data-f="account_id" value="${reportTableEscape(row.account_id)}" inputmode="numeric"></td>`
+    + `<td class="muted u-inline-6a2021c8">${reportTableEscape(nameOf(row.account_id))}</td>`
+    + `<td class="u-inline-6a2021c8"><input class="u-inline-8573bae3" data-f="routing_id" value="${reportTableEscape(row.routing_id)}" inputmode="numeric"></td>`
+    + `<td class="u-inline-6a2021c8"><input class="u-inline-d52ddd08" data-f="routing_name" value="${reportTableEscape(row.routing_name)}"></td>`
+    + `<td class="u-inline-1d7c75df">${m.cidCount ? Number(m.cidCount).toLocaleString('vi-VN') : '—'}</td>`
+    + `<td class="muted u-inline-6a2021c8">${reportTableEscape(gws)}</td>`
+    + `<td class="u-inline-96ef0a77"><button type="button" data-gwdel="${i}" title="Xoá dòng">✕</button></td>`;
     tb.appendChild(tr);
   });
   tb.querySelectorAll('button[data-gwdel]').forEach(btn=>{
@@ -6849,7 +6852,7 @@ function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
   if(res.derivedEnd) notes.push(`⚠ ${res.derivedEnd} cuộc có mốc thời gian chỉ tới phút → peak có thể cao hơn thực tế`);
   const layout={
     title:{
-      text:`Cuộc gọi đồng thời<br><span style="font-size:11px;color:#64748b">${notes.join(' • ')}</span>`,
+      text:`Cuộc gọi đồng thời<br><span class="u-inline-2f03bac0">${notes.join(' • ')}</span>`,
       x:.03,xanchor:'left'
     },
     xaxis:{
@@ -6858,11 +6861,11 @@ function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
       hoverformat:'%d/%m/%Y %H:%M:%S',
       title:'Thời gian',
       automargin:true,
-      gridcolor:'#e7ebf0'
+      gridcolor:uiColor('--ux-color-e7ebf0')
     },
     yaxis:{title:'Số cuộc gọi đồng thời', rangemode:'tozero'},
     margin:{t:66,r:20,b:isMultiDay?62:48,l:55},
-    hovermode:'x',plot_bgcolor:'#fff',paper_bgcolor:'#fff'
+    hovermode:'x',plot_bgcolor:uiColor('--ux-color-fff'),paper_bgcolor:uiColor('--ux-color-fff')
   };
   Plotly.react(el, data, layout,{
     responsive:true,displaylogo:false,scrollZoom:false,
@@ -6948,8 +6951,8 @@ function plotCcuByTelco(rows, colors){
   const peakVals = stats.map(s=> s.peak);
   const useFilter = meta.filterSpanSec != null;
   const avgVals = stats.map(s=> +( (useFilter ? s.avgFilter : s.avgObserved) || 0).toFixed(2));
-  const peakColor = '#315f91';
-  const avgColor = '#8baecd';
+  const peakColor = uiColor('--ux-color-315f91');
+  const avgColor = uiColor('--ux-color-8baecd');
   const avgName = useFilter ? 'CCU TB (khoảng lọc)' : 'CCU TB (khoảng có dữ liệu)';
   const data = [
     {
@@ -6975,7 +6978,7 @@ function plotCcuByTelco(rows, colors){
     ? `Trung bình chia cho khoảng lọc ${hours(meta.filterSpanSec).toFixed(1)}h (so sánh được giữa các kỳ)`
     : `Trung bình chia cho khoảng có dữ liệu ${hours(meta.observedSpanSec).toFixed(1)}h`;
   const layout = {
-    title: {text:`CCU theo Telco — Peak vs Trung bình<br><span style="font-size:11px;color:#64748b">${sub}</span>`,
+    title: {text:`CCU theo Telco — Peak vs Trung bình<br><span class="u-inline-2f03bac0">${sub}</span>`,
             x:.03,xanchor:'left'},
     height: Math.max(360, tels.length*46+150),
     margin:{l:110,r:75,t:78,b:60},
@@ -6996,21 +6999,21 @@ function renderCcuByTelcoTable(rows){
   const meta = (__ccu && __ccu.meta) || {};
   const NCOL = 8;
   if(!stats.length){
-    tb.innerHTML = `<tr><td colspan="${NCOL}" style="border:1px solid #eee;padding:8px" class="muted">Không có dữ liệu cuộc gọi kết nối.</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="${NCOL}" class="muted u-inline-61e56846">Không có dữ liệu cuộc gọi kết nối.</td></tr>`;
     return;
   }
   const n2 = v => (v==null ? '—' : v.toFixed(2));
   stats.forEach(s=>{
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(s.telco)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${s.peak}</td>
-      <td style="border:1px solid #eee;padding:6px">${s.peakAtISO ? s.peakAtISO.replace('T',' ') : '-'}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${n2(s.avgFilter)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${n2(s.avgObserved)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${s.atSystemPeak}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${s.atSystemPeakPct.toFixed(1)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${s.loadPct.toFixed(1)}%</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(s.telco)}</td>
+      <td class="u-inline-12972e58">${s.peak}</td>
+      <td class="u-inline-4d2849d1">${s.peakAtISO ? s.peakAtISO.replace('T',' ') : '-'}</td>
+      <td class="u-inline-12972e58">${n2(s.avgFilter)}</td>
+      <td class="u-inline-12972e58">${n2(s.avgObserved)}</td>
+      <td class="u-inline-12972e58">${s.atSystemPeak}</td>
+      <td class="u-inline-12972e58">${s.atSystemPeakPct.toFixed(1)}%</td>
+      <td class="u-inline-12972e58">${s.loadPct.toFixed(1)}%</td>
     `;
     tb.appendChild(tr);
   });
@@ -7019,14 +7022,14 @@ function renderCcuByTelcoTable(rows){
   const sumPeaks = stats.reduce((a,s)=> a+s.peak, 0);
   const foot = document.createElement('tr');
   foot.innerHTML = `
-    <td style="border:1px solid #eee;padding:6px;font-weight:600">Toàn hệ thống</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right;font-weight:600">${meta.systemPeak||0}</td>
-    <td style="border:1px solid #eee;padding:6px">${meta.systemPeakAtISO ? meta.systemPeakAtISO.replace('T',' ') : '-'}</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right;font-weight:600">${n2(stats.reduce((a,s)=> a+(s.avgFilter||0),0))}</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right;font-weight:600">${n2(stats.reduce((a,s)=> a+(s.avgObserved||0),0))}</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right;font-weight:600">${meta.systemPeak||0}</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right;font-weight:600">100,0%</td>
-    <td style="border:1px solid #eee;padding:6px;text-align:right;font-weight:600">100,0%</td>`;
+    <td class="u-inline-f1d5d980">Toàn hệ thống</td>
+    <td class="u-inline-ccc97a3f">${meta.systemPeak||0}</td>
+    <td class="u-inline-4d2849d1">${meta.systemPeakAtISO ? meta.systemPeakAtISO.replace('T',' ') : '-'}</td>
+    <td class="u-inline-ccc97a3f">${n2(stats.reduce((a,s)=> a+(s.avgFilter||0),0))}</td>
+    <td class="u-inline-ccc97a3f">${n2(stats.reduce((a,s)=> a+(s.avgObserved||0),0))}</td>
+    <td class="u-inline-ccc97a3f">${meta.systemPeak||0}</td>
+    <td class="u-inline-ccc97a3f">100,0%</td>
+    <td class="u-inline-ccc97a3f">100,0%</td>`;
   foot.style.background = 'rgba(71,121,173,.07)';
   tb.appendChild(foot);
 
@@ -7035,7 +7038,7 @@ function renderCcuByTelcoTable(rows){
   if(meta.systemPeak>0) bits.push(`💡 Số kênh/trunk khuyến nghị ≈ peak × 1.2 = ${Math.ceil((meta.systemPeak||0)*1.2)} kênh (headroom 20%).`);
   if(meta.filterSpanSec!=null) bits.push(`Khoảng lọc ${(meta.filterSpanSec/3600).toFixed(1)}h; khoảng có dữ liệu ${(meta.observedSpanSec/3600).toFixed(1)}h.`);
   if(meta.derivedEnd) bits.push(`⚠ ${meta.derivedEnd} cuộc có mốc thời gian chỉ tới phút nên Peak CCU có thể cao hơn thực tế (CCU trung bình và tỷ trọng tải không bị ảnh hưởng).`);
-  note.innerHTML = `<td colspan="${NCOL}" style="border:1px solid #eee;padding:6px" class="muted">${bits.join(' ')}</td>`;
+  note.innerHTML = `<td colspan="${NCOL}" class="muted u-inline-4d2849d1">${bits.join(' ')}</td>`;
   tb.appendChild(note);
 }
 
@@ -7084,23 +7087,23 @@ function plotTopTimeSlots(rows, colors, topN=10, minAttempts=30){
   const avgRate=eligibleTotal ? 100*eligibleCon/eligibleTotal : 0;
   const maxRate=Math.max(...x,avgRate);
   const axisMax=Math.min(100,Math.max(5,Math.ceil(maxRate*1.28)));
-  const barColors=top.map((_,i)=>i===0?'#315f91':i===1?'#4779ad':i===2?'#6f9bc5':'#b9cce0');
+  const barColors=top.map((_,i)=>i===0?uiColor('--ux-color-315f91'):i===1?uiColor('--ux-color-4779ad'):i===2?uiColor('--ux-color-6f9bc5'):uiColor('--ux-color-b9cce0'));
   Plotly.react('chart_top_time_slots', [{
     x, y, type:'bar', orientation:'h',
     text, textposition:'outside',
     cliponaxis:false,
-    marker:{color:barColors,line:{color:'#fff',width:.5}},
+    marker:{color:barColors,line:{color:uiColor('--ux-color-fff'),width:.5}},
     customdata:top.map(s=>[s.con,s.tot,s.tot<100?'Mẫu thấp (<100 cuộc)':'Mẫu đủ từ 100 cuộc']),
     hovertemplate:`%{y}<br>Tỷ lệ kết nối: %{x:.2f}%<br>${statusLabel('Connected')}: %{customdata[0]}<br>Tổng cuộc: %{customdata[1]}<br>%{customdata[2]}<extra></extra>`
   }], {
-    title:{text:`Khung giờ có tỷ lệ kết nối cao nhất<br><span style="font-size:11px;color:#64748b">${topN} khung đầu • Tối thiểu ${minAttempts} cuộc/khung • Thanh xanh nhạt: ngoài 3 khung đầu</span>`,x:.03,xanchor:'left'},
-    xaxis:{title:'Tỷ lệ kết nối (%)',range:[0,axisMax],ticksuffix:'%',gridcolor:'#e7ebf0',zeroline:false},
+    title:{text:`Khung giờ có tỷ lệ kết nối cao nhất<br><span class="u-inline-2f03bac0">${topN} khung đầu • Tối thiểu ${minAttempts} cuộc/khung • Thanh xanh nhạt: ngoài 3 khung đầu</span>`,x:.03,xanchor:'left'},
+    xaxis:{title:'Tỷ lệ kết nối (%)',range:[0,axisMax],ticksuffix:'%',gridcolor:uiColor('--ux-color-e7ebf0'),zeroline:false},
     yaxis:{autorange:'reversed',categoryorder:'array',categoryarray:y},
     height: Math.max(450, y.length*34+130),
     margin:{l:135,r:165,t:78,b:55},
-    bargap:0.22,showlegend:false,plot_bgcolor:'#fff',paper_bgcolor:'#fff',
-    shapes:[{type:'line',xref:'x',yref:'paper',x0:avgRate,x1:avgRate,y0:0,y1:1,line:{color:'#475569',width:1.5,dash:'dot'}}],
-    annotations:[{xref:'x',yref:'paper',x:avgRate,y:1.04,text:`TB ${avgRate.toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:'#475569'},bgcolor:'rgba(255,255,255,.86)'}]
+    bargap:0.22,showlegend:false,plot_bgcolor:uiColor('--ux-color-fff'),paper_bgcolor:uiColor('--ux-color-fff'),
+    shapes:[{type:'line',xref:'x',yref:'paper',x0:avgRate,x1:avgRate,y0:0,y1:1,line:{color:uiColor('--ux-color-475569'),width:1.5,dash:'dot'}}],
+    annotations:[{xref:'x',yref:'paper',x:avgRate,y:1.04,text:`TB ${avgRate.toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-475569')},bgcolor:'rgba(255,255,255,.86)'}]
   }, {
     responsive:true,displaylogo:false,scrollZoom:false,
     modeBarButtonsToRemove:['lasso2d','select2d','toggleSpikelines','hoverClosestCartesian','hoverCompareCartesian','autoScale2d']
@@ -7123,17 +7126,17 @@ function plotCallFunnel(rows, minCompletedBillsec=30){
   const lossConnect=total-connected,lossCompleted=connected-completed;
   const data=[{
     type:'funnel',y:stages,x:values,text:stageText,textinfo:'text',
-    marker:{color:['#64748b',CHART_SEMANTIC.Connected,'#166534']},
-    connector:{line:{color:'#cbd5e1',width:1},fillcolor:'rgba(203,213,225,.48)'},
+    marker:{color:[uiColor('--ux-color-64748b'),CHART_SEMANTIC.Connected,uiColor('--ux-color-166534')]},
+    connector:{line:{color:uiColor('--ux-color-cbd5e1'),width:1},fillcolor:'rgba(203,213,225,.48)'},
     customdata:values.map((value,i)=>[fmt(value),previousRates[i],totalRates[i]]),
     hovertemplate:'%{y}<br>Số cuộc: %{customdata[0]}<br>Tỷ lệ từ bước trước: %{customdata[1]:.1f}%<br>Tỷ lệ trên tổng số cuộc: %{customdata[2]:.1f}%<extra></extra>'
   }];
   const layout={
-    title:{text:`Phễu chất lượng cuộc gọi<br><span style="font-size:11px;color:#64748b">Hoàn tất = ${statusLabel('Connected')} và billsec ≥ ${minCompletedBillsec} giây</span>`,x:.03,xanchor:'left'},
-    margin:{l:105,r:145,t:74,b:22},showlegend:false,plot_bgcolor:'#fff',paper_bgcolor:'#fff',
+    title:{text:`Phễu chất lượng cuộc gọi<br><span class="u-inline-2f03bac0">Hoàn tất = ${statusLabel('Connected')} và billsec ≥ ${minCompletedBillsec} giây</span>`,x:.03,xanchor:'left'},
+    margin:{l:105,r:145,t:74,b:22},showlegend:false,plot_bgcolor:uiColor('--ux-color-fff'),paper_bgcolor:uiColor('--ux-color-fff'),
     annotations:[
-      {xref:'paper',yref:'paper',x:1.02,y:.66,text:`Rơi ${fmt(lossConnect)} · ${pct(lossConnect,total).toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:'#64748b'}},
-      {xref:'paper',yref:'paper',x:1.02,y:.26,text:`Rơi ${fmt(lossCompleted)} · ${pct(lossCompleted,connected).toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:'#64748b'}}
+      {xref:'paper',yref:'paper',x:1.02,y:.66,text:`Rơi ${fmt(lossConnect)} · ${pct(lossConnect,total).toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-64748b')}},
+      {xref:'paper',yref:'paper',x:1.02,y:.26,text:`Rơi ${fmt(lossCompleted)} · ${pct(lossCompleted,connected).toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-64748b')}}
     ]
   };
   Plotly.react('chart_call_funnel',data,layout,{
@@ -7204,7 +7207,7 @@ function renderLineAnomalyTable(rows, minAttemptsDay=50, dropThresholdPp=10){
   rowsOut.sort((a,b)=> a.diffPp - b.diffPp); // most negative first
 
   if(!rowsOut.length){
-    tb.innerHTML = `<tr><td colspan="6" style="border:1px solid #eee;padding:8px" class="muted">Không phát hiện bất thường (ngưỡng: ≥ ${minAttemptsDay} cuộc/ngày & tụt ≥ ${dropThresholdPp} điểm %).</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="6" class="muted u-inline-61e56846">Không phát hiện bất thường (ngưỡng: ≥ ${minAttemptsDay} cuộc/ngày & tụt ≥ ${dropThresholdPp} điểm %).</td></tr>`;
     return;
   }
 
@@ -7220,12 +7223,12 @@ function renderLineAnomalyTable(rows, minAttemptsDay=50, dropThresholdPp=10){
       chenhLechDiemPhanTram: +o.diffPp.toFixed(2)
     };
     tr.innerHTML = `
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(o.p)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${o.lastTot}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${fmt(o.lastRate)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${fmt(o.baseRate)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${diff}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:center"><button type="button" class="llm-explain-btn" data-explain="${reportTableEscape(JSON.stringify(explainPayload))}">Giải thích</button></td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(o.p)}</td>
+      <td class="u-inline-12972e58">${o.lastTot}</td>
+      <td class="u-inline-12972e58">${fmt(o.lastRate)}</td>
+      <td class="u-inline-12972e58">${fmt(o.baseRate)}</td>
+      <td class="u-inline-12972e58">${diff}</td>
+      <td class="u-inline-eb12ed95"><button type="button" class="llm-explain-btn" data-explain="${reportTableEscape(JSON.stringify(explainPayload))}">Giải thích</button></td>
     `;
     tb.appendChild(tr);
   });
@@ -7250,10 +7253,10 @@ function plotAgentPerformance(rows, colors, topN=10){
   const totalAttempts=data.reduce((sum,a)=>sum+a.tot,0);
   const totalConnected=data.reduce((sum,a)=>sum+a.con,0);
   const avgRate=totalAttempts ? 100*totalConnected/totalAttempts : 0;
-  const barColors=data.map((_,i)=>i===0?'#315f91':i===1?'#4779ad':i===2?'#6f9bc5':'#b9cce0');
+  const barColors=data.map((_,i)=>i===0?uiColor('--ux-color-315f91'):i===1?uiColor('--ux-color-4779ad'):i===2?uiColor('--ux-color-6f9bc5'):uiColor('--ux-color-b9cce0'));
   Plotly.react('chart_agent_perf', [{
     x, y, type:'bar', orientation:'h',
-    marker:{color:barColors,line:{color:'#fff',width:.5}},cliponaxis:false,
+    marker:{color:barColors,line:{color:uiColor('--ux-color-fff'),width:.5}},cliponaxis:false,
     customdata:data.map(a=>[a.tot,a.con,a.noans,a.fail,a.minutes,a.avgCon]),
     hovertemplate:`%{y}<br>Tỷ lệ kết nối: %{x:.2f}%<br>Số cuộc: %{customdata[0]:,.0f}<br>${statusLabel('Connected')}: %{customdata[1]:,.0f}<br>${statusLabel('No Answer')}: %{customdata[2]:,.0f}<br>${statusLabel('Fail')}: %{customdata[3]:,.0f}<br>Phút gọi: %{customdata[4]:.1f}<br>Billsec trung bình khi kết nối: %{customdata[5]:.1f} giây<extra></extra>`,
     text:data.map(a=>`${(100*a.rate).toFixed(1)}% · ${new Intl.NumberFormat('vi-VN').format(a.tot)} cuộc`),
@@ -7261,18 +7264,18 @@ function plotAgentPerformance(rows, colors, topN=10){
   }, {
     x: xAsr, y, type:'scatter', mode:'markers', name:'ASR hợp lệ',
     xaxis:'x2',
-    marker:{size:9, color:CHART_SEMANTIC.AnswerRate, symbol:'diamond', line:{color:'#fff',width:1}},
+    marker:{size:9, color:CHART_SEMANTIC.AnswerRate, symbol:'diamond', line:{color:uiColor('--ux-color-fff'),width:1}},
     customdata: data.map(a=>[a.con, a.noans]),
     hovertemplate:`%{y}<br>ASR hợp lệ: %{x:.2f}%<br>${statusLabel('Connected')}: %{customdata[0]:,.0f} • ${statusLabel('No Answer')}: %{customdata[1]:,.0f}<extra></extra>`
   }], {
-    title:{text:`Kết nối và ASR của ${topN} tài khoản có nhiều cuộc gọi nhất<br><span style="font-size:11px;color:#64748b">Cột = Tỷ lệ kết nối • Hình thoi = ASR hợp lệ • Sắp theo tỷ lệ kết nối</span>`,x:.03,xanchor:'left'},
-    xaxis:{title:'Tỷ lệ kết nối (%)',range:[0,100],ticksuffix:'%',gridcolor:'#e7ebf0',zeroline:false},
+    title:{text:`Kết nối và ASR của ${topN} tài khoản có nhiều cuộc gọi nhất<br><span class="u-inline-2f03bac0">Cột = Tỷ lệ kết nối • Hình thoi = ASR hợp lệ • Sắp theo tỷ lệ kết nối</span>`,x:.03,xanchor:'left'},
+    xaxis:{title:'Tỷ lệ kết nối (%)',range:[0,100],ticksuffix:'%',gridcolor:uiColor('--ux-color-e7ebf0'),zeroline:false},
     xaxis2:{title:'ASR (%)',overlaying:'x',side:'top',range:[0,100],ticksuffix:'%',showgrid:false,zeroline:false},
     yaxis:{type:'category',autorange:'reversed',categoryorder:'array',categoryarray:y,automargin:true},
     height: Math.max(400, y.length*34+130),
-    margin:{l:190,r:170,t:78,b:48},bargap:.22,showlegend:false,plot_bgcolor:'#fff',paper_bgcolor:'#fff',
-    shapes:[{type:'line',xref:'x',yref:'paper',x0:avgRate,x1:avgRate,y0:0,y1:1,line:{color:'#475569',width:1.5,dash:'dot'}}],
-    annotations:[{xref:'x',yref:'paper',x:avgRate,y:1.04,text:`TB ${avgRate.toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:'#475569'},bgcolor:'rgba(255,255,255,.86)'}]
+    margin:{l:190,r:170,t:78,b:48},bargap:.22,showlegend:false,plot_bgcolor:uiColor('--ux-color-fff'),paper_bgcolor:uiColor('--ux-color-fff'),
+    shapes:[{type:'line',xref:'x',yref:'paper',x0:avgRate,x1:avgRate,y0:0,y1:1,line:{color:uiColor('--ux-color-475569'),width:1.5,dash:'dot'}}],
+    annotations:[{xref:'x',yref:'paper',x:avgRate,y:1.04,text:`TB ${avgRate.toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-475569')},bgcolor:'rgba(255,255,255,.86)'}]
   }, {
     responsive:true,displaylogo:false,scrollZoom:false,
     modeBarButtonsToRemove:['lasso2d','select2d','toggleSpikelines','hoverClosestCartesian','hoverCompareCartesian','autoScale2d']
@@ -7294,16 +7297,16 @@ function renderAgentPerfTable(rows){
     const tr=document.createElement('tr');
     const name=getAccountNameForId(a.id);
     tr.innerHTML=`
-      <td style="border:1px solid #eee;padding:6px"><button type="button" class="drilldown-trigger" data-drill-account="${reportTableEscape(String(a.id))}" data-drill-title="Chi tiết tài khoản ${reportTableEscape(String(name))}">${reportTableEscape(name)}</button><div class="muted" style="font-size:11px">ID: ${reportTableEscape(String(a.id))}</div></td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${a.tot}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${a.con}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${(100*a.rate).toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${(100*a.asr).toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${(100*a.connectExclFailRate).toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${a.minutes.toFixed(1)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${a.avgCon.toFixed(1)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${(100*a.shortRate).toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${retryMap[String(a.id)]||0}</td>
+      <td class="u-inline-4d2849d1"><button type="button" class="drilldown-trigger" data-drill-account="${reportTableEscape(String(a.id))}" data-drill-title="Chi tiết tài khoản ${reportTableEscape(String(name))}">${reportTableEscape(name)}</button><div class="muted u-inline-11a50812">ID: ${reportTableEscape(String(a.id))}</div></td>
+      <td class="u-inline-12972e58">${a.tot}</td>
+      <td class="u-inline-12972e58">${a.con}</td>
+      <td class="u-inline-12972e58">${(100*a.rate).toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${(100*a.asr).toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${(100*a.connectExclFailRate).toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${a.minutes.toFixed(1)}</td>
+      <td class="u-inline-12972e58">${a.avgCon.toFixed(1)}</td>
+      <td class="u-inline-12972e58">${(100*a.shortRate).toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${retryMap[String(a.id)]||0}</td>
     `;
     tb.appendChild(tr);
   });
@@ -7331,24 +7334,24 @@ function renderGwByAccountBody(){
   const shown = gwByAccountData.filter(m => rowPassesColFilters(m, filters, GW_BY_ACCOUNT_NUMCOLS));
   tb.innerHTML = '';
   if(!shown.length){
-    tb.innerHTML = `<tr><td colspan="11" class="muted" style="padding:8px;text-align:center">${gwByAccountData.length ? 'Không dòng nào khớp bộ lọc cột.' : ''}</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="11" class="muted u-inline-bee7c325">${gwByAccountData.length ? 'Không dòng nào khớp bộ lọc cột.' : ''}</td></tr>`;
     return;
   }
   shown.forEach(m=>{
     const tr = document.createElement('tr');
     const unmapped = !m.mapped;
     tr.innerHTML = `
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.account_id)}</td>
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.account_name)}</td>
-      <td style="border:1px solid #eee;padding:6px${unmapped?';color:#9aa5b1':''}"><button type="button" class="drilldown-trigger" data-drill-account="${reportTableEscape(String(m.account_id))}" data-drill-gateway="${reportTableEscape(String(m.gateway))}" data-drill-title="Chi tiết ${reportTableEscape(String(m.account_name))} · ${reportTableEscape(String(m.gateway))}">${reportTableEscape(m.gateway)}</button></td>
-      <td style="border:1px solid #eee;padding:6px" class="muted">${reportTableEscape(m.routing_name||'')}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.total.toLocaleString('vi-VN')}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connected.toLocaleString('vi-VN')}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connectRate.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.asr.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connectExclFailRate.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.failPct.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(m.account_id)}</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(m.account_name)}</td>
+      <td style="border:1px solid var(--border);padding:6px${unmapped?';color:var(--text-3)':''}"><button type="button" class="drilldown-trigger" data-drill-account="${reportTableEscape(String(m.account_id))}" data-drill-gateway="${reportTableEscape(String(m.gateway))}" data-drill-title="Chi tiết ${reportTableEscape(String(m.account_name))} · ${reportTableEscape(String(m.gateway))}">${reportTableEscape(m.gateway)}</button></td>
+      <td class="muted u-inline-4d2849d1">${reportTableEscape(m.routing_name||'')}</td>
+      <td class="u-inline-12972e58">${m.total.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${m.connected.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${m.connectRate.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.asr.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.connectExclFailRate.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.failPct.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
     `;
     tb.appendChild(tr);
   });
@@ -7405,23 +7408,23 @@ function renderGatewayFailTable(rows){
     cov.innerHTML = `${data.length} gateway · <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc đã map gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`;
   }
   if(!data.length){
-    tb.innerHTML = '<tr><td colspan="9" class="muted" style="padding:8px;text-align:center">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="9" class="muted u-inline-bee7c325">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</td></tr>';
     return;
   }
   data.forEach(m=>{
     const tr = document.createElement('tr');
     const hot = m.failPct >= 20;
     tr.innerHTML = `
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.gateway)}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.accountCount.toLocaleString('vi-VN')}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.total.toLocaleString('vi-VN')}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connected.toLocaleString('vi-VN')}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connectRate.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.asr.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connectExclFailRate.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.fail.toLocaleString('vi-VN')}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right${hot?';color:#c0392b;font-weight:700':''}">${m.failPct.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(m.gateway)}</td>
+      <td class="u-inline-12972e58">${m.accountCount.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${m.total.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${m.connected.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${m.connectRate.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.asr.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.connectExclFailRate.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.fail.toLocaleString('vi-VN')}</td>
+      <td style="border:1px solid var(--border);padding:6px;text-align:right${hot?';color:var(--error);font-weight:700':''}">${m.failPct.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
     `;
     tb.appendChild(tr);
   });
@@ -7438,7 +7441,7 @@ function plotGatewayCallDistribution(rows, colors){
 
   const mappedTotal = data.reduce((sum,item)=>sum + (Number(item.total)||0),0);
   const palette = (colors && colors.Palette && colors.Palette.length)
-    ? colors.Palette : ['#3584e4'];
+    ? colors.Palette : [uiColor('--ux-color-3584e4')];
   const customdata = data.map(item=>[
     mappedTotal ? item.total/mappedTotal*100 : 0,
     item.accountCount || 0,
@@ -7486,7 +7489,7 @@ function renderGatewayHangupCauseTable(rows){
     cov.innerHTML = `${gatewayCount} gateway · ${data.length} dòng nguyên nhân · <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc đã map gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`;
   }
   if(!data.length){
-    host.innerHTML = '<div class="muted" style="padding:12px;text-align:center">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</div>';
+    host.innerHTML = '<div class="muted u-inline-01f63f3b">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</div>';
     return;
   }
 
@@ -7516,7 +7519,7 @@ function renderGatewayHangupCauseTable(rows){
           <td>${item.noans.toLocaleString('vi-VN')}</td>
           <td>${item.cancelled.toLocaleString('vi-VN')}</td>
           <td>${item.fail.toLocaleString('vi-VN')}</td>
-          <td${hot?' style="color:var(--error);font-weight:700"':''}>${item.failSharePct.toFixed(2)}%</td>
+          <td class="u-inline-e9710c57"${hot?'':''}>${item.failSharePct.toFixed(2)}%</td>
         </tr>`;
       }).join('');
       details.innerHTML = `
@@ -7616,12 +7619,12 @@ function renderGatewayBlockReconcileTable(rows){
   tb.innerHTML = '';
   const hasMap = gatewayCidIndex && Object.keys(gatewayCidIndex).length > 0;
   if(!hasMap){
-    tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:8px">Chưa có mapping Gateway (tab Vòng đời CID).</td></tr>';
+    tb.innerHTML = '<tr><td colspan="7" class="muted u-inline-e2c960fb">Chưa có mapping Gateway (tab Vòng đời CID).</td></tr>';
     return;
   }
   const data = cubeVal('gatewayBlockReconcile', ()=>computeGatewayBlockReconcile(rows || [])) || [];
   if(!data.length){
-    tb.innerHTML = '<tr><td colspan="7" class="muted" style="padding:8px">Không có cuộc gọi nào vừa map gateway vừa có trạng thái telco để đối chiếu.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="7" class="muted u-inline-e2c960fb">Không có cuộc gọi nào vừa map gateway vừa có trạng thái telco để đối chiếu.</td></tr>';
     return;
   }
   const TLABEL = { viettel:'Viettel', mobi:'Mobi', vina:'Vina', other:'Other' };
@@ -7629,13 +7632,13 @@ function renderGatewayBlockReconcileTable(rows){
     const warn = /export có thể cũ|nghi bị chặn/.test(m.verdict);
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(m.gateway)}</td>
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(TLABEL[m.telco]||m.telco)}</td>
-      <td style="border:1px solid #eee;padding:6px">${m.declared === 'PAUSE' ? '<b style="color:#c0392b">PAUSE</b>' : 'ON'}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.total.toLocaleString('vi-VN')}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.failPct.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${m.connPct.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px${warn?';color:#c0392b':';color:#5a6b5a'}">${reportTableEscape(m.verdict)}</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(m.gateway)}</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(TLABEL[m.telco]||m.telco)}</td>
+      <td class="u-inline-4d2849d1">${m.declared === 'PAUSE' ? '<b class="u-inline-a4f36f6a">PAUSE</b>' : 'ON'}</td>
+      <td class="u-inline-12972e58">${m.total.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${m.failPct.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${m.connPct.toFixed(2)}%</td>
+      <td style="border:1px solid var(--border);padding:6px${warn?';color:var(--error)':';color:var(--text-2)'}">${reportTableEscape(m.verdict)}</td>
     `;
     tb.appendChild(tr);
   });
@@ -7677,7 +7680,7 @@ function renderCallbackTopTable(rows, topN=30, minAttempts=3){
     .sort((a,b)=> b.tot-a.tot);
 
   if(!stats.length){
-    tb.innerHTML = `<tr><td colspan="5" style="border:1px solid #eee;padding:8px" class="muted">Không có số đích gọi lặp (min ${minAttempts} lần).</td></tr>`;
+    tb.innerHTML = `<tr><td colspan="5" class="muted u-inline-61e56846">Không có số đích gọi lặp (min ${minAttempts} lần).</td></tr>`;
     return;
   }
 
@@ -7685,11 +7688,11 @@ function renderCallbackTopTable(rows, topN=30, minAttempts=3){
     const rate = s.tot ? (100*s.con/s.tot) : 0;
     const tr=document.createElement('tr');
     tr.innerHTML=`
-      <td style="border:1px solid #eee;padding:6px">${reportTableEscape(maskDn(s.dn))}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${s.tot}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${s.con}</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${rate.toFixed(2)}%</td>
-      <td style="border:1px solid #eee;padding:6px;text-align:right">${s.firstConnectAttempt==null ? '-' : s.firstConnectAttempt}</td>
+      <td class="u-inline-4d2849d1">${reportTableEscape(maskDn(s.dn))}</td>
+      <td class="u-inline-12972e58">${s.tot}</td>
+      <td class="u-inline-12972e58">${s.con}</td>
+      <td class="u-inline-12972e58">${rate.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${s.firstConnectAttempt==null ? '-' : s.firstConnectAttempt}</td>
     `;
     tb.appendChild(tr);
   });
@@ -7752,7 +7755,7 @@ function renderDataQuality(rows){
     if(genUUID) chips.push({k:'uuid sinh tự động (file không có cột uuid)', v: genUUID});
     if(derivedEnd) chips.push({k:'end time suy ra từ start + duration (nguồn chỉ có phút)', v: derivedEnd});
     const banner = (colHealth.critical||[]).map(msg=>
-      `<div class="alert-item" style="margin-bottom:6px"><span class="badge red">Dữ liệu hỏng</span><div class="muted">${msg}</div></div>`).join('');
+      `<div class="alert-item u-inline-4e420aff"><span class="badge red">Dữ liệu hỏng</span><div class="muted">${msg}</div></div>`).join('');
     sum.innerHTML = banner + chips.map(c=> `<span class="chip"><b>${c.k}:</b> ${c.v}</span>`).join('');
   }
 
@@ -7762,8 +7765,8 @@ function renderDataQuality(rows){
     if(perfect.length){
       const perfectAttempts = perfect.reduce((sum,s)=>sum+s.tot,0);
       const perfectNames = perfect.map(s=>`<span>${reportTableEscape(maskDn(s.dn))}</span>`).join('');
-      tables[0].insertAdjacentHTML('beforeend', `<tr><td colspan="4" style="border:1px solid #eee;padding:6px">
-        <details><summary style="cursor:pointer"><b>100% ${statusLabel('Connected')}</b> — ${perfect.length.toLocaleString('vi-VN')} số đích · ${perfectAttempts.toLocaleString('vi-VN')} cuộc</summary>
+      tables[0].insertAdjacentHTML('beforeend', `<tr><td class="u-inline-4d2849d1" colspan="4">
+        <details><summary class="u-inline-3b6a3a65"><b>100% ${statusLabel('Connected')}</b> — ${perfect.length.toLocaleString('vi-VN')} số đích · ${perfectAttempts.toLocaleString('vi-VN')} cuộc</summary>
           <div class="data-quality-perfect-list">${perfectNames}</div>
         </details>
       </td></tr>`);
@@ -7773,10 +7776,10 @@ function renderDataQuality(rows){
       const rate = s.tot? (100*s.con/s.tot) : 0;
       const tr=document.createElement('tr');
       tr.innerHTML=`
-        <td style="border:1px solid #eee;padding:6px">${reportTableEscape(maskDn(s.dn))}</td>
-        <td style="border:1px solid #eee;padding:6px;text-align:right">${s.tot}</td>
-        <td style="border:1px solid #eee;padding:6px;text-align:right">${s.con}</td>
-        <td style="border:1px solid #eee;padding:6px;text-align:right">${rate.toFixed(2)}%</td>
+        <td class="u-inline-4d2849d1">${reportTableEscape(maskDn(s.dn))}</td>
+        <td class="u-inline-12972e58">${s.tot}</td>
+        <td class="u-inline-12972e58">${s.con}</td>
+        <td class="u-inline-12972e58">${rate.toFixed(2)}%</td>
       `;
       tb.appendChild(tr);
     });
@@ -7795,11 +7798,11 @@ function renderAdvancedAlerts(rows){
   const fullReport = cubeVal('operationalAlerts', ()=>null);
   if(fullReport && Array.isArray(fullReport.items)){
     const scope=fullReport.scope||{};
-    const scopeHtml=`<div class="filter-scope" style="margin-bottom:8px"><b>Phạm vi:</b> toàn bộ ${Number(scope.rows||0).toLocaleString('vi-VN')} dòng đã lọc${scope.dateMin&&scope.dateMax?` · ${scope.dateMin} → ${scope.dateMax}`:''}</div>`;
+    const scopeHtml=`<div class="filter-scope u-inline-fdf33f23"><b>Phạm vi:</b> toàn bộ ${Number(scope.rows||0).toLocaleString('vi-VN')} dòng đã lọc${scope.dateMin&&scope.dateMax?` · ${scope.dateMin} → ${scope.dateMax}`:''}</div>`;
     el.innerHTML=scopeHtml+fullReport.items.map(it=> `
       <div class="alert-item">
         <span class="badge ${it.level}">${it.level==='red'?'Cần xử lý':it.level==='yellow'?'Theo dõi':'Ổn'}</span>
-        <div style="flex:1"><div style="font-weight:600;margin-bottom:2px">${it.title}</div><div class="muted">${it.desc}</div></div>
+        <div class="u-inline-97445a8d"><div class="u-inline-5ad85a6b">${it.title}</div><div class="muted">${it.desc}</div></div>
         <button type="button" class="llm-explain-btn" data-explain="${reportTableEscape(JSON.stringify({loai:'Cảnh báo dashboard',mucDo:it.level,tieuDe:it.title,moTa:it.desc,phamVi:scope}))}">Giải thích bằng AI</button>
       </div>`).join('');
     return;
@@ -7912,13 +7915,13 @@ function renderAdvancedAlerts(rows){
   }
 
   const fallbackScope = loadedRowTotal>rows.length
-    ? `<div class="filter-scope warn" style="margin-bottom:8px"><b>Phạm vi:</b> mẫu ${Number(rows.length).toLocaleString('vi-VN')}/${Number(loadedRowTotal).toLocaleString('vi-VN')} dòng — Worker không sẵn sàng.</div>`
-    : `<div class="filter-scope" style="margin-bottom:8px"><b>Phạm vi:</b> toàn bộ ${Number(rows.length).toLocaleString('vi-VN')} dòng.</div>`;
+    ? `<div class="filter-scope warn u-inline-fdf33f23"><b>Phạm vi:</b> mẫu ${Number(rows.length).toLocaleString('vi-VN')}/${Number(loadedRowTotal).toLocaleString('vi-VN')} dòng — Worker không sẵn sàng.</div>`
+    : `<div class="filter-scope u-inline-fdf33f23"><b>Phạm vi:</b> toàn bộ ${Number(rows.length).toLocaleString('vi-VN')} dòng.</div>`;
   el.innerHTML = fallbackScope + items.map(it=> `
     <div class="alert-item">
       <span class="badge ${it.level}">${it.level==='red'?'Cần xử lý':it.level==='yellow'?'Theo dõi':'Ổn'}</span>
-      <div style="flex:1">
-        <div style="font-weight:600;margin-bottom:2px">${it.title}</div>
+      <div class="u-inline-97445a8d">
+        <div class="u-inline-5ad85a6b">${it.title}</div>
         <div class="muted">${it.desc}</div>
       </div>
       <button type="button" class="llm-explain-btn" data-explain="${reportTableEscape(JSON.stringify({loai:'Cảnh báo dashboard', mucDo: it.level, tieuDe: it.title, moTa: it.desc}))}">Giải thích bằng AI</button>
@@ -9630,7 +9633,7 @@ function renderRN_CF_ReportUnified(rows){
     ];
     cells.forEach((v, idx)=>{
       const td = document.createElement('td');
-      td.style.border = '1px solid #eee';
+      td.style.border = '1px solid var(--border)';
       td.style.padding = '6px';
       td.style.textAlign = (idx in {3:1,5:1,7:1,9:1}) ? 'right' : 'left';
       td.textContent = String(v);
@@ -10152,7 +10155,7 @@ function plotDirectionSplit(rows, colors){
   const labels = Object.keys(counts).filter(k=> counts[k]>0);
   const values = labels.map(k=> counts[k]);
   if(!values.length) return showNoData(elId, 'Không có dữ liệu chiều cuộc gọi (direction)');
-  const directionColors = {Inbound:'#2563eb',Outbound:'#7c3aed',Unknown:CHART_SEMANTIC.Cancelled};
+  const directionColors = {Inbound:uiColor('--ux-color-2563eb'),Outbound:uiColor('--ux-color-7c3aed'),Unknown:CHART_SEMANTIC.Cancelled};
   const data=[{type:'pie', labels, values, hole:0.45, textinfo:'label+percent',
     marker:{colors: labels.map(label=>directionColors[label])},
     hovertemplate:'%{label}<br>%{value} cuộc (%{percent})<extra></extra>'}];
@@ -10246,7 +10249,7 @@ function plotAnswerDelayByTelco(rows, colors){
   const pct = (arr,p)=>{ if(!arr.length) return null; const s=[...arr].sort((a,b)=>a-b); const i=Math.min(arr.length-1, Math.max(0, Math.ceil(p*arr.length)-1)); return s[i]; };
   const tels = Object.keys(map).filter(t=> map[t].length>0).sort();
   if(!tels.length) return showNoData(elId, `Không có cuộc gọi ${statusLabel('Connected')} để tính thời gian đổ chuông`);
-  const palette = ['#8baecd','#4e79a7','#315f91'];
+  const palette = [uiColor('--ux-color-8baecd'),uiColor('--ux-color-4e79a7'),uiColor('--ux-color-315f91')];
   const traces = [50,90,95].map((p,i)=>({
     x: tels.map(t=> pct(map[t], p/100)),
     y: tels,
