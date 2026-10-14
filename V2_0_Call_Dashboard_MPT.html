@@ -607,6 +607,8 @@ function updateRN_CF_KPIs(rows){
     </div>
   </div>
 
+  <div id="reportEmptyState" class="card full empty-state--app" role="status" hidden></div>
+
   <div id="tabsBar" class="adw-navlist" aria-label="Nhóm báo cáo">
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="overview"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 9l6-6 6 6M4 8v5h8V8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Tổng quan</span></button>
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="quality"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2.5 12a5.5 5.5 0 1 1 11 0" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M8 12L11 7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg><span>Chất lượng</span></button>
@@ -803,6 +805,8 @@ function updateRN_CF_KPIs(rows){
         <tbody></tbody>
       </table>
     </div>
+
+    <div id="gatewayGroupEmpty" class="card full empty-state--group" data-tab="advanced" data-group-empty hidden></div>
 
     <div id="table_gateway_fail" class="card full" data-tab="advanced" draggable="true">
       <h3 style="margin:0 0 6px 0">Tỷ lệ Fail theo Gateway (tất cả account)</h3>
@@ -1234,6 +1238,8 @@ function updateRN_CF_KPIs(rows){
         </table>
       </div>
     </div>
+
+    <div id="cidGroupEmpty" class="card full empty-state--group" data-tab="cid" data-group-empty hidden></div>
 
     <div id="panel_cid_coverage" class="card full" data-tab="cid" draggable="true">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
@@ -2263,8 +2269,10 @@ function initAdwShell(){
   }
   if(clamp){
     const kpi=document.querySelector('.kpi-shell');
+    const empty=document.getElementById('reportEmptyState');
     const grid=document.getElementById('reportGrid');
     if(kpi) clamp.appendChild(kpi);
+    if(empty) clamp.appendChild(empty);
     if(grid) clamp.appendChild(grid);
   }
 }
@@ -2460,6 +2468,10 @@ function plotLayout(overrides={}){
       const target=typeof element==='string' ? document.getElementById(element) : element;
       if(target){
         target.querySelectorAll(':scope > .no-data').forEach(node=>node.remove());
+        target.querySelectorAll(':scope > .empty-state').forEach(node=>node.remove());
+        target.classList.remove('has-empty-state');
+        const card=target.closest('.chart-report-card');
+        if(card) card.classList.remove('has-empty-state');
       }
       const next=Object.assign({},layout||{});
       const isHardWhite=v=>typeof v==='string' && /^#fff(fff)?$/i.test(v.trim());
@@ -2548,7 +2560,41 @@ function syncCustomColorControls(enabled){
 document.getElementById('useCustomColors').addEventListener('change', (e)=> syncCustomColorControls(e.target.checked));
 syncCustomColorControls(document.getElementById('useCustomColors').checked);
 
-function showNoData(id, msg){ const el=document.getElementById(id); if(!el) return console.warn('showNoData: missing element',id); try{ Plotly.purge(el); }catch(e){} el.innerHTML = `<div class="no-data">${msg}</div>`; }
+function renderEmptyState(container,{icon='○',title='Không có dữ liệu',description='',actions=[]}={}){
+  const host=typeof container==='string'?document.getElementById(container):container;
+  if(!host) return null;
+  const state=document.createElement('div'); state.className='empty-state';
+  const glyph=document.createElement('div'); glyph.className='empty-state-icon'; glyph.setAttribute('aria-hidden','true'); glyph.textContent=icon;
+  const heading=document.createElement('h3'); heading.textContent=title;
+  const copy=document.createElement('p'); copy.textContent=description;
+  state.append(glyph,heading,copy);
+  if(actions.length){
+    const controls=document.createElement('div'); controls.className='empty-state-actions';
+    actions.forEach(action=>{ const button=document.createElement('button'); button.type='button'; button.textContent=action.label; button.className=action.variant==='primary'?'primary-btn':''; button.addEventListener('click',action.onClick); controls.appendChild(button); });
+    state.appendChild(controls);
+  }
+  host.replaceChildren(state);
+  return state;
+}
+function expandEmptyDateRange(){
+  document.getElementById('qr_7')?.click();
+  document.getElementById('applyFilter')?.click();
+}
+function showNoData(id,msg){
+  const el=document.getElementById(id);
+  if(!el) return console.warn('showNoData: missing element',id);
+  try{ Plotly.purge(el); }catch(_){}
+  el.classList.add('has-empty-state');
+  const card=el.closest('.chart-report-card');
+  if(card){
+    card.classList.add('has-empty-state');
+    const statistics=card.querySelector('.report-statistics');
+    if(statistics) statistics.hidden=true;
+  }
+  const missingColumn=/dữ liệu\s+([a-z_\/]+)/i.exec(msg||'');
+  const generic=/^Không có dữ liệu|không có cuộc gọi|không đủ dữ liệu/i.test(msg||'');
+  renderEmptyState(el,{icon:missingColumn?'!':'○',title:missingColumn?'Thiếu dữ liệu cần thiết':'Không có dữ liệu trong phạm vi lọc',description:missingColumn?`Nguồn dữ liệu chưa có trường ${missingColumn[1]}.`:String(msg||'Hãy thử thay đổi bộ lọc.'),actions:generic?[{label:'Mở rộng khoảng thời gian',onClick:expandEmptyDateRange}]:[]});
+}
 
 // ---------- CSV support ----------
 
@@ -3821,11 +3867,14 @@ function renderPlotStatistics(chart){
   const body=details.querySelector('.report-stat-body');
   const allRows=collectPlotStatistics(chart);
   const maxRows=250, rows=allRows.slice(0,maxRows);
-  summary.textContent=`Bảng số liệu (${allRows.length.toLocaleString('vi-VN')} dòng)`;
   if(!rows.length){
-    body.innerHTML='<div class="report-stat-note">Không có số liệu trong phạm vi lọc hiện tại.</div>';
+    details.hidden=true;
+    details.open=false;
+    body.replaceChildren();
     return;
   }
+  details.hidden=false;
+  summary.textContent=`Bảng số liệu (${allRows.length.toLocaleString('vi-VN')} dòng)`;
   const html=rows.map(row=>`<tr><td>${reportTableEscape(reportTableValue(row[0]))}</td><td>${reportTableEscape(reportTableValue(row[1]))}</td><td class="num">${reportTableEscape(reportTableValue(row[2]))}</td><td>${reportTableEscape(reportTableValue(row[3]))}</td></tr>`).join('');
   const note=allRows.length>maxRows?`<div class="report-stat-note">Đang hiển thị ${maxRows.toLocaleString('vi-VN')} / ${allRows.length.toLocaleString('vi-VN')} dòng để bảo đảm hiệu năng.</div>`:'';
   body.innerHTML=`<div class="report-stat-scroll"><table class="report-stat-table"><thead><tr><th>Series</th><th>Danh mục / Thời điểm</th><th class="num">Giá trị</th><th>Thông tin thêm</th></tr></thead><tbody>${html}</tbody></table></div>${note}`;
@@ -3958,7 +4007,7 @@ async function computeCubeFor(params){
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
-const REPORT_ORDER_VERSION='2026-09-24-rn-detail-v1';
+const REPORT_ORDER_VERSION='2026-10-14-empty-states-v1';
 const REPORT_ORDER_VERSION_KEY='grid-layout-version';
 
 /* ==========================================================================
@@ -4009,7 +4058,7 @@ const REPORT_LAYOUT={
       // tổng quan vận hành
       'panel_alerts','table_data_quality',
       // sức khỏe gateway
-      'table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause',
+      'gatewayGroupEmpty','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause',
       // hiệu suất account
       'chart_agent_perf','table_agent_perf','chart_account_radar','table_gateway_by_account',
       // chẩn đoán chuyên sâu
@@ -4022,7 +4071,7 @@ const REPORT_LAYOUT={
     primaryIds:['panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','chart_cid_pressure','panel_cid_waste','chart_cid_load_risk','table_cid_action_queue'],
     order:[
     // khả dụng / hồi phục
-    'panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','table_cid_mttr_telco','chart_cid_mttr','table_cid_reblock','table_cid_duty',
+    'cidGroupEmpty','panel_cid_coverage','chart_cid_availability','chart_cid_recovery_survival','table_cid_mttr_telco','chart_cid_mttr','table_cid_reblock','table_cid_duty',
     // áp lực / mất mát
     'chart_cid_pressure','chart_cid_inventory_trend','table_cid_bursts','panel_cid_waste','panel_cid_loss',
     // rủi ro & chỉ báo sớm
@@ -4176,7 +4225,7 @@ function updateCidGroupHeaders(tabName){
     if(!header) return;
     const hasVisibleCard=g.cards.some(id=>{
       const card=resolveReportCard(id);
-      return card && card.style.display!=='none';
+      return card && !card.hidden && card.style.display!=='none';
     });
     header.style.display=tabName==='cid' && hasVisibleCard ? '' : 'none';
   });
@@ -4216,7 +4265,7 @@ function updateAdvancedGroupHeaders(tabName){
     if(!header) return;
     const hasVisibleCard=g.cards.some(id=>{
       const card=resolveReportCard(id);
-      return card && card.style.display!=='none';
+      return card && !card.hidden && card.style.display!=='none';
     });
     header.style.display=tabName==='advanced' && hasVisibleCard ? '' : 'none';
   });
@@ -4228,7 +4277,7 @@ function applyProgressiveDisclosure(){
   Object.keys(PRIMARY_REPORTS).forEach(tab=>{
     const primaryCards=new Set(PRIMARY_REPORTS[tab].map(resolveReportCard).filter(Boolean));
     const cards=Array.from(document.querySelectorAll(`#reportGrid > .card[data-tab="${tab}"]`));
-    cards.forEach(card=>card.classList.toggle('secondary-report',!primaryCards.has(card)));
+    cards.forEach(card=>card.classList.toggle('secondary-report',!card.hasAttribute('data-group-empty')&&!primaryCards.has(card)));
     const secondaryCount=cards.filter(card=>card.classList.contains('secondary-report')).length;
     if(!secondaryCount) return;
     const toggle=document.createElement('div');
@@ -4252,6 +4301,41 @@ function applyProgressiveDisclosure(){
 applyDashboardV2Layout();
 applyProgressiveDisclosure();
 
+const GLOBAL_EMPTY_TABS=new Set(['overview','quality','time','advanced','billing']);
+function syncGlobalEmptyState(tabName=currentTab){
+  const host=document.getElementById('reportEmptyState');
+  const kpi=document.querySelector('.kpi-shell');
+  if(!host) return false;
+  const empty=!dashState.filtered.length;
+  const active=empty&&GLOBAL_EMPTY_TABS.has(tabName);
+  host.hidden=!active;
+  if(kpi) kpi.hidden=active;
+  if(!active) return false;
+
+  document.querySelectorAll(`#reportGrid > .card[data-tab="${tabName}"]`).forEach(card=>{
+    card.style.display='none';
+  });
+  const noDataset=!(typeof enriched!=='undefined'&&enriched&&enriched.length);
+  const mode=noDataset?'dataset':'filter';
+  if(host.dataset.emptyMode!==mode){
+    host.dataset.emptyMode=mode;
+    renderEmptyState(host,{
+      icon:noDataset?'⇩':'⌕',
+      title:noDataset?'Chưa có dữ liệu cuộc gọi':'Không có cuộc gọi trong phạm vi lọc',
+      description:noDataset
+        ?'Tải báo cáo từ MPT hoặc nhập tệp CSV/JSON để bắt đầu phân tích.'
+        :'Dữ liệu đã tải không có bản ghi phù hợp. Hãy mở rộng khoảng thời gian hoặc kiểm tra bộ lọc tài khoản.',
+      actions:noDataset?[
+        {label:'Tải báo cáo',variant:'primary',onClick:()=>document.getElementById('updateReport')?.click()},
+        {label:'Nhập CSV/JSON',onClick:()=>document.getElementById('fileInput')?.click()},
+      ]:[
+        {label:'Mở rộng khoảng thời gian',variant:'primary',onClick:expandEmptyDateRange},
+        {label:'Tải lại báo cáo',onClick:()=>document.getElementById('updateReport')?.click()},
+      ],
+    });
+  }
+  return true;
+}
 
 function showTab(tabName){
   currentTab = tabName;
@@ -4267,6 +4351,9 @@ function showTab(tabName){
     const hiddenByDisclosure=card.classList.contains('secondary-report') && !tabReportExpanded[t];
     card.style.display = (t===tabName && !hiddenByDisclosure) ? '' : 'none';
   });
+  if(tabName==='cid') updateCidGroupVisibility();
+  if(tabName==='advanced') updateGatewayGroupVisibility();
+  const globallyEmpty=syncGlobalEmptyState(tabName);
   updateCidGroupHeaders(tabName);
   updateAdvancedGroupHeaders(tabName);
   updateReportToggle(tabName);
@@ -4279,10 +4366,17 @@ function showTab(tabName){
     return;
   }
 
+  if(globallyEmpty){
+    if(tabHint) tabHint.textContent='Chưa có dữ liệu cho phạm vi báo cáo hiện tại';
+    return;
+  }
+
   const tabCards=Array.from(document.querySelectorAll(`#reportGrid > .card[data-tab="${tabName}"]:not(.report-more-toggle):not(.cid-tier-header):not(.cid-summary-panel)`));
-  const visibleCount=tabCards.filter(card=>card.style.display!=='none').length;
+  const visibleCount=tabCards.filter(card=>!card.hidden&&card.style.display!=='none').length;
   if(tabHint){
-    tabHint.textContent=visibleCount<tabCards.length
+    tabHint.textContent=tabName==='cid'&&!cidState.loaded
+      ? 'Chưa tải lịch sử khoá số • Chọn một hành động trong vùng nội dung'
+      : visibleCount<tabCards.length
       ? `Đang hiển thị ${visibleCount}/${tabCards.length} báo cáo • Các báo cáo còn lại ở nút “Hiển thị tất cả”`
       : `Đang hiển thị toàn bộ ${tabCards.length} báo cáo`;
   }
@@ -4684,7 +4778,20 @@ function renderTimeTab(filtered, colors){
   ]);
 }
 
+const GATEWAY_REPORT_IDS=['table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause','table_gateway_by_account','table_gateway_block_reconcile'];
+function updateGatewayGroupVisibility(){
+  const empty=document.getElementById('gatewayGroupEmpty');
+  if(!empty) return;
+  const hasMap=Boolean(gatewayCidIndex&&Object.keys(gatewayCidIndex).length);
+  GATEWAY_REPORT_IDS.forEach(id=>{ const card=resolveReportCard(id); if(card) card.hidden=!hasMap; });
+  empty.hidden=hasMap;
+  if(hasMap||empty.dataset.ready==='1') return;
+  empty.dataset.ready='1';
+  renderEmptyState(empty,{icon:'↔',title:'Cần gán Gateway cho tài khoản',description:'Các báo cáo sức khỏe Gateway sẽ hiện sau khi gán routing_id và đồng bộ danh sách CID.',actions:[{label:'Gán Gateway',variant:'primary',onClick:()=>showSettingsSection('settingsGateway')}]});
+}
+
 function renderAdvancedTab(filtered, colors){
+  updateGatewayGroupVisibility();
   return renderSteps([
     ()=> safePlot('chart_rn_histogram', ()=> plotRNHistogram(filtered)),
     ()=> safePlot('chart_account_radar', ()=> plotAccountRadar(filtered, colors, 5)),
@@ -5254,6 +5361,27 @@ async function exportBillingDetail(){
    ========================================================================== */
 const cidState = { loaded:false, loading:false, error:'',
                    events:[], routings:[], meta:null, timeline:null };
+const CID_REPORT_SELECTOR='#reportGrid > .card[data-tab="cid"]:not(#cidGroupEmpty)';
+function updateCidGroupVisibility(){
+  const empty=document.getElementById('cidGroupEmpty');
+  if(!empty) return;
+  const unavailable=!cidState.loaded;
+  document.querySelectorAll(CID_REPORT_SELECTOR).forEach(card=>{ card.hidden=unavailable; });
+  empty.hidden=!unavailable;
+  if(!unavailable) return;
+  const mode=cidState.loading?'loading':cidState.error?'error':'empty';
+  if(empty.dataset.emptyMode===mode) return;
+  empty.dataset.emptyMode=mode;
+  renderEmptyState(empty,{
+    icon:cidState.loading?'…':cidState.error?'!':'◷',
+    title:cidState.loading?'Đang tải lịch sử khoá số':cidState.error?'Không tải được lịch sử khoá số':'Chưa có lịch sử khoá số',
+    description:cidState.error||'Tải dữ liệu đã lưu hoặc đồng bộ thêm các ngày còn thiếu từ MPT.',
+    actions:cidState.loading?[]:[
+      {label:'Tải từ cache',onClick:()=>loadCidEvents(false)},
+      {label:'Đồng bộ từ MPT',variant:'primary',onClick:()=>loadCidEvents(true)},
+    ],
+  });
+}
 
 /* Phạm vi CID đi theo bộ lọc Account chính. MPT lưu sự kiện theo tên Routing,
    còn bộ lọc dùng account_id, nên nối qua cả tên Account trùng Routing và bảng
@@ -5384,7 +5512,7 @@ function cidWindowBounds(){
 async function loadCidEvents(sync){
   if(cidState.loading) return;
   const pid = (typeof mptActiveProfileId !== 'undefined') ? mptActiveProfileId : '';
-  if(!pid){ cidState.error = 'Hãy chọn kết nối MPT trước (Nguồn dữ liệu MPT).'; renderCidTab(); return; }
+  if(!pid){ cidState.error = 'Hãy chọn kết nối MPT trong thanh lọc hoặc thêm kết nối ở Cài đặt.'; renderCidTab(); return; }
   cidState.loading = true; cidState.error = ''; renderCidTab();
   try{
     const qs = new URLSearchParams({ profile_id: pid });
@@ -6040,6 +6168,8 @@ function renderCidComparison(){
 }
 
 function renderCidTab(){
+  updateCidGroupVisibility();
+  if(!cidState.loaded) return;
   cidCalcCache = { rows: null, leaks: null, windows: new Map() };
   renderCidSummaryStrip();
   renderCidCoverage();
@@ -7842,7 +7972,8 @@ async function updateDashboardWithFilters(){
     currentFilterKey = filterKey;
   }
   renderCommon(filtered, ov, colors);
-  await ensureTabRendered(currentTab, true);
+  const globallyEmpty=syncGlobalEmptyState(currentTab);
+  if(!globallyEmpty) await ensureTabRendered(currentTab, true);
 }
 
 

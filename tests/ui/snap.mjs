@@ -80,6 +80,16 @@ try {
       await page.waitForTimeout(auditOnly ? 80 : 180);
       const activeState = await page.locator(`#tabsBar .tab-btn[data-tab="${tab}"]`).getAttribute('aria-current');
       if (activeState !== 'page') throw new Error(`Sidebar chưa đánh dấu màn hình ${tab} đang mở.`);
+      if (tab === 'cid') {
+        if (!(await page.locator('#cidGroupEmpty').isVisible())) throw new Error('CID chưa gom trạng thái rỗng thành một card cấp nhóm.');
+        const visibleChildren = await page.locator('#reportGrid > .card[data-tab="cid"]:not(#cidGroupEmpty)').evaluateAll(elements => elements.filter(element => !element.hidden && getComputedStyle(element).display !== 'none').map(element => element.id));
+        if (visibleChildren.length) throw new Error(`CID còn hiện card con khi chưa tải lịch sử: ${visibleChildren.join(', ')}`);
+      }
+      if (tab === 'advanced') {
+        if (!(await page.locator('#gatewayGroupEmpty').isVisible())) throw new Error('Gateway chưa có trạng thái rỗng cấp nhóm.');
+        const visibleGateway = await page.evaluate(() => GATEWAY_REPORT_IDS.filter(id => { const card = resolveReportCard(id); return card && !card.hidden && getComputedStyle(card).display !== 'none'; }));
+        if (visibleGateway.length) throw new Error(`Gateway còn hiện báo cáo phụ thuộc mapping: ${visibleGateway.join(', ')}`);
+      }
       if (!auditOnly) {
         await page.screenshot({ path: path.join(out, `${theme}-${tab}.png`) });
         await page.screenshot({ path: path.join(out, `${theme}-${tab}-full.png`), fullPage: true });
@@ -168,6 +178,16 @@ try {
       const compactHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
       if (compactHeight > 112) throw new Error(`Thanh lọc cao ${compactHeight}px ở 1024px.`);
       await page.screenshot({ path: path.join(out, 'light-overview-1024.png'), fullPage: true });
+    }
+    if (theme === 'light') {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
+      await page.evaluate(() => applyLoadedRows([]));
+      await page.locator('#reportEmptyState').waitFor({ state: 'visible' });
+      if (await page.locator('.kpi-shell').isVisible()) throw new Error('KPI số 0 vẫn hiện khi toàn ứng dụng không có dữ liệu.');
+      const visibleReports = await page.locator('#reportGrid > .card[data-tab="overview"]').evaluateAll(elements => elements.filter(element => getComputedStyle(element).display !== 'none').map(element => element.id));
+      if (visibleReports.length) throw new Error(`Biểu đồ rỗng vẫn hiện thay vì trạng thái toàn ứng dụng: ${visibleReports.join(', ')}`);
+      if (!auditOnly) await page.screenshot({ path: path.join(out, 'light-global-empty.png'), fullPage: true });
     }
     console.log(`${theme} axe theo màn hình: ${JSON.stringify(axeSummary)}`);
     if (errors.length) console.warn(`${theme} page errors: ${errors.slice(0, 5).join(' | ')}`);

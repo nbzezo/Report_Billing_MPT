@@ -1092,7 +1092,21 @@ body.adw .chip-status[data-status="No Answer"]{background:var(--st-noanswer-bg);
 body.adw .chip-status[data-status="Cancelled"]{background:var(--st-cancelled-bg);color:var(--st-cancelled-fg)}
 body.adw .chip-status[data-status="Fail"]{background:var(--st-fail-bg);color:var(--st-fail-fg)}
 body.adw .card{background:var(--surface);border-color:var(--border)}
-body.adw .empty-state{text-align:center;padding:var(--sp-8);color:var(--text-2)}
+body.adw [hidden]{display:none!important}
+body.adw .empty-state{display:grid;place-items:center;align-content:center;min-height:160px;padding:var(--sp-6);box-sizing:border-box;text-align:center;color:var(--text-2)}
+body.adw .empty-state-icon{display:grid;place-items:center;width:42px;height:42px;margin-bottom:var(--sp-2);border-radius:50%;background:var(--surface-2);color:var(--accent-text);font-size:var(--fs-xl);font-weight:750}
+body.adw .empty-state h3{margin:0;color:var(--text);font-size:var(--fs-lg)}
+body.adw .empty-state p{max-width:560px;margin:var(--sp-2) 0 0;line-height:1.5}
+body.adw .empty-state-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--sp-2);margin-top:var(--sp-4)}
+body.adw .empty-state-actions button{min-height:34px;padding:6px 12px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text);cursor:pointer}
+body.adw .empty-state-actions .primary-btn{border-color:var(--accent);background:var(--accent);color:#fff}
+body.adw .empty-state--group{grid-column:1/-1;min-height:220px}
+body.adw .empty-state--group>.empty-state{min-height:218px}
+body.adw .empty-state--app{width:100%;min-height:300px;margin-bottom:var(--sp-4)}
+body.adw .empty-state--app>.empty-state{min-height:298px}
+body.adw .chart-report-card.has-empty-state{min-height:160px!important;height:auto!important}
+body.adw .chart-report-card.has-empty-state>[id^="chart_"]{height:auto!important;min-height:160px!important}
+body.adw .chart-report-card.has-empty-state .report-statistics{display:none}
 body.adw .loading-error{margin-top:var(--sp-3);color:var(--st-fail-fg);background:var(--st-fail-bg);padding:var(--sp-3);border-radius:var(--r-md)}
 
 /* UX-23: KPI Tổng quan theo hai tầng, màu chỉ xuất hiện khi vượt ngưỡng. */

@@ -1233,6 +1233,21 @@ class FrontendRegressionTests(unittest.TestCase):
             self.assertIn(token, self.dashboard_html)
         self.assertNotIn('id="kpi_max_cf" class="kpi compact tone-red"', self.dashboard_html)
 
+    def test_empty_states_replace_zero_charts_and_group_repetition(self):
+        for token in (
+            "function renderEmptyState(container,",
+            'id="reportEmptyState"',
+            'id="gatewayGroupEmpty"',
+            'id="cidGroupEmpty"',
+            "function syncGlobalEmptyState",
+            "details.hidden=true",
+            "card.classList.add('has-empty-state')",
+            "const CID_REPORT_SELECTOR",
+            "const GATEWAY_REPORT_IDS",
+        ):
+            self.assertIn(token, self.dashboard_html)
+        self.assertNotIn("body.innerHTML='<div class=\"report-stat-note\">Không có số liệu", self.dashboard_html)
+
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
         self.assertTrue(worker.exists())
