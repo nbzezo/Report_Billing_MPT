@@ -1400,7 +1400,10 @@ body.adw .threshold-grid input{width:100%;box-sizing:border-box}
 body.adw .loading-error-details{margin-top:var(--sp-2);color:var(--text-2)}
 body.adw .loading-error-details pre{max-height:140px;overflow:auto;white-space:pre-wrap;font-size:var(--fs-xs)}
 body.adw .skeleton{background:linear-gradient(90deg,var(--surface-2),var(--surface),var(--surface-2));background-size:200% 100%;animation:adw-skeleton 1.4s infinite}
+body.adw.report-skeleton-active .overview-kpi-card,body.adw.report-skeleton-active #reportGrid>.card[data-tab]:not([hidden]){position:relative;overflow:hidden}
+body.adw.report-skeleton-active .overview-kpi-card::after,body.adw.report-skeleton-active #reportGrid>.card[data-tab]:not([hidden])::after{content:"";position:absolute;z-index:20;inset:0;pointer-events:none;border-radius:inherit;background:linear-gradient(100deg,var(--surface-2) 18%,var(--surface) 38%,var(--surface-2) 58%);background-size:220% 100%;animation:adw-skeleton 1.4s infinite}
 @keyframes adw-skeleton{to{background-position:-200% 0}}
+@media(prefers-reduced-motion:reduce){body.adw .skeleton,body.adw.report-skeleton-active .overview-kpi-card::after,body.adw.report-skeleton-active #reportGrid>.card[data-tab]:not([hidden])::after{animation:none}}
 
 /* UX-30: extracted static inline styles. */
 .u-inline-6b99de8b{display:none}

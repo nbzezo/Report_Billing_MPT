@@ -34,6 +34,22 @@ try {
     await page.goto(`http://127.0.0.1:${port}/?csv=/tests/ui/fixtures/sample.csv`, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => ['8000', '8.000'].includes(document.querySelector('#kpi_total_text')?.textContent?.trim()), { timeout: 45000 });
     await page.waitForFunction(() => !document.querySelector('#reportLoading.show'), { timeout: 45000 });
+    await page.waitForFunction(() => reportSkeletonTimer === null && !document.body.classList.contains('report-skeleton-active'));
+    const skeletonState = await page.evaluate(async () => {
+      const token = beginReportSkeleton();
+      await new Promise(resolve => setTimeout(resolve, 220));
+      const early = document.body.classList.contains('report-skeleton-active');
+      await new Promise(resolve => setTimeout(resolve, 240));
+      const state = {
+        early,
+        active: document.body.classList.contains('report-skeleton-active'),
+        modal: document.getElementById('reportLoading').classList.contains('show'),
+        busy: document.getElementById('adwMain').getAttribute('aria-busy'),
+      };
+      endReportSkeleton(token);
+      return state;
+    });
+    if (skeletonState.early || !skeletonState.active || skeletonState.modal || skeletonState.busy !== 'true') throw new Error(`Skeleton DB sai trạng thái: ${JSON.stringify(skeletonState)}`);
     if ((await page.locator('#updateReport').textContent()).trim() !== 'Cập nhật') throw new Error('Header chưa dùng một hành động Cập nhật duy nhất.');
     if (!/Dữ liệu từ tệp/.test(await page.locator('#dataFreshnessSummary').textContent())) throw new Error('Header chưa hiển thị độ mới dữ liệu.');
     const kpiMetrics = await page.locator('.kpi-shell').evaluate(element => ({

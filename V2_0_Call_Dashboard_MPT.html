@@ -8347,6 +8347,8 @@ let reportLoadingStarted=0;
 let reportLoadingTimer=null;
 let reportLoadingBaseDetail='';
 let reportProgressTimer=null;
+let reportSkeletonTimer=null;
+let reportSkeletonSeq=0;
 let lastReportDataUrl='';
 let serverBackedReport=false;
 let preloadedServerCube=null;
@@ -8356,6 +8358,27 @@ let lastReportMeta=null;
 
 function reportSyncMode(dataUrl){
   try{ return new URL(dataUrl,location.origin).searchParams.get('sync')||'auto'; }catch(_){ return 'auto'; }
+}
+
+function beginReportSkeleton(){
+  const token=++reportSkeletonSeq;
+  clearTimeout(reportSkeletonTimer);
+  document.body.classList.remove('report-skeleton-active');
+  reportSkeletonTimer=setTimeout(()=>{
+    if(token!==reportSkeletonSeq) return;
+    document.body.classList.add('report-skeleton-active');
+    document.getElementById('adwMain')?.setAttribute('aria-busy','true');
+  },400);
+  return token;
+}
+
+function endReportSkeleton(token=0){
+  if(token&&token!==reportSkeletonSeq) return;
+  reportSkeletonSeq++;
+  clearTimeout(reportSkeletonTimer);
+  reportSkeletonTimer=null;
+  document.body.classList.remove('report-skeleton-active');
+  document.getElementById('adwMain')?.removeAttribute('aria-busy');
 }
 
 function setReportActionsBusy(busy,syncMode='auto'){
@@ -8754,6 +8777,8 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
   serverBackedReport=true;
   const syncMode=reportSyncMode(dataUrl);
   const readOnly=syncMode==='none';
+  const skeletonToken=readOnly?beginReportSkeleton():0;
+  if(!readOnly) endReportSkeleton();
   if(updateBrowserUrl){
     const saved=new URL(dataUrl,location.origin);
     saved.searchParams.set('sync','none');
@@ -8786,7 +8811,8 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
   const controller=new AbortController();
   reportAbortController=controller;
   setReportActionsBusy(true,syncMode);
-  setReportLoading(true,readOnly?'Đang dựng báo cáo từ DB…':'Đang đồng bộ MPT và dựng báo cáo…');
+  if(readOnly) setReportLoading(false);
+  else setReportLoading(true,'Đang đồng bộ MPT và dựng báo cáo…');
   startReportProgressPolling(jobId,accountIds.length);
   try{
     const response=await fetch(bundleUrl.pathname+bundleUrl.search,{cache:'no-store',signal:controller.signal});
@@ -8829,8 +8855,10 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
       setReportLoading(false); toast('Đã hủy tải báo cáo.',true); return false;
     }
     const message='Không tải được dữ liệu: '+((error&&error.message)||error);
-    setReportLoading(true,message,true); toast(message,true); return false;
+    if(readOnly) setReportLoading(false); else setReportLoading(true,message,true);
+    toast(message,true); return false;
   }finally{
+    if(skeletonToken) endReportSkeleton(skeletonToken);
     if(isCurrent()){
       stopReportProgressPolling(); reportAbortController=null; setReportActionsBusy(false);
     }
@@ -8855,6 +8883,8 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
   lastReportMeta=null;
   const syncMode=reportSyncMode(dataUrl);
   const readOnly=syncMode==='none';
+  const skeletonToken=beginReportSkeleton();
+  setReportLoading(false);
   if(updateBrowserUrl){
     // F5/bookmark chỉ đọc lại DB; muốn tải mới thì bấm "Cập nhật báo cáo".
     let savedUrl=dataUrl;
@@ -8871,12 +8901,10 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
   const controller=new AbortController();
   reportAbortController=controller;
   setReportActionsBusy(true,syncMode);
-  let initialDetail=readOnly?'Đang đọc dữ liệu đã lưu trong DB…':'Đang kiểm tra dữ liệu đã lưu và tải phần mới từ MPT…';
   let accountTotal=0;
   try{
     const accountValue=new URL(dataUrl,location.origin).searchParams.get('account_id')||'';
     accountTotal=accountValue.split(',').filter(value=>value&&value!=='0').length;
-    if(accountTotal>1&&!readOnly) initialDetail=`Đang lấy dữ liệu tuần tự từ ${accountTotal} tài khoản để đảm bảo đúng bộ lọc…`;
   }catch(_){}
   // Job id chỉ dùng để hỏi tiến độ; không đưa vào lastReportDataUrl/URL trình duyệt.
   let fetchUrl=dataUrl;
@@ -8885,7 +8913,6 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
     jobId='job-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
     fetchUrl=dataUrl+(dataUrl.includes('?')?'&':'?')+'job_id='+encodeURIComponent(jobId);
   }
-  setReportLoading(true,initialDetail);
   startReportProgressPolling(jobId,accountTotal);
   try{
     const res = await fetch(fetchUrl, {cache:'no-store',signal:controller.signal});
@@ -8980,10 +9007,11 @@ async function loadReportDataUrl(dataUrl, updateBrowserUrl=false){
       return false;
     }
     const message='Không tải được dữ liệu: '+e.message;
-    setReportLoading(true,message,true);
+    setReportLoading(false);
     toast(message, true);
     return false;
   }finally{
+    endReportSkeleton(skeletonToken);
     if(isCurrent()){
       stopReportProgressPolling();
       reportAbortController=null;

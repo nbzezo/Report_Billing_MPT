@@ -1315,6 +1315,18 @@ class FrontendRegressionTests(unittest.TestCase):
         ):
             self.assertIn(token, self.dashboard_html)
 
+    def test_db_refresh_uses_delayed_skeleton_and_reserves_modal_for_mpt(self):
+        for token in (
+            "function beginReportSkeleton()",
+            "},400);",
+            "report-skeleton-active",
+            "const skeletonToken=readOnly?beginReportSkeleton():0",
+            "if(readOnly) setReportLoading(false)",
+            "else setReportLoading(true,'Đang đồng bộ MPT và dựng báo cáo…')",
+            "endReportSkeleton(skeletonToken)",
+        ):
+            self.assertIn(token, self.dashboard_html)
+
     def test_worker_is_available(self):
         worker = ROOT / "dashboard-csv-worker.js"
         self.assertTrue(worker.exists())
