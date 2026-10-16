@@ -4,6 +4,8 @@
 // JSON results, so the browser never has to receive/parse the full CDR CSV.
 const readline = require('node:readline');
 const path = require('node:path');
+const fs = require('node:fs');
+const crypto = require('node:crypto');
 const { DatabaseSync } = require('node:sqlite');
 
 const root = process.argv[2] || process.cwd();
@@ -12,6 +14,46 @@ const core = require(path.join(root, 'dashboard-core.js'));
 // không nhân đôi heap khi người dùng đổi profile/phạm vi.
 const DATASET_CACHE_LIMIT = 1;
 const datasets = new Map();
+const BUNDLE_CACHE_VERSION = 2;
+const BUNDLE_CACHE_LIMIT = 8;
+const bundleCacheDir = path.join(root, '.cache', 'analytics-bundles');
+
+function bundleCachePath(message, cap) {
+  const sourceVersion = [__filename, path.join(root, 'dashboard-core.js')]
+    .map(file => fs.statSync(file).mtimeMs);
+  const signature = JSON.stringify([
+    BUNDLE_CACHE_VERSION, sourceVersion, message.dbPath, message.datasetKey,
+    message.params || {}, message.cubeParams || {}, cap
+  ]);
+  const digest = crypto.createHash('sha256').update(signature).digest('hex');
+  return path.join(bundleCacheDir, digest + '.json');
+}
+
+function readBundleCache(file) {
+  try {
+    const result = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!result || !result.cube || !result.meta || !Array.isArray(result.rows)) return null;
+    const now = new Date();
+    fs.utimesSync(file, now, now);
+    return result;
+  } catch (_) { return null; }
+}
+
+function writeBundleCache(file, result) {
+  try {
+    fs.mkdirSync(bundleCacheDir, { recursive: true });
+    const temp = file + '.' + process.pid + '.tmp';
+    fs.writeFileSync(temp, JSON.stringify(result));
+    fs.renameSync(temp, file);
+    const files = fs.readdirSync(bundleCacheDir)
+      .filter(name => name.endsWith('.json'))
+      .map(name => ({ name, time: fs.statSync(path.join(bundleCacheDir, name)).mtimeMs }))
+      .sort((a, b) => b.time - a.time);
+    for (const entry of files.slice(BUNDLE_CACHE_LIMIT)) {
+      fs.unlinkSync(path.join(bundleCacheDir, entry.name));
+    }
+  } catch (_) { /* cache is optional */ }
+}
 const DIRECTION_FILTERS = {
   '1': ['outbound', 'external'],
   outbound: ['outbound', 'external'],
@@ -108,9 +150,17 @@ function loadDataset(message) {
     const where = whereOf(message.params);
     const sql = `SELECT ${COLUMNS.join(',')} FROM call_records WHERE ${where.sql} ORDER BY start_stamp`;
     const raw = db.prepare(sql).all(...where.values);
-    const normalized = core.normalizeCallRecords(raw);
+    // CallStore already stores canonical columns, numeric values, timestamps and
+    // UUIDs. Rebuild a uniform V8 object shape for fast analytics, but skip the
+    // general CSV normalization pass. Telco names still use the shared rule.
+    const makeRow = core.makeRowFactory(COLUMNS);
+    const normalized = raw.map(row => {
+      const out = makeRow(COLUMNS.map(column => row[column]));
+      out.telco = core.normalizeTelcoName(out.telco);
+      return out;
+    });
     const rows = core.enrichData(normalized, {}, gatewayIndex(db, message.params.profile_id));
-    const dataset = { rows, meta: datasetMeta(rows), billing: new Map() };
+    const dataset = { rows, meta: datasetMeta(rows), billing: new Map(), cubes: new Map() };
     datasets.set(key, dataset);
     while (datasets.size > DATASET_CACHE_LIMIT) datasets.delete(datasets.keys().next().value);
     return dataset;
@@ -132,18 +182,43 @@ function billingOf(dataset, cfg) {
   return value;
 }
 
+function cubeOf(dataset, params) {
+  const key = JSON.stringify(params || {});
+  if (dataset.cubes.has(key)) return dataset.cubes.get(key);
+  const value = core.slimCubeForTransfer(core.buildCube(dataset.rows, params || {}));
+  dataset.cubes.set(key, value);
+  while (dataset.cubes.size > 4) dataset.cubes.delete(dataset.cubes.keys().next().value);
+  return value;
+}
+
+function previewRows(rows, cap) {
+  if (rows.length <= cap) return rows;
+  if (cap === 1) return [rows[0]];
+  const sample = new Array(cap);
+  for (let i = 0; i < cap; i++) {
+    sample[i] = rows[Math.floor(i * (rows.length - 1) / (cap - 1))];
+  }
+  return sample;
+}
+
 function handle(message) {
   if (message.op === 'invalidate') { datasets.clear(); return { ok: true }; }
-  const dataset = loadDataset(message);
   if (message.op === 'bundle') {
     const cap = Math.max(1, Math.min(Number(message.previewLimit || 50000), 50000));
-    return {
-      cube: core.slimCubeForTransfer(core.buildCube(dataset.rows, message.cubeParams || {})),
-      rows: dataset.rows.slice(0, cap), meta: dataset.meta
+    const cacheFile = bundleCachePath(message, cap);
+    const cached = readBundleCache(cacheFile);
+    if (cached) return cached;
+    const dataset = loadDataset(message);
+    const result = {
+      cube: cubeOf(dataset, message.cubeParams),
+      rows: previewRows(dataset.rows, cap), meta: dataset.meta
     };
+    writeBundleCache(cacheFile, result);
+    return result;
   }
+  const dataset = loadDataset(message);
   if (message.op === 'cube') {
-    return { cube: core.slimCubeForTransfer(core.buildCube(dataset.rows, message.cubeParams || {})), meta: dataset.meta };
+    return { cube: cubeOf(dataset, message.cubeParams), meta: dataset.meta };
   }
   if (message.op === 'detail') {
     return core.queryCallDetails(

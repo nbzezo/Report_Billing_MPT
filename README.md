@@ -66,7 +66,10 @@ devnull khi khong co console nen van chay binh thuong.
 
 - Nhieu Account duoc export bang session rieng tung Account de tranh MPT tra nham filter.
 - Ket qua filter duoc cache trong RAM 10 phut (toi da 8 filter). Chay lai cung profile/filter se nhanh hon va dashboard hien `MPT cache: HIT`.
-- Cache bi xoa khi luu hoac xoa profile, va tu mat khi dung local server.
+- Cache filter MPT bi xoa khi luu hoac xoa profile, va tu mat khi dung local server.
+- Bundle bao cao chi gui 5.000 dong xem truoc lay deu theo thoi gian; KPI va cube van tinh tren toan bo du lieu. Chi tiet tung cuoc goi duoc truy van tu server khi mo.
+- Cube duoc cache trong tien trinh Node va bundle duoc luu o `.cache/analytics-bundles/` (toi da 8 pham vi). Khoa cache gom revision du lieu, bo loc va phien ban ma nguon; cap nhat du lieu se tu dong dung ket qua moi.
+- Do toc do xu ly cuc bo: `node scripts/benchmark_loading.js 2026-10-09 2026-10-16 5000` (thay hai moc ngay theo du lieu cua ban; moc thu hai khong bao gom).
 
 ## Luu profile
 

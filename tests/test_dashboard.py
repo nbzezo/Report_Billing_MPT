@@ -567,6 +567,12 @@ class AnalyticsWorkerTests(unittest.TestCase):
                 self.assertEqual(bundle["meta"]["count"], 2)
                 self.assertEqual(len(bundle["rows"]), 1)
                 self.assertEqual(bundle["cube"]["overview"]["totalCalls"], 2)
+                worker.stop()
+                reopened = worker.request(
+                    "bundle", params=params, datasetKey="p:1",
+                    cubeParams=cube_params, previewLimit=1,
+                )
+                self.assertEqual(reopened, bundle)
                 detail = worker.request(
                     "detail", params=params, datasetKey="p:1",
                     detailParams={"startDate": today, "endDate": today,

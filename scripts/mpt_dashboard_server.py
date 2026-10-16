@@ -1493,7 +1493,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             cache_state = self._sync_calldata(sync_params, job_id, sync_mode)
             result = self._analytics_request(
                 "bundle", params, cubeParams=self._cube_params(query, params),
-                previewLimit=50000,
+                previewLimit=5000,
             )
             account_ids = [
                 value for value in params.get("account_id", "").split(",")

@@ -881,15 +881,18 @@ function aggregateOverview(rows){
 
 // Các cảnh báo vận hành phải được tính trong worker trên TOÀN BỘ tập đã lọc.
 // UI chỉ render cấu trúc gọn này, tránh vô tình tính lại trên MAIN_ROW_CAP dòng đầu.
-function computeOperationalAlerts(rows){
+function computeOperationalAlerts(rows, precomputed){
+  precomputed = precomputed || {};
   const list = rows || [];
   const total = list.length;
-  const connected = list.reduce((s,r)=> s + (isConnectedStrict(r) ? 1 : 0), 0);
+  const connected = precomputed.overview
+    ? precomputed.overview.billsecMetrics.connected
+    : list.reduce((s,r)=> s + (isConnectedStrict(r) ? 1 : 0), 0);
   const overallRate = total ? connected/total : 0;
-  const dns = list.map(r=>String(r.destination_number||'').trim()).filter(Boolean);
-  const invalid = dns.reduce((s,dn)=>s + (!isLikelyPhoneNumber(dn) ? 1 : 0), 0);
-  const invalidRatio = dns.length ? invalid/dns.length : 0;
-  const stats = computeDailyPrefixStats(list);
+  const quality = precomputed.destinationQuality || computeDestinationQualityMetrics(list);
+  const invalidRatio = quality.destinationCount
+    ? quality.invalidDestination / quality.destinationCount : 0;
+  const stats = precomputed.dailyPrefixStats || computeDailyPrefixStats(list);
   const dates = Array.from(new Set(stats.map(s=>s.date))).sort();
   const lastDate = dates[dates.length-1];
   const prevDates = dates.slice(Math.max(0,dates.length-8),-1);
@@ -920,7 +923,7 @@ function computeOperationalAlerts(rows){
     .map(h=>({...h,rate:h.failNoAnswer/h.total,diffPp:(h.failNoAnswer/h.total-overallIssueRate)*100}))
     .filter(h=>h.diffPp>=10).sort((a,b)=>b.diffPp-a.diffPp);
   const items=[];
-  const health=computeRequiredColumnHealth(list);
+  const health=precomputed.columnHealth || computeRequiredColumnHealth(list);
   (health.critical||[]).forEach(msg=>items.push({level:'red',title:'Dữ liệu đầu vào hỏng',desc:msg}));
   if(health.missing.length) items.push({level:'red',title:'Thiếu cột bắt buộc',desc:health.missing.join(', ')});
   else if(health.sparse.length) items.push({level:'yellow',title:'Cột thiếu dữ liệu',desc:health.sparse.join(', ')});
@@ -968,32 +971,47 @@ function buildCube(enrichedRows, params) {
     params.account || 'all',
     params.startTime, params.endTime
   );
-  const dates = rows.map(r => r.date).filter(d => d && d !== 'Unknown').sort();
+  let dateMin = null, dateMax = null;
+  const accounts = new Set();
+  for (const row of rows) {
+    const date = row.date;
+    if (date && date !== 'Unknown') {
+      if (dateMin === null || date < dateMin) dateMin = date;
+      if (dateMax === null || date > dateMax) dateMax = date;
+    }
+    accounts.add(String(row.account_id || 'Unknown'));
+  }
   const ccuScope = params.ccuScope === 'occupied' ? 'occupied' : 'answered';
   const filterSpanSec = filterWindowSec(params);
   const retry = params.retry || {};
+  const overview = aggregateOverview(rows);
+  const columnHealth = computeRequiredColumnHealth(rows);
+  const dailyPrefixStats = computeDailyPrefixStats(rows);
   return {
     meta: {
       rows: rows.length,
-      accounts: new Set(rows.map(r => String(r.account_id || 'Unknown'))).size,
-      dateMin: dates.length ? dates[0] : null,
-      dateMax: dates.length ? dates[dates.length - 1] : null,
+      accounts: accounts.size,
+      dateMin,
+      dateMax,
       ccuScope,
       filterSpanSec
     },
     // --- Tổng quan / renderCommon ---
-    overview: aggregateOverview(rows),
+    overview,
     byPrefix: aggByPrefix(rows),
     minutesPerDay: minutesPerDay(rows),
-    columnHealth: computeRequiredColumnHealth(rows),
+    columnHealth,
     timeAnomaly: computeTimeAnomalyMetrics(rows),
-    operationalAlerts: computeOperationalAlerts(rows),
+    operationalAlerts: computeOperationalAlerts(rows, {
+      overview, columnHealth, dailyPrefixStats,
+      destinationQuality: overview.destinationQuality
+    }),
     accountKPIs: computeAccountKPIs(rows),
     topDest: computeTopDest(rows),
     // --- Chất lượng ---
     destTelcoShare: aggDestTelcoShare(rows),
     telcoConnBreakdown: aggTelcoConnBreakdown(rows),
-    dailyPrefixStats: computeDailyPrefixStats(rows),
+    dailyPrefixStats,
     // --- Thời gian ---
     timeHeatmap: computeTimeHeatmap(rows),
     goldenHours: computeGoldenHours(rows),

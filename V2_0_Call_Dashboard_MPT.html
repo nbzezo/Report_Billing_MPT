@@ -5720,7 +5720,7 @@ function cidSampleWarning(){
   return '<div style="margin-bottom:8px;padding:8px 10px;border-left:3px solid var(--brand);'
     + 'background:rgba(233,84,32,.06);font-size:11.5px">Bộ dữ liệu <b>'
     + Number(total).toLocaleString('vi-VN') + '</b> dòng nhưng luồng chính chỉ giữ <b>'
-    + Number(shown).toLocaleString('vi-VN') + '</b> dòng đầu — các con số dưới đây tính trên '
+    + Number(shown).toLocaleString('vi-VN') + '</b> dòng ' + (serverBackedReport ? 'lấy đều theo thời gian' : 'đầu') + ' — các con số dưới đây tính trên '
     + '<b>mẫu bị cắt</b>, không phải toàn bộ. Thu hẹp khoảng ngày hoặc lọc bớt account để có số đầy đủ.</div>';
 }
 
@@ -8097,7 +8097,7 @@ function setLoadedRowCap(shown, total){
     el.hidden = !capped;
     if(capped) el.textContent =
       `Bộ dữ liệu ${Number(total).toLocaleString('vi-VN')} dòng — chỉ số & biểu đồ tổng hợp tính trên toàn bộ; `
-      + `vài biểu đồ chi tiết theo từng cuộc và bảng dữ liệu dựa trên ${Number(shown).toLocaleString('vi-VN')} dòng đầu.`;
+      + `vài biểu đồ chi tiết theo từng cuộc và bảng dữ liệu dựa trên ${Number(shown).toLocaleString('vi-VN')} dòng ${serverBackedReport ? 'lấy đều theo thời gian' : 'đầu'}.`;
   }
 }
 
