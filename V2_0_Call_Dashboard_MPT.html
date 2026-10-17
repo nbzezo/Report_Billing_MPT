@@ -507,13 +507,13 @@ function updateRN_CF_KPIs(rows){
     </div>
     <div class="adw-dialog-body">
         <div class="control-row">
-          <label>Concurrent Telco
+          <label>Hiển thị
             <select class="u-inline-fe9a050c" id="concurTelcoMode">
-              <option value="percent" selected>% + số</option>
-              <option value="absolute">Chỉ số lượng</option>
+              <option value="absolute" selected>Số cuộc đồng thời</option>
+              <option value="percent">Tỷ trọng (%)</option>
             </select>
           </label>
-          <label><input type="checkbox" id="concurTelcoLabels" checked> Hiển thị nhãn</label>
+          <label><input type="checkbox" id="concurTelcoLabels"> Hiển thị nhãn cuối đường</label>
           <label title="Đổ chuông cũng chiếm một kênh thoại. Chọn 'Chiếm kênh' khi cần số liệu để quy hoạch trunk.">CCU tính theo
             <select class="u-inline-fe9a050c" id="ccuScope">
               <option value="answered" selected>Đã nghe máy (Kết nối)</option>
@@ -567,6 +567,7 @@ function updateRN_CF_KPIs(rows){
           <input class="u-inline-bec7b1d5" id="mapAccName" placeholder="Tên hiển thị (vd: VCLASS BOT)"/>
           <button id="addOrUpdateMap">Thêm / Cập nhật</button>
           <button id="applyMapNow">Áp dụng ngay</button>
+          <button id="autoMapAccounts" type="button">Tự động từ MPT</button>
         </div>
         <div class="u-inline-7f18e8f5">
           <button id="exportMap">Xuất JSON ánh xạ</button>
@@ -621,6 +622,12 @@ function updateRN_CF_KPIs(rows){
     <button class="tab-btn" role="tab" aria-selected="false" data-tab="settings"><svg class="tab-icon" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M6.6 2.4h2.8l.4 1.5c.4.2.8.4 1.1.7l1.5-.5 1.4 2.4-1.1 1.1c.1.4.1.9 0 1.3l1.1 1.1-1.4 2.4-1.5-.5c-.3.3-.7.5-1.1.7l-.4 1.5H6.6l-.4-1.5c-.4-.2-.8-.4-1.1-.7l-1.5.5-1.4-2.4 1.1-1.1c-.1-.4-.1-.9 0-1.3L2.2 6.5l1.4-2.4 1.5.5c.3-.3.7-.5 1.1-.7z" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="8.2" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/></svg><span>Cài đặt</span></button>
     <span class="muted adw-sidebar-note">Mẹo: kéo thả thẻ biểu đồ để sắp xếp, tự động lưu</span>
   </div>
+  <section id="reportFinder" class="report-finder" aria-label="Tìm báo cáo">
+    <label for="reportFinderInput">Tìm nhanh báo cáo</label>
+    <p>Gõ tên hoặc chủ đề để mở thẳng một báo cáo, kể cả báo cáo đang thu gọn.</p>
+    <input id="reportFinderInput" type="search" autocomplete="off" placeholder="Ví dụ: Gateway, nhà mạng, CID…" aria-controls="reportFinderResults" aria-expanded="false">
+    <div id="reportFinderResults" class="report-finder-results" hidden></div>
+  </section>
 <div id="reportGrid" class="grid report-grid">
     <section id="settings_panel" class="card settings-card full" data-tab="settings">
       <div class="settings-header"><h2 class="settings-title">Cài đặt</h2><p class="settings-intro">Cấu hình kết nối, ánh xạ, phân tích, hiển thị và AI tại đây.</p></div>
@@ -2514,7 +2521,7 @@ function adwPlotTheme(){
   const text=token('--text',uiColor('--ux-color-1c1b19')), surface=token('--surface',uiColor('--ux-color-ffffff'));
   const grid=token('--border',uiColor('--ux-color-e4e1da'));
   return {
-    font:{family:"'Ubuntu Sans','Noto Sans VN',Ubuntu,system-ui,sans-serif",size:12,color:text},
+    font:{family:"Gilroy, 'Segoe UI', Arial, sans-serif",size:12,color:text},
     paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
     colorway:document.body.classList.contains('dark')?CHART_CATEGORY_COLORS_DARK:CHART_CATEGORY_COLORS,
     separators:',.',gridcolor:grid,
@@ -2565,6 +2572,33 @@ function plotLayout(overrides={}){
         title.text=`${escape(baseTitle)}${scope?`<br><span style="font-size:12px;font-weight:400">${escape(scope)}</span>`:''}`;
         next.title=title;
         next.margin={...(next.margin||{}),t:scope?82:(next.margin?.t||60)};
+      }
+      if(reportCard && ['chart_caller_participation_heatmap','chart_concurrent_by_telco'].includes(target?.id)){
+        let heading=reportCard.querySelector(':scope > .report-chart-heading');
+        if(!heading){
+          heading=document.createElement('div');
+          heading.className='report-chart-heading';
+          heading.innerHTML='<div class="report-chart-title"></div><div class="report-chart-scope"></div>';
+          reportCard.insertBefore(heading,target);
+        }
+        const sourceTitle=typeof layout?.title==='string' ? layout.title : layout?.title?.text || '';
+        heading.querySelector('.report-chart-title').textContent=curatedTitle || sourceTitle;
+        const scopeLine=heading.querySelector('.report-chart-scope');
+        scopeLine.textContent=scope;
+        scopeLine.hidden=!scope;
+        next.title={text:''};
+        next.margin={...(next.margin||{}),t:target.id==='chart_concurrent_by_telco'?96:48};
+      }
+      // Shared chart header contract: the title/scope owns the first row and
+      // horizontal legends sit beneath it, clear of the card drag handle.
+      const legend=next.legend||{};
+      const legendY=Number(legend.y);
+      if(legend.orientation==='h' && (Number.isNaN(legendY) || legendY>=0)){
+        next.legend={...legend,y:1.14,yanchor:'bottom'};
+        next.margin={...(next.margin||{}),t:Math.max(Number(next.margin?.t)||0,128)};
+      }
+      if(next.title && typeof next.title==='object' && next.title.text){
+        next.title={...next.title,y:0.93,yanchor:'top'};
       }
       return original.call(this,element,data,plotLayout(next),config);
     };
@@ -2636,6 +2670,24 @@ function categoryColor(label, palette=getColorScheme()){
   let hash=0;
   for(let i=0;i<key.length;i++) hash=(Math.imul(hash,31)+key.charCodeAt(i))|0;
   return palette[(hash>>>0)%palette.length];
+}
+
+// Hash màu phù hợp cho các chuỗi độc lập, nhưng có thể tạo collision khi
+// nhiều series cùng xuất hiện trên một biểu đồ. Dùng helper này cho các biểu
+// đồ cần mỗi legend item có màu riêng.
+function distinctCategoryColors(labels, palette=getColorScheme()){
+  const source=(Array.isArray(palette)?palette:[]).filter(Boolean);
+  const used=new Set();
+  return labels.map((label,index)=>{
+    let color=categoryColor(label, source.length ? source : CHART_CATEGORY_COLORS);
+    if(used.has(color)) color=source.find(candidate=>!used.has(candidate));
+    if(!color || used.has(color)){
+      const hue=(index*137.508)%360;
+      color=`hsl(${hue.toFixed(1)} 68% 45%)`;
+    }
+    used.add(color);
+    return color;
+  });
 }
 
 function syncCustomColorControls(enabled){
@@ -2764,6 +2816,34 @@ function setMap(id, name){ if(!id) return; accountNameMap[String(id)] = String(n
 function removeMap(id){ delete accountNameMap[String(id)]; saveMap(); renderMapTable(); applyMappingNow(); }
 function clearMapAll(){ accountNameMap = {}; saveMap(); renderMapTable(); applyMappingNow(); }
 function renderMapTable(){ const tb = document.getElementById('mapTbody'); if(!tb) return; tb.innerHTML=''; const keys = Object.keys(accountNameMap).sort(); if(keys.length===0){ tb.innerHTML = '<tr><td colspan="3" class="muted">Chưa có cấu hình</td></tr>'; return; } keys.forEach(k=>{ const tr = document.createElement('tr'); const idEsc=reportTableEscape(k), nameEsc=reportTableEscape(accountNameMap[k]); tr.innerHTML = `<td>${idEsc}</td><td>${nameEsc}</td><td><button data-del="${idEsc}">Xoá</button></td>`; tb.appendChild(tr); }); tb.querySelectorAll('button[data-del]').forEach(btn=> btn.addEventListener('click',()=>{ removeMap(btn.getAttribute('data-del')); })); }
+
+async function autoMapAccountNames(){
+  const before=new Set(Object.keys(accountNameMap||{}));
+  let candidates=Array.isArray(mptAccounts)?mptAccounts.slice():[];
+  if(!candidates.length && typeof mptActiveProfileId!=='undefined' && mptActiveProfileId && typeof mptFetchAccounts==='function'){
+    try{ await mptFetchAccounts(false); candidates=Array.isArray(mptAccounts)?mptAccounts.slice():[]; }
+    catch(error){ toast('Không tải được danh sách tài khoản MPT: '+error.message,true); return; }
+  }
+  const rows=(typeof rawData!=='undefined'&&Array.isArray(rawData)?rawData:[])
+    .concat(typeof enriched!=='undefined'&&Array.isArray(enriched)?enriched:[]);
+  rows.forEach(row=>{
+    const id=String(row?.account_id||'').trim();
+    const name=String(row?.account_name||'').trim();
+    if(id && name && name!==id) candidates.push({id,name});
+  });
+  const seen=new Set(); let added=0;
+  candidates.forEach(item=>{
+    const id=String(item?.id||'').trim(), name=String(item?.name||'').trim();
+    if(!id||!name||name===id||seen.has(id)) return;
+    seen.add(id);
+    // Never overwrite an existing manual mapping.
+    if(!accountNameMap[id]){ accountNameMap[id]=name; added++; }
+  });
+  if(added){ saveMap(); renderMapTable(); applyMappingNow(); }
+  else{ renderMapTable(); }
+  const existing=Object.keys(accountNameMap||{}).length;
+  toast(added?`Đã tự động thêm ${added} mapping từ dữ liệu MPT.`:`Không có mapping mới; giữ nguyên ${existing} mapping hiện có.`);
+}
 
 // ---------- Data helpers ----------
 function readJSONFile(file, cb){ const fr=new FileReader(); fr.onload = ()=>{ try{ const parsed=JSON.parse(fr.result); cb(null,parsed); }catch(e){ cb(e); } }; fr.onerror= ()=> cb(new Error('File read error')); fr.readAsText(file); }
@@ -3738,6 +3818,8 @@ document.getElementById('addOrUpdateMap').addEventListener('click', ()=>{ const 
 
 document.getElementById('applyMapNow').addEventListener('click', ()=>{ applyMappingNow(); });
 
+document.getElementById('autoMapAccounts')?.addEventListener('click', ()=>{ autoMapAccountNames(); });
+
 document.getElementById('exportMap').addEventListener('click', ()=>{ const blob=new Blob([JSON.stringify(accountNameMap,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='account_name_map.json'; a.click(); });
 
 document.getElementById('importMapFile').addEventListener('change', e=>{ const f=e.target.files[0]; if(!f) return; readJSONFile(f,(err, obj)=>{ if(err){ toast('Lỗi đọc file: '+err.message, true); return; } if(!obj || typeof obj!=='object' || Array.isArray(obj)) return toast('File JSON phải là object dạng {"lab-A":"VCLASS BOT",...}', true); accountNameMap = obj; saveMap(); renderMapTable(); applyMappingNow(); toast('Đã import và áp dụng mapping mới.'); }); });
@@ -3983,6 +4065,24 @@ function initChartReportCards(){
     chart.removeAttribute('data-tab');
     chart.removeAttribute('draggable');
     wrapper.appendChild(chart);
+    if(['chart_caller_participation_heatmap','chart_concurrent_by_telco'].includes(chart.id)){
+      const heading=document.createElement('div');
+      heading.className='report-chart-heading';
+      heading.innerHTML='<div class="report-chart-title"></div><div class="report-chart-scope"></div>';
+      heading.querySelector('.report-chart-title').textContent=chart.id==='chart_concurrent_by_telco'
+        ? 'Cuộc gọi đồng thời theo nhà mạng'
+        : `Bản đồ nhiệt số đầu số tham gia theo nhà mạng / ${CALLER_PARTICIPATION_BUCKET_MINUTES} phút`;
+      if(chart.id==='chart_concurrent_by_telco'){
+        const modeLabel=document.getElementById('concurTelcoMode')?.closest('label');
+        if(modeLabel){
+          const controls=document.createElement('div');
+          controls.className='report-chart-controls';
+          controls.appendChild(modeLabel);
+          heading.appendChild(controls);
+        }
+      }
+      wrapper.insertBefore(heading,chart);
+    }
     const details=document.createElement('details');
     details.className='report-statistics';
     details.innerHTML='<summary>Bảng số liệu</summary><div class="report-stat-body"><div class="report-stat-note">Bảng sẽ cập nhật sau khi biểu đồ được vẽ.</div></div>';
@@ -4130,6 +4230,38 @@ const REPORT_CARD_TITLES={
   chart_billing_by_prefix:'Đầu số nào phát sinh nhiều chi phí?'
 };
 
+const REPORT_FINDER_TITLES={
+  table_hangup_breakdown:'Phân bổ nguyên nhân kết thúc',chart_fail_streak_dist:'Phân bố chuỗi cuộc gọi lỗi',
+  chart_fail_streak_timeline:'Chuỗi cuộc gọi lỗi theo thời gian',table_top_dest:'Số đích gọi nhiều nhất',
+  chart_dest_telco_share:'Tỷ trọng số đích theo nhà mạng',chart_avgdur_prefix:'Thời lượng trung bình theo đầu số',
+  chart_dur_share_prefix:'Tỷ trọng thời lượng theo đầu số',chart_avgdur_vs_rate:'Thời lượng và tỷ lệ kết nối',
+  chart_mos_histogram:'Phân bố chất lượng thoại MOS',chart_quality_by_telco:'Chất lượng thoại theo nhà mạng',
+  chart_mos_vs_packetloss:'MOS và mất gói',chart_call_funnel:'Phễu cuộc gọi',
+  chart_line_health_trend:'Sức khỏe đầu số theo thời gian',chart_top_time_slots:'Khung giờ có nhiều cuộc gọi',
+  chart_time_heatmap:'Bản đồ nhiệt thời gian gọi',chart_compare_timeline:'So sánh lưu lượng theo thời gian',
+  chart_concurrent_by_telco:'Cuộc gọi đồng thời theo nhà mạng',chart_ccu_by_telco:'Kênh thoại sử dụng theo nhà mạng',
+  table_ccu_by_telco:'Bảng kênh thoại theo nhà mạng',chart_answer_delay_telco:'Thời gian chờ trả lời theo nhà mạng',
+  report_retry_pattern:'Mẫu gọi lại',chart_callback_dist:'Phân bố cuộc gọi lại',table_callback_top:'Số gọi lại nhiều nhất',
+  chart_short_call_rate:'Tỷ lệ cuộc gọi ngắn',chart_short_call_by_account:'Cuộc gọi ngắn theo tài khoản',
+  chart_billsec_duration_gap:'Chênh lệch thời lượng và thời gian tính cước',chart_duration_hist:'Phân bố thời lượng cuộc gọi',
+  table_line_anomalies:'Đầu số bất thường',chart_caller_participation_heatmap:'Đầu số tham gia theo nhà mạng và thời gian',
+  gatewayGroupEmpty:'Trạng thái dữ liệu Gateway',table_data_quality:'Chất lượng dữ liệu',
+  chart_gateway_call_distribution:'Phân bố cuộc gọi theo Gateway',chart_gateway_hangup_cause_pie:'Nguyên nhân kết thúc theo Gateway',
+  chart_gateway_fail_timeline:'Lỗi Gateway theo thời gian',table_gateway_hangup_cause:'Bảng nguyên nhân kết thúc theo Gateway',
+  chart_account_radar:'So sánh chỉ số tài khoản',table_gateway_by_account:'Gateway theo tài khoản',
+  table_gateway_block_reconcile:'Đối soát Gateway bị chặn',chart_rn_histogram:'Phân bố số ngẫu nhiên RN',
+  report_rn_cf_by_account:'RN và cuộc gọi theo tài khoản',report_rn_detail:'Chi tiết số ngẫu nhiên RN',
+  table_card:'Chi tiết từng cuộc gọi',billingRateEmpty:'Trạng thái bảng giá',
+  table_billing_by_period:'Bảng cước phí theo kỳ',table_billing_by_account:'Bảng cước phí theo tài khoản',
+  cidGroupEmpty:'Trạng thái dữ liệu CID',table_cid_mttr_telco:'Thời gian phục hồi CID theo nhà mạng',
+  chart_cid_mttr:'Thời gian phục hồi CID',table_cid_reblock:'CID bị khóa lại',table_cid_duty:'Thời gian hoạt động của CID',
+  chart_cid_inventory_trend:'Kho CID theo thời gian',table_cid_bursts:'Đợt khóa CID hàng loạt',
+  panel_cid_loss:'Tổn thất CID',chart_cid_load_risk:'Rủi ro tải CID',panel_cid_signals:'Tín hiệu cảnh báo CID',
+  table_cid_signals_account:'Tín hiệu CID theo tài khoản',panel_cid_precursors:'Dấu hiệu trước khi CID bị khóa',
+  panel_cid_risk_engine:'Phân tích rủi ro CID',table_cid_comparison:'So sánh CID',
+  panel_gateway_map:'Ánh xạ Gateway và tài khoản'
+};
+
 /* ==========================================================================
    NGUỒN DUY NHẤT cho bố cục báo cáo mỗi tab.
    `order` = thứ tự hiển thị trái→phải, trên→dưới trong lưới.
@@ -4164,7 +4296,7 @@ const REPORT_LAYOUT={
     'report_chart_asr_time','chart_minutes_day','chart_golden_hours_rate',
     'chart_call_funnel','chart_concurrent_calls','chart_line_health_trend',
     // thời điểm & tham gia
-    'chart_top_time_slots','chart_time_heatmap','chart_compare_timeline','chart_caller_participation_heatmap',
+    'chart_top_time_slots','chart_time_heatmap','chart_compare_timeline',
     // tải kênh / Erlang
     'chart_concurrent_by_telco','chart_ccu_by_telco','table_ccu_by_telco','chart_answer_delay_telco',
     // hành vi gọi lại
@@ -4172,7 +4304,7 @@ const REPORT_LAYOUT={
     // cuộc ngắn
     'chart_short_call_rate','chart_short_call_by_account','chart_billsec_duration_gap','chart_duration_hist',
     // sức khỏe đầu số
-    'table_line_anomalies'
+    'table_line_anomalies','chart_caller_participation_heatmap'
   ]},
   advanced:{ primary:4,
     primaryIds:['panel_alerts','chart_agent_perf','table_agent_perf','table_gateway_fail'],
@@ -4209,6 +4341,75 @@ const REPORT_LAYOUT={
     'table_billing_by_period','table_billing_by_account'
   ]}
 };
+const REPORT_FINDER_GROUPS={overview:'Tổng quan',quality:'Chất lượng',time:'Vận hành',advanced:'Dữ liệu & Tài khoản',billing:'Cước phí',cid:'Vòng đời CID'};
+function initReportFinder(){
+  const input=document.getElementById('reportFinderInput');
+  const results=document.getElementById('reportFinderResults');
+  if(!input || !results) return;
+  const fold=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
+  const reports=Array.from(document.querySelectorAll('#reportGrid > .card[data-tab]'))
+    .filter(card=>card.id && REPORT_FINDER_GROUPS[card.dataset.tab]
+      && !card.matches('.report-more-toggle,.cid-tier-header,.cid-summary-panel,[data-group-empty]'))
+    .map(card=>{
+      const id=card.id, tab=card.dataset.tab;
+      const innerChart=card.querySelector(':scope > [id^="chart_"]');
+      const title=REPORT_CARD_TITLES[id] || REPORT_CARD_TITLES[innerChart?.id]
+        || REPORT_FINDER_TITLES[id] || REPORT_FINDER_TITLES[innerChart?.id]
+        || card.querySelector('h3')?.textContent?.trim()
+        || id.replace(/^(chart|table|panel|report)_/,'').replaceAll('_',' ');
+      return {id,tab,title};
+    });
+  function hide(){ results.hidden=true; input.setAttribute('aria-expanded','false'); }
+  function render(){
+    const query=fold(input.value.trim());
+    results.replaceChildren();
+    if(!query){ hide(); return; }
+    const matches=reports.filter(report=>fold(`${report.title} ${REPORT_FINDER_GROUPS[report.tab]} ${report.id}`).includes(query));
+    if(!matches.length){
+      const empty=document.createElement('p'); empty.className='report-finder-empty';
+      empty.textContent='Không tìm thấy báo cáo. Thử tên nhóm hoặc chủ đề khác.';
+      results.appendChild(empty);
+    }
+    matches.forEach(report=>{
+      const button=document.createElement('button');
+      button.type='button'; button.className='report-finder-result';
+      const title=document.createElement('span'); title.textContent=report.title;
+      const group=document.createElement('small'); group.textContent=REPORT_FINDER_GROUPS[report.tab];
+      button.append(title,group);
+      button.addEventListener('click',()=>{
+        const card=resolveReportCard(report.id);
+        if(card?.classList.contains('secondary-report')){
+          tabReportExpanded[report.tab]=true;
+          try{ localStorage.setItem(`reports-expanded-${report.tab}`,'1'); }catch(e){}
+        }
+        showTab(report.tab);
+        hide(); input.value='';
+        requestAnimationFrame(()=>{
+          if(!card || card.style.display==='none') return;
+          const tableDetails=card.querySelector(':scope > .table-card-details');
+          if(tableDetails) tableDetails.open=true;
+          card.setAttribute('tabindex','-1');
+          card.setAttribute('aria-label',report.title);
+          card.scrollIntoView({behavior:'smooth',block:'start'});
+          card.focus({preventScroll:true});
+        });
+      });
+      results.appendChild(button);
+    });
+    results.hidden=false; input.setAttribute('aria-expanded','true');
+  }
+  input.addEventListener('input',render);
+  input.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){ hide(); input.value=''; }
+    if(event.key==='Enter'){
+      const first=results.querySelector('.report-finder-result');
+      if(first){ event.preventDefault(); first.click(); }
+    }
+  });
+  document.addEventListener('pointerdown',event=>{
+    if(!event.target.closest('#reportFinder')) hide();
+  });
+}
 const PREFERRED_REPORT_ORDER=Object.fromEntries(
   Object.entries(REPORT_LAYOUT).map(([tab,v])=>[tab,v.order])
 );
@@ -4453,6 +4654,7 @@ function applyProgressiveDisclosure(){
 }
 applyDashboardV2Layout();
 applyProgressiveDisclosure();
+initReportFinder();
 
 const GLOBAL_EMPTY_TABS=new Set(['overview','quality','time','advanced','billing']);
 function syncGlobalEmptyState(tabName=currentTab){
@@ -4922,7 +5124,7 @@ function renderTimeTab(filtered, colors){
     ()=> plotCompareTimeline(filtered, colors),
     ()=> plotTimeHeatmap(filtered),
     ()=> plotConcurrentCalls(filtered, colors, 'chart_concurrent_calls'),
-    ()=> plotConcurrentByTelco(filtered, colors, (document.getElementById('concurTelcoMode')||{}).value||'percent'),
+    ()=> plotConcurrentByTelco(filtered, colors, (document.getElementById('concurTelcoMode')||{}).value||'absolute'),
     ()=> plotCcuByTelco(filtered, colors),
     ()=> renderCcuByTelcoTable(filtered),
     ()=> plotDurationHistogram(filtered, colors),
@@ -4964,7 +5166,7 @@ function renderAdvancedTab(filtered, colors){
     ()=> renderAgentPerfTable(filtered),
     ()=> renderGatewayFailTable(filtered),
     ()=> safePlot('chart_gateway_call_distribution', ()=> plotGatewayCallDistribution(filtered, colors)),
-    ()=> safePlot('chart_gateway_hangup_cause_pie', ()=> plotGatewayHangupCausePie(filtered)),
+    ()=> safePlot('chart_gateway_hangup_cause_pie', ()=> plotGatewayHangupCausePie(filtered, colors)),
     ()=> renderGatewayHangupCauseTable(filtered),
     ()=> renderGatewayByAccountTable(filtered),
     ()=> renderGatewayBlockReconcileTable(filtered),
@@ -6723,6 +6925,18 @@ function loadGridOrder(){
   }catch(e){}
 }
 
+function moveCallerParticipationToDeepReports(){
+  const key='caller-participation-deep-order-v1';
+  try{ if(localStorage.getItem(key)==='1') return; }catch(e){}
+  const grid=document.getElementById('reportGrid');
+  const card=resolveReportCard('chart_caller_participation_heatmap');
+  if(!grid || !card) return;
+  grid.appendChild(card);
+  positionReportToggles();
+  saveGridOrder();
+  try{ localStorage.setItem(key,'1'); }catch(e){}
+}
+
 // DnD handlers
 (function enableDnD(){
   const grid = document.getElementById('reportGrid');
@@ -6776,6 +6990,7 @@ function loadGridOrder(){
     saveGridOrder();
   });
   loadGridOrder();
+  moveCallerParticipationToDeepReports();
 })();
 
 // Ngưỡng mặc định đề xuất; người dùng có thể điều chỉnh tại Cài đặt.
@@ -7028,7 +7243,7 @@ function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
 // getTelco -> dashboard-core.js
 // ---------- Concurrent by Telco (absolute + percent, with labels) ----------
 // Quét sự kiện dùng chung __computeConcurrency() ở trên.
-function plotConcurrentByTelco(rows, colors, mode='percent'){
+function plotConcurrentByTelco(rows, colors, mode='absolute'){
   const res = cubeVal('concurrency.byTelco', ()=>computeConcurrencyByTelco(rows));
   const keys = res.keys;
   const elId = 'chart_concurrent_by_telco';
@@ -7066,12 +7281,13 @@ function plotConcurrentByTelco(rows, colors, mode='percent'){
     };
   });
   const layout = {
-    title: (mode==='percent' ? 'Concurrent theo Telco — 100% stacked (có nhãn số + % ở cuối đường)'
-                             : 'Concurrent theo Telco — số lượng (stacked)'),
+    title: mode==='percent' ? 'Tỷ trọng cuộc gọi đồng thời theo nhà mạng'
+                            : 'Số cuộc gọi đồng thời theo nhà mạng',
     height: 420,
+    margin:{l:60,r:showLabels?112:36,t:96,b:58},
     xaxis:{title:'Thời gian', type:'date'},
     yaxis:{title: (mode==='percent' ? 'Tỷ lệ (%)' : 'Cuộc gọi đồng thời'), rangemode:'tozero'},
-    legend:{orientation:'h', y:-0.2}
+    legend:{orientation:'h', x:0, y:1.02, yanchor:'bottom'}
   };
   Plotly.react(elId, traces, layout, {responsive:true});
 }
@@ -7685,7 +7901,7 @@ function renderGatewayHangupCauseTable(rows){
   });
 }
 
-function plotGatewayHangupCausePie(rows){
+function plotGatewayHangupCausePie(rows, colors){
   const elId = 'chart_gateway_hangup_cause_pie';
   if(!gatewayCidIndex || !Object.keys(gatewayCidIndex).length)
     return showNoData(elId, 'Chưa có mapping Gateway — vào tab Vòng đời CID để gán routing_id');
@@ -7702,7 +7918,10 @@ function plotGatewayHangupCausePie(rows){
     .sort((a,b)=> data.filter(r=>r.hangup_cause===b).reduce((s,r)=>s+r.total,0)
       - data.filter(r=>r.hangup_cause===a).reduce((s,r)=>s+r.total,0));
   const lookup = new Map(data.map(r=>[r.gateway+'\u0000'+r.hangup_cause,r]));
-  const causeColors = new Map(causes.map(cause=>[cause,categoryColor(cause)]));
+  const palette=(colors && Array.isArray(colors.Palette) && colors.Palette.length)
+    ? colors.Palette : getColorScheme();
+  const distinctColors=distinctCategoryColors(causes,palette);
+  const causeColors = new Map(causes.map((cause,index)=>[cause,distinctColors[index]]));
   // Dùng một thanh ngang cho mỗi Gateway: chiều cao tăng theo số Gateway,
   // nên nhãn không bị co nhỏ như mô hình nhiều donut trong cùng một canvas.
   // Không gộp nguyên nhân nhỏ; mỗi hangup_cause luôn là một trace riêng.

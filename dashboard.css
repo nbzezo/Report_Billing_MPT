@@ -1653,3 +1653,963 @@ body.adw.report-skeleton-active .overview-kpi-card::after,body.adw.report-skelet
 .u-inline-97445a8d{flex:1}
 .u-inline-5ad85a6b{font-weight:600;margin-bottom:2px}
 /* /UX-30: extracted static inline styles. */
+
+/* UX refresh: warm, restrained workspace theme.
+   This layer intentionally changes presentation only; existing controls,
+   states and report structure remain untouched. */
+body.adw:not(.dark){
+  --bg:#F5F2ED;
+  --surface:#FFFDFA;
+  --surface-2:#EDE7DF;
+  --border:#D8D2C9;
+  --text:#1A1A1A;
+  --text-2:#62666D;
+  --text-3:#62666D;
+  --accent:#D97757;
+  --accent-hover:#BF6244;
+  --accent-active:#A84F35;
+  --accent-text:#A84F35;
+  --accent-fg:#1A1A1A;
+  --accent-soft:#F4E2D8;
+  --on-accent-soft:#7E3E2C;
+  --brand:#D97757;
+  --focus:#9C4B32;
+  --window-bg:#F5F2ED;
+  --view-bg:#FFFDFA;
+  --card-bg:#FFFDFA;
+  --headerbar-bg:#FFFDFA;
+  --sidebar-bg:#EDE7DF;
+  --dim:#62666D;
+  --muted:#62666D;
+  --line:#D8D2C9;
+  --divider:#D8D2C9;
+  --hover:#F7F3EE;
+  --active:#F4E2D8;
+  --shadow-card:0 1px 2px rgba(45,35,26,.06),0 8px 24px rgba(45,35,26,.04);
+  --shadow-pop:0 12px 30px rgba(45,35,26,.14);
+  --shadow-dialog:0 18px 48px rgba(45,35,26,.22);
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,"Segoe UI",Arial,sans-serif;
+  font-size:14px;
+  line-height:1.55;
+}
+
+body.adw:not(.dark) .adw-headerbar{
+  min-height:60px;
+  padding:8px 24px;
+  background:var(--surface);
+  border-bottom:1px solid var(--border);
+  box-shadow:none;
+}
+body.adw:not(.dark) .hb-title{font-size:16px;font-weight:600;letter-spacing:-.01em}
+body.adw:not(.dark) .hb-subtitle{font-size:12px;color:var(--text-2)}
+body.adw:not(.dark) .adw-filterbar{
+  top:var(--header-h,60px);
+  padding:10px 24px;
+  background:var(--bg);
+  border-bottom:1px solid var(--border);
+}
+body.adw:not(.dark) .compact-filter-row{gap:8px;min-height:40px}
+
+body.adw:not(.dark) button{
+  min-height:40px;
+  padding:8px 14px;
+  border-radius:6px;
+  border-color:var(--border);
+  background:var(--surface);
+  color:var(--text);
+  font-size:14px;
+  font-weight:500;
+  transition:background .15s ease,border-color .15s ease,box-shadow .15s ease,color .15s ease;
+}
+body.adw:not(.dark) button:hover:not(:disabled){background:var(--hover);border-color:#B9B1A7}
+body.adw:not(.dark) button:active:not(:disabled){background:var(--active)}
+body.adw:not(.dark) button:disabled{opacity:.58;background:#E7E2DB;color:#77736E}
+body.adw:not(.dark) .primary-btn,
+body.adw:not(.dark) #updateReport{
+  background:#D97757;
+  border-color:#D97757;
+  color:#1A1A1A;
+  font-weight:600;
+}
+body.adw:not(.dark) .primary-btn:hover:not(:disabled),
+body.adw:not(.dark) #updateReport:hover:not(:disabled){background:#BF6244;border-color:#BF6244}
+body.adw:not(.dark) .primary-btn:active:not(:disabled){background:#A84F35}
+body.adw:not(.dark) .flat-btn{background:transparent;border-color:transparent}
+body.adw:not(.dark) .icon-only{width:40px;padding:0}
+
+body.adw:not(.dark) input,
+body.adw:not(.dark) select{
+  min-height:40px;
+  height:40px;
+  padding:8px 12px;
+  border-radius:6px;
+  border:1px solid var(--border);
+  background:var(--surface);
+  color:var(--text);
+  font-size:14px;
+}
+body.adw:not(.dark) input:hover,
+body.adw:not(.dark) select:hover{border-color:#B9B1A7}
+body.adw:not(.dark) input:focus,
+body.adw:not(.dark) select:focus{border-color:#9C4B32;box-shadow:0 0 0 3px rgba(156,75,50,.18)}
+body.adw:not(.dark) input:disabled,
+body.adw:not(.dark) select:disabled{background:#EDE9E3;color:#77736E}
+body.adw:not(.dark) label{font-size:13px;color:var(--text-2);line-height:1.45}
+body.adw:not(.dark) .muted{font-size:12px;color:var(--text-2)}
+
+body.adw:not(.dark) .adw-body{min-height:calc(100vh - 60px);background:var(--bg)}
+body.adw:not(.dark) .adw-sidebar{
+  flex-basis:232px;
+  width:232px;
+  padding:16px 12px;
+  background:var(--surface-2);
+  border-right:1px solid var(--border);
+}
+body.adw:not(.dark) .adw-main{background:var(--bg)}
+body.adw:not(.dark) .adw-clamp{width:min(1480px,100%);padding:28px 32px 48px}
+body.adw:not(.dark) .adw-navlist .tab-btn{
+  min-height:40px;
+  margin:2px 0;
+  padding:9px 12px;
+  border:1px solid transparent;
+  border-radius:6px;
+  background:transparent;
+  color:var(--text-2);
+  text-align:left;
+}
+body.adw:not(.dark) .adw-navlist .tab-btn:hover{background:rgba(255,253,250,.62);color:var(--text)}
+body.adw:not(.dark) .adw-navlist .tab-btn.active{background:#F4E2D8;border-color:transparent;color:#7E3E2C;outline:0;font-weight:600}
+
+body.adw:not(.dark) #reportGrid{gap:24px}
+body.adw:not(.dark) #reportGrid>.card,
+body.adw:not(.dark) .card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:8px;
+  box-shadow:var(--shadow-card);
+}
+body.adw:not(.dark) #reportGrid>.card{padding:20px}
+body.adw:not(.dark) #reportGrid>.card h3,
+body.adw:not(.dark) .table-card-details>summary h3{font-size:18px;line-height:1.45;font-weight:600;color:var(--text)}
+body.adw:not(.dark) .report-scope-subtitle{font-size:12px;color:var(--text-2)}
+body.adw:not(.dark) .kpi{border-color:var(--border);border-radius:6px;background:var(--surface)}
+body.adw:not(.dark) .kpi-group{border-color:var(--border);border-radius:8px;background:var(--surface-2)}
+
+body.adw:not(.dark) table{font-size:13px;background:var(--surface)}
+body.adw:not(.dark) table th,
+body.adw:not(.dark) #reportGrid table thead th{
+  min-height:40px;
+  padding:10px 12px;
+  background:var(--surface-2);
+  color:var(--text);
+  border-bottom:1px solid var(--border);
+  font-size:13px;
+  font-weight:600;
+}
+body.adw:not(.dark) table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+body.adw:not(.dark) table tbody tr:hover{background:var(--hover)}
+body.adw:not(.dark) .report-stat-scroll,
+body.adw:not(.dark) .retry-table-scroll,
+body.adw:not(.dark) .drilldown-table-wrap,
+body.adw:not(.dark) .risk-table-wrap{border-color:var(--border);border-radius:6px}
+
+body.adw:not(.dark) .filter-popover,
+body.adw:not(.dark) .adw-popover,
+body.adw:not(.dark) .dropdown-list,
+body.adw:not(.dark) .mpt-account-picker-content{
+  background:var(--surface);
+  border-color:var(--border);
+  border-radius:8px;
+  box-shadow:var(--shadow-pop);
+}
+body.adw:not(.dark) .adw-dialog,
+body.adw:not(.dark) .loading-dialog{border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-dialog)}
+body.adw:not(.dark) .adw-dialog-header,
+body.adw:not(.dark) .adw-dialog-footer{border-color:var(--border)}
+body.adw:not(.dark) .loading-overlay{background:rgba(26,26,26,.34);backdrop-filter:blur(2px)}
+body.adw:not(.dark) .loading-spinner{border-color:#EDE7DF;border-top-color:#D97757}
+body.adw:not(.dark) .toast{background:#1A1A1A;color:#FFFDFA}
+
+@media(max-width:900px){
+  body.adw:not(.dark) .adw-headerbar{padding-inline:16px}
+  body.adw:not(.dark) .adw-filterbar{padding-inline:16px}
+  body.adw:not(.dark) .adw-clamp{padding:22px 20px 40px}
+}
+@media(max-width:700px){
+  body.adw:not(.dark) .adw-clamp{padding:16px 12px 32px}
+  body.adw:not(.dark) #reportGrid{gap:16px}
+  body.adw:not(.dark) #reportGrid>.card{padding:16px}
+  body.adw:not(.dark) .hb-subtitle{display:none}
+}
+
+/* The existing app can persist the dark-mode class. Keep the requested
+   reference look visible in that state too; the dark-mode control still
+   remains available for the existing interaction flow. */
+body.adw.dark{
+  --bg:#F5F2ED;--surface:#FFFDFA;--surface-2:#EDE7DF;--border:#D8D2C9;
+  --text:#1A1A1A;--text-2:#62666D;--text-3:#62666D;
+  --accent:#D97757;--accent-hover:#BF6244;--accent-active:#A84F35;
+  --accent-text:#A84F35;--accent-fg:#1A1A1A;--accent-soft:#F4E2D8;
+  --on-accent-soft:#7E3E2C;--brand:#D97757;--focus:#9C4B32;
+  --window-bg:#F5F2ED;--view-bg:#FFFDFA;--card-bg:#FFFDFA;
+  --headerbar-bg:#FFFDFA;--sidebar-bg:#EDE7DF;--dim:#62666D;
+  --muted:#62666D;--line:#D8D2C9;--divider:#D8D2C9;
+  --hover:#F7F3EE;--active:#F4E2D8;
+  --shadow-card:0 1px 2px rgba(45,35,26,.06),0 8px 24px rgba(45,35,26,.04);
+  --shadow-pop:0 12px 30px rgba(45,35,26,.14);--shadow-dialog:0 18px 48px rgba(45,35,26,.22);
+  background:var(--bg);color:var(--text);color-scheme:light;
+  font-family:Inter,"Segoe UI",Arial,sans-serif;font-size:14px;line-height:1.55;
+}
+body.adw.dark .adw-headerbar{min-height:60px;padding:8px 24px;background:var(--surface);border-bottom:1px solid var(--border);box-shadow:none}
+body.adw.dark .adw-filterbar{top:var(--header-h,60px);padding:10px 24px;background:var(--bg);border-bottom:1px solid var(--border)}
+body.adw.dark button{min-height:40px;padding:8px 14px;border-radius:6px;border-color:var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:500}
+body.adw.dark button:hover:not(:disabled){background:var(--hover);border-color:#B9B1A7}
+body.adw.dark button:disabled{opacity:.58;background:#E7E2DB;color:#77736E}
+body.adw.dark .primary-btn,body.adw.dark #updateReport{background:#D97757;border-color:#D97757;color:#1A1A1A}
+body.adw.dark .primary-btn:hover:not(:disabled),body.adw.dark #updateReport:hover:not(:disabled){background:#BF6244;border-color:#BF6244}
+body.adw.dark input,body.adw.dark select{min-height:40px;height:40px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px}
+body.adw.dark input:focus,body.adw.dark select:focus{border-color:#9C4B32;box-shadow:0 0 0 3px rgba(156,75,50,.18)}
+body.adw.dark label,body.adw.dark .muted{color:var(--text-2)}
+body.adw.dark .adw-body,body.adw.dark .adw-main{background:var(--bg)}
+body.adw.dark .adw-sidebar{flex-basis:232px;width:232px;padding:16px 12px;background:var(--surface-2);border-right:1px solid var(--border)}
+body.adw.dark .adw-clamp{width:min(1480px,100%);padding:28px 32px 48px}
+body.adw.dark .adw-navlist .tab-btn{min-height:40px;margin:2px 0;padding:9px 12px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--text-2);text-align:left}
+body.adw.dark .adw-navlist .tab-btn:hover{background:rgba(255,253,250,.62);color:var(--text)}
+body.adw.dark .adw-navlist .tab-btn.active{background:#F4E2D8;color:#7E3E2C;border-color:transparent;outline:0}
+body.adw.dark #reportGrid{gap:24px}
+body.adw.dark #reportGrid>.card,body.adw.dark .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-card)}
+body.adw.dark #reportGrid>.card{padding:20px}
+body.adw.dark #reportGrid>.card h3,body.adw.dark .table-card-details>summary h3{font-size:18px;line-height:1.45;font-weight:600;color:var(--text)}
+body.adw.dark .kpi{border-color:var(--border);border-radius:6px;background:var(--surface)}
+body.adw.dark .kpi-group{border-color:var(--border);border-radius:8px;background:var(--surface-2)}
+body.adw.dark table{font-size:13px;background:var(--surface)}
+body.adw.dark table th,body.adw.dark #reportGrid table thead th{padding:10px 12px;background:var(--surface-2);color:var(--text);border-bottom:1px solid var(--border);font-size:13px;font-weight:600}
+body.adw.dark table td{padding:10px 12px;border-bottom:1px solid var(--border);color:var(--text)}
+body.adw.dark table tbody tr:hover{background:var(--hover)}
+body.adw.dark .filter-popover,body.adw.dark .adw-popover,body.adw.dark .dropdown-list,body.adw.dark .mpt-account-picker-content{background:var(--surface);border-color:var(--border);border-radius:8px;box-shadow:var(--shadow-pop);color:var(--text)}
+body.adw.dark .adw-dialog,body.adw.dark .loading-dialog{border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:var(--shadow-dialog);color:var(--text)}
+body.adw.dark .adw-dialog-header,body.adw.dark .adw-dialog-footer{border-color:var(--border)}
+body.adw.dark .loading-overlay{background:rgba(26,26,26,.34);backdrop-filter:blur(2px)}
+body.adw.dark .loading-spinner{border-color:#EDE7DF;border-top-color:#D97757}
+body.adw.dark .toast{background:#1A1A1A;color:#FFFDFA}
+@media(max-width:900px){body.adw.dark .adw-headerbar,body.adw.dark .adw-filterbar{padding-inline:16px}body.adw.dark .adw-clamp{padding:22px 20px 40px}}
+@media(max-width:700px){body.adw.dark .adw-clamp{padding:16px 12px 32px}body.adw.dark #reportGrid{gap:16px}body.adw.dark #reportGrid>.card{padding:16px}body.adw.dark .hb-subtitle{display:none}}
+
+/* Settings appearance panel: keep the controls in a calm, readable stack
+   instead of nesting several competing bordered rows. */
+body.adw #settingsAppearanceContent{display:flex;flex-direction:column;gap:16px}
+body.adw #settingsAppearanceContent>.control-row{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  margin:0;padding:0 0 16px;border-bottom:1px solid var(--divider)
+}
+body.adw #settingsAppearanceContent>.control-row label{
+  display:inline-flex;align-items:center;gap:8px;min-height:40px;color:var(--text-2);font-size:14px
+}
+body.adw #settingsAppearanceContent>.control-row select{min-width:128px}
+body.adw #settingsAppearanceContent>.tools-control{
+  margin:0;padding:16px;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-2);box-shadow:none
+}
+body.adw #settingsAppearanceContent .control-title{
+  margin:0 0 12px;color:var(--text);font-size:13px;font-weight:600;letter-spacing:.02em;text-transform:none
+}
+body.adw #settingsAppearanceContent .tool-row{
+  display:flex;align-items:center;gap:8px;min-height:40px;margin:0
+}
+body.adw #settingsAppearanceContent .tools-control .icon-btn{min-height:36px}
+body.adw #settingsAppearanceContent .tools-control #toggleDark{
+  min-width:92px;padding-left:34px;background:var(--surface);color:var(--text);border-color:var(--border);text-align:left
+}
+body.adw #settingsAppearanceContent .tools-control #toggleDark:hover:not(:disabled){background:var(--hover)}
+body.adw #settingsAppearanceContent .color-controls.legend-row{
+  display:grid;grid-template-columns:repeat(3,minmax(150px,1fr));gap:10px;
+  margin:14px 0 0;padding:14px 0 0;border-top:1px solid var(--divider)
+}
+body.adw #settingsAppearanceContent .color-controls label{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  min-height:36px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--surface);font-size:13px;color:var(--text)
+}
+body.adw #settingsAppearanceContent .color-controls input[type=color]{width:32px;height:28px;min-height:28px;padding:2px;border-radius:4px}
+body.adw #settingsAppearance .settings-local-actions{margin-top:18px;padding-top:16px}
+body.adw #settingsAppearance .settings-local-actions .primary-btn{min-width:120px}
+@media(max-width:760px){
+  body.adw #settingsAppearanceContent>.control-row{align-items:stretch;flex-direction:column;gap:8px}
+  body.adw #settingsAppearanceContent>.control-row label{justify-content:space-between}
+  body.adw #settingsAppearanceContent .color-controls.legend-row{grid-template-columns:1fr}
+}
+
+/* Reserve the chart header row for title/scope/legend and keep Plotly's
+   hover toolbar away from the card drag handle. */
+body.adw .chart-report-card{overflow:visible}
+body.adw .chart-report-card .modebar{top:42px!important;right:8px!important}
+body.adw .chart-report-card>.card-drag-handle{z-index:25}
+
+/* MPT connection settings: use a deliberate form layout instead of a
+   full-width pill with a clipped label. */
+body.adw #settingsConnection{
+  padding:24px;
+  background:var(--surface);
+}
+body.adw #settingsConnection>summary{
+  display:flex;align-items:center;gap:9px;
+  margin:0;font-size:18px;font-weight:600;color:var(--text);
+}
+body.adw #settingsConnection>summary::before{
+  content:"";width:7px;height:7px;flex:0 0 auto;
+  border-right:2px solid var(--accent-text);border-bottom:2px solid var(--accent-text);
+  transform:rotate(-45deg);transition:transform .15s ease;
+}
+body.adw #settingsConnection[open]>summary::before{transform:rotate(45deg)}
+body.adw #settingsConnection .settings-section-description{
+  margin:8px 0 22px;padding-left:16px;color:var(--text-2);font-size:13px;
+}
+body.adw #settingsConnection>label[for="settingsMptProfile"]{
+  display:grid;grid-template-columns:128px minmax(240px,480px);align-items:center;
+  gap:16px;margin:0;color:var(--text-2);font-size:13px;
+}
+body.adw #settingsConnection #settingsMptProfile{
+  width:100%;max-width:none;box-sizing:border-box;
+}
+body.adw #settingsConnection #settingsConnectionStatus{
+  margin:8px 0 0 144px;min-height:20px;color:var(--text-2);font-size:12px;
+}
+body.adw #settingsConnection #settingsConnectionContent{margin-top:16px}
+body.adw #settingsConnection #settingsConnectionContent:empty{display:none}
+body.adw #settingsConnection #mptConnectionManager{
+  margin:0;padding:0;border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-2);overflow:hidden;
+}
+body.adw #settingsConnection #mptConnectionManager>summary{
+  display:flex;align-items:center;gap:10px;min-height:42px;padding:10px 14px;
+  color:var(--text);font-size:14px;font-weight:600;cursor:pointer;
+  list-style:none;background:transparent;
+}
+body.adw #settingsConnection #mptConnectionManager>summary::-webkit-details-marker{display:none}
+body.adw #settingsConnection #mptConnectionManager>summary::after{
+  content:"";width:7px;height:7px;margin-left:auto;
+  border-right:2px solid var(--text-2);border-bottom:2px solid var(--text-2);
+  transform:rotate(45deg);transition:transform .15s ease;
+}
+body.adw #settingsConnection #mptConnectionManager[open]>summary::after{transform:rotate(-135deg)}
+body.adw #settingsConnection #mptConnectionManager>summary:hover{background:var(--hover)}
+body.adw #settingsConnection #mptConnectionManager>.mpt-manager-grid,
+body.adw #settingsConnection #mptConnectionManager>.mpt-manager-actions,
+body.adw #settingsConnection #mptConnectionManager>.mpt-manager-note{
+  margin-left:14px;margin-right:14px;
+}
+body.adw #settingsConnection #mptConnectionManager>.mpt-manager-grid{padding-top:14px}
+body.adw #settingsConnection #mptConnectionManager>.mpt-manager-actions{padding-bottom:4px}
+body.adw #settingsConnection #mptConnectionManager>.mpt-manager-note{padding-bottom:14px}
+@media(max-width:700px){
+  body.adw #settingsConnection{padding:18px}
+  body.adw #settingsConnection>label[for="settingsMptProfile"]{grid-template-columns:1fr;gap:6px}
+  body.adw #settingsConnection #settingsConnectionStatus{margin-left:0}
+}
+
+/* Account display-name mapping: editor on the left, current mappings on the
+   right, with a compact responsive fallback on narrow screens. */
+body.adw #settingsMapping{padding:24px;background:var(--surface)}
+body.adw #settingsMapping>summary{display:flex;align-items:center;gap:9px;margin:0;font-size:18px;font-weight:600;color:var(--text)}
+body.adw #settingsMapping>summary::before{content:"";width:7px;height:7px;border-right:2px solid var(--accent-text);border-bottom:2px solid var(--accent-text);transform:rotate(-45deg);transition:transform .15s ease}
+body.adw #settingsMapping[open]>summary::before{transform:rotate(45deg)}
+body.adw #settingsMapping .settings-section-description{margin:8px 0 18px;padding-left:16px;color:var(--text-2);font-size:13px}
+body.adw #settingsMappingContent{min-width:0}
+body.adw #settingsMapping #mappingPanel{margin:0;padding:0;border:0;background:transparent;box-shadow:none}
+body.adw #settingsMapping #mappingPanel>.muted{margin:0 0 14px;color:var(--text-2);font-size:13px}
+body.adw #settingsMapping #mappingPanel .map-grid{display:grid;grid-template-columns:minmax(300px,.78fr) minmax(420px,1.22fr);gap:20px;margin:0}
+body.adw #settingsMapping #mappingPanel .map-grid>.card{min-width:0;padding:18px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2);box-shadow:none}
+body.adw #settingsMapping #mappingPanel .map-grid>.card+ .card{background:var(--surface)}
+body.adw #settingsMapping #mappingPanel .u-inline-06307df0{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+body.adw #settingsMapping #mappingPanel .u-inline-06307df0 input{width:100%;min-width:0;box-sizing:border-box}
+body.adw #settingsMapping #mappingPanel .u-inline-06307df0 button{grid-column:auto}
+body.adw #settingsMapping #mappingPanel .u-inline-7f18e8f5{display:grid;grid-template-columns:1fr;gap:10px;margin-top:12px}
+body.adw #settingsMapping #mappingPanel .u-inline-7f18e8f5>.u-inline-b88d1817{display:flex;flex-direction:row-reverse;align-items:center;justify-content:flex-end;gap:10px;width:100%;min-height:40px;margin:0;padding:0;color:var(--text-2);font-size:13px;white-space:nowrap}
+body.adw #settingsMapping #mappingPanel .u-inline-7f18e8f5>.u-inline-b88d1817 input{flex:1 1 auto;width:auto;min-width:0;max-width:none;box-sizing:border-box}
+body.adw #settingsMapping #mappingPanel .map-table{width:100%;margin:0;border-collapse:collapse;font-size:13px}
+body.adw #settingsMapping #mappingPanel .map-table th{padding:10px 12px;background:var(--surface-2);color:var(--text);font-weight:600;text-align:left}
+body.adw #settingsMapping #mappingPanel .map-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle}
+body.adw #settingsMapping #mappingPanel .map-table td:last-child,body.adw #settingsMapping #mappingPanel .map-table th:last-child{text-align:right}
+body.adw #settingsMapping #mappingPanel .map-table tbody tr:hover{background:var(--hover)}
+body.adw #settingsMapping #mappingPanel .map-table button{min-height:32px;padding:5px 10px;color:var(--error);border-color:var(--border);background:transparent}
+body.adw #settingsMapping #mappingPanel .map-table button:hover{background:var(--st-fail-bg)}
+body.adw #settingsMapping .settings-local-actions{margin-top:20px;padding-top:16px}
+@media(max-width:900px){
+  body.adw #settingsMapping #mappingPanel .map-grid{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  body.adw #settingsMapping{padding:18px}
+  body.adw #settingsMapping #mappingPanel .u-inline-06307df0{grid-template-columns:1fr}
+  body.adw #settingsMapping #mappingPanel .u-inline-b88d1817{width:100%;justify-content:space-between}
+}
+
+/* Typography aligned with mpt.com.vn: Gilroy for UI copy and headings,
+   with local fallbacks so the dashboard remains usable offline. */
+body.adw,
+body.adw button,
+body.adw input,
+body.adw select,
+body.adw textarea,
+body.adw label{
+  font-family:Gilroy,"Segoe UI",Arial,sans-serif;
+}
+body.adw h1,
+body.adw h2,
+body.adw h3,
+body.adw .settings-title,
+body.adw .adw-dialog-title,
+body.adw .report-title,
+body.adw .ai-answer-title,
+body.adw .hb-title{
+  font-family:Gilroy,"Segoe UI",Arial,sans-serif;
+  font-weight:600;
+  letter-spacing:-.015em;
+}
+body.adw .hb-title{font-weight:700}
+
+/* Remove the legacy display-serif exception from KPI and empty states. */
+body.adw .kpi .kpi-value,
+body.adw .empty-state-title,
+body.adw #reportEmptyState h2{
+  font-family:Gilroy,"Segoe UI",Arial,sans-serif;
+}
+/* Plotly writes its own font declarations into the SVG; keep chart labels
+   consistent with the surrounding dashboard typography. */
+body.adw #reportGrid .js-plotly-plot text,
+body.adw #reportGrid .plotly text,
+body.adw #reportGrid .svg-container text{
+  font-family:Gilroy,"Segoe UI",Arial,sans-serif !important;
+}
+
+/* Billing layout pass: keep the existing controls and KPI vocabulary, but
+   give the section a clear configuration -> action -> result hierarchy. */
+body.adw #panel_billing_config,
+body.adw #panel_billing_kpi{
+  padding:24px;
+}
+body.adw #panel_billing_config>h3,
+body.adw #panel_billing_kpi>h3{
+  margin:0;
+  color:var(--text);
+  font-size:20px;
+  line-height:1.25;
+}
+body.adw #panel_billing_config .billing-intro{
+  margin:8px 0 0;
+  color:var(--text-2);
+  line-height:1.5;
+}
+body.adw #panel_billing_config .bill-config-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:16px;
+  margin-top:20px;
+}
+body.adw #panel_billing_config .control-group{
+  display:flex;
+  min-width:0;
+  min-height:232px;
+  flex-direction:column;
+  gap:16px;
+  padding:18px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface-2);
+  box-shadow:none;
+}
+body.adw #panel_billing_config .control-title{
+  margin:0;
+  color:var(--accent-text);
+  font-size:13px;
+  font-weight:700;
+  letter-spacing:.045em;
+  line-height:1.3;
+  text-transform:uppercase;
+}
+body.adw #panel_billing_config .control-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  gap:12px;
+  align-items:center;
+  margin:0;
+}
+body.adw #panel_billing_config .control-row label{
+  display:grid;
+  grid-template-columns:minmax(92px,max-content) minmax(0,1fr);
+  gap:12px;
+  align-items:center;
+  min-width:0;
+  width:100%;
+  color:var(--text-2);
+  line-height:1.35;
+}
+body.adw #panel_billing_config .billing-rate-row label{
+  grid-template-columns:minmax(118px,max-content) minmax(0,1fr);
+}
+body.adw #panel_billing_config .billing-block-row{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+}
+body.adw #panel_billing_config .billing-block-row label{
+  grid-template-columns:minmax(72px,max-content) minmax(0,1fr);
+}
+body.adw #panel_billing_config .control-row input:not([type=checkbox]),
+body.adw #panel_billing_config .control-row select{
+  width:100%;
+  min-width:0;
+  height:40px;
+  box-sizing:border-box;
+}
+body.adw #panel_billing_config .billing-check-row{
+  display:block;
+  margin-top:auto;
+}
+body.adw #panel_billing_config .billing-check-row label{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  color:var(--text);
+}
+body.adw #panel_billing_config .billing-check-row input{
+  flex:0 0 auto;
+}
+body.adw #panel_billing_config .billing-main-range{
+  margin-top:auto;
+  padding:11px 12px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--surface);
+  color:var(--text-2);
+  line-height:1.4;
+}
+body.adw #panel_billing_config .billing-range-fields{
+  gap:12px;
+}
+body.adw #panel_billing_config .billing-action-bar{
+  display:flex;
+  min-height:56px;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:20px;
+  padding:10px 12px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface);
+}
+body.adw #panel_billing_config .billing-action-main{
+  display:flex;
+  min-width:0;
+  align-items:center;
+  gap:12px;
+}
+body.adw #panel_billing_config #billingRangeLabel{
+  min-width:0;
+  color:var(--text-2);
+  line-height:1.4;
+}
+body.adw #panel_billing_config .billing-export-actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+}
+body.adw #panel_billing_kpi>h3{margin-bottom:6px}
+body.adw #panel_billing_kpi>.muted{
+  margin:0 0 18px;
+  color:var(--text-2);
+}
+body.adw #panel_billing_kpi .kpi-row{
+  grid-template-columns:1.05fr 1.15fr 1.35fr;
+  gap:16px;
+  align-items:stretch;
+}
+body.adw #panel_billing_kpi .kpi-group{
+  display:flex;
+  min-width:0;
+  flex-direction:column;
+  gap:12px;
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface-2);
+}
+body.adw #panel_billing_kpi .kpi-group-title{
+  margin:0;
+  color:var(--text-2);
+  font-size:12px;
+  font-weight:750;
+  letter-spacing:.08em;
+  line-height:1.3;
+  text-transform:uppercase;
+}
+body.adw #panel_billing_kpi .kpi-group-grid{
+  display:grid;
+  flex:1;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  align-content:stretch;
+}
+body.adw #panel_billing_kpi .kpi-group:nth-child(2) .kpi-group-grid{
+  grid-template-columns:repeat(3,minmax(0,1fr));
+}
+body.adw #panel_billing_kpi .kpi{
+  display:flex;
+  min-width:0;
+  min-height:96px;
+  align-items:center;
+  justify-content:center;
+  padding:14px 12px;
+  border:1px solid var(--border);
+  border-radius:6px;
+  background:var(--surface);
+  text-align:center;
+}
+body.adw #panel_billing_kpi .kpi-value{
+  font-size:24px;
+  line-height:1.15;
+}
+body.adw #panel_billing_kpi #billKpiCost .kpi-value{
+  font-size:27px;
+}
+body.adw #panel_billing_kpi .kpi-label{
+  max-width:18ch;
+  margin-top:7px;
+  color:var(--text-2);
+  line-height:1.3;
+}
+body.adw #panel_billing_kpi .billing-calculation-details{
+  margin-top:18px;
+}
+@media(max-width:1200px){
+  body.adw #panel_billing_config .bill-config-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body.adw #panel_billing_kpi .kpi-row{grid-template-columns:1fr 1fr}
+  body.adw #panel_billing_kpi .kpi-group:last-child{grid-column:1/-1}
+}
+@media(max-width:760px){
+  body.adw #panel_billing_config,
+  body.adw #panel_billing_kpi{padding:18px}
+  body.adw #panel_billing_config .bill-config-grid,
+  body.adw #panel_billing_kpi .kpi-row{grid-template-columns:1fr}
+  body.adw #panel_billing_kpi .kpi-group:last-child{grid-column:auto}
+  body.adw #panel_billing_config .billing-block-row{grid-template-columns:1fr}
+  body.adw #panel_billing_config .billing-action-bar,
+  body.adw #panel_billing_config .billing-action-main{align-items:stretch;flex-direction:column}
+  body.adw #panel_billing_config .billing-export-actions{justify-content:stretch}
+  body.adw #panel_billing_config .billing-export-actions button{flex:1 1 180px}
+  body.adw #panel_billing_kpi .kpi-group:nth-child(2) .kpi-group-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:480px){
+  body.adw #panel_billing_config .control-row label,
+  body.adw #panel_billing_config .billing-rate-row label,
+  body.adw #panel_billing_config .billing-block-row label{grid-template-columns:1fr;gap:6px}
+  body.adw #panel_billing_kpi .kpi-group-grid,
+  body.adw #panel_billing_kpi .kpi-group:nth-child(2) .kpi-group-grid{grid-template-columns:1fr}
+}
+
+/* AI settings layout: make the defaults and feature overrides easy to scan,
+   then keep provider credentials in consistent expandable panels. */
+body.adw #settingsAI{padding:24px}
+body.adw #settingsAI .settings-section-description{margin-bottom:20px}
+body.adw #settingsAIContent{min-width:0}
+body.adw #settingsAIContent .llm-config-body{
+  display:grid;
+  grid-template-columns:minmax(260px,.8fr) minmax(420px,1.2fr);
+  gap:16px;
+}
+body.adw #settingsAIContent .llm-config-body>.mpt-source-block{
+  min-width:0;
+  margin:0;
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface-2);
+}
+body.adw #settingsAIContent .mpt-source-block-title{
+  margin:0 0 7px;
+  color:var(--accent-text);
+  font-size:13px;
+  font-weight:750;
+  letter-spacing:.045em;
+  line-height:1.3;
+  text-transform:uppercase;
+}
+body.adw #settingsAIContent .adw-row-sub{
+  margin:0 0 12px;
+  color:var(--text-2);
+  font-size:13px;
+  line-height:1.45;
+}
+body.adw #settingsAIContent #llmActiveProvider{
+  width:100%;
+  height:40px;
+  box-sizing:border-box;
+}
+body.adw #settingsAIContent .llm-feature-list{gap:8px}
+body.adw #settingsAIContent .llm-feature-row{
+  display:grid;
+  grid-template-columns:38px minmax(0,1fr) minmax(170px,220px);
+  min-height:40px;
+  align-items:center;
+  gap:10px;
+  padding:0 0 8px;
+  border-bottom:1px solid var(--divider);
+}
+body.adw #settingsAIContent .llm-feature-row:last-child{padding-bottom:0;border-bottom:0}
+body.adw #settingsAIContent .llm-feature-switch{margin:0}
+body.adw #settingsAIContent .llm-feature-label{
+  min-width:0;
+  color:var(--text);
+  font-size:13px;
+  line-height:1.35;
+}
+body.adw #settingsAIContent .llm-feature-provider{width:100%;max-width:none;height:36px}
+body.adw #settingsAIContent .mpt-connection-manager{
+  grid-column:1/-1;
+  margin:0;
+  padding:0;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface);
+}
+body.adw #settingsAIContent .mpt-connection-manager>summary{
+  min-height:44px;
+  box-sizing:border-box;
+  padding:12px 16px;
+  color:var(--text);
+  font-size:14px;
+  font-weight:650;
+}
+body.adw #settingsAIContent .mpt-connection-manager[open]>summary{border-bottom:1px solid var(--border)}
+body.adw #settingsAIContent .mpt-manager-grid{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin:0;
+  padding:16px;
+}
+body.adw #settingsAIContent .mpt-manager-grid label{gap:6px;color:var(--text-2);font-size:13px}
+body.adw #settingsAIContent .mpt-manager-grid input{width:100%;height:40px;box-sizing:border-box}
+body.adw #settingsAIContent .mpt-manager-actions,
+body.adw #settingsAIContent .mpt-compact-actions{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:0;
+  padding:0 16px 16px;
+}
+body.adw #settingsAIContent .mpt-manager-note{
+  margin:0;
+  padding:0 16px 16px;
+  color:var(--text-2);
+  font-size:12px;
+  line-height:1.45;
+}
+body.adw #settingsAIContent>.mpt-manager-note{
+  grid-column:1/-1;
+  padding:4px 0 0;
+}
+@media(max-width:900px){
+  body.adw #settingsAIContent .llm-config-body{grid-template-columns:1fr}
+  body.adw #settingsAIContent .mpt-connection-manager{grid-column:auto}
+}
+@media(max-width:560px){
+  body.adw #settingsAI{padding:18px}
+  body.adw #settingsAIContent .llm-feature-row{grid-template-columns:38px minmax(0,1fr)}
+  body.adw #settingsAIContent .llm-feature-provider{grid-column:2}
+  body.adw #settingsAIContent .mpt-manager-grid{grid-template-columns:1fr}
+}
+
+/* Chart reports need a full readable line for title, scope and legend.
+   Keep data/table cards in the existing two-column report grid. */
+body.adw #reportGrid>.chart-report-card{
+  grid-column:1/-1;
+  min-width:0;
+}
+body.adw #reportGrid>.chart-report-card>[id^="chart_"]{
+  min-width:0;
+}
+@media(max-width:760px){
+  body.adw #reportGrid>.chart-report-card{grid-column:1/-1}
+}
+
+/* Shared chart card hierarchy: report box -> chart box -> optional data box. */
+body.adw #reportGrid>.chart-report-card{
+  padding:18px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface);
+  box-shadow:var(--shadow-card);
+}
+body.adw #reportGrid>.chart-report-card:hover{
+  border-color:color-mix(in srgb,var(--accent) 32%,var(--border));
+}
+body.adw #reportGrid>.chart-report-card>[id^="chart_"]{
+  margin:0;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface-2);
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--surface) 55%,transparent);
+  overflow:visible;
+}
+body.adw #reportGrid>.chart-report-card>[id^="chart_"] .plotly,
+body.adw #reportGrid>.chart-report-card>[id^="chart_"] .svg-container{
+  max-width:100%;
+}
+body.adw #reportGrid>.chart-report-card>.report-statistics{
+  margin:14px 0 0;
+  padding:0;
+  border:1px solid var(--border);
+  border-radius:8px;
+  background:var(--surface);
+  overflow:hidden;
+}
+body.adw #reportGrid>.chart-report-card>.report-statistics summary{
+  padding:11px 14px;
+  background:var(--surface-2);
+  color:var(--accent-text);
+}
+body.adw #reportGrid>.chart-report-card>.report-statistics[open] summary{
+  border-bottom:1px solid var(--border);
+}
+body.adw #reportGrid>.chart-report-card>.report-statistics .report-stat-body,
+body.adw #reportGrid>.chart-report-card>.report-statistics .report-stat-scroll{
+  margin:0;
+  border:0;
+  border-radius:0;
+}
+body.adw #reportGrid>.chart-report-card.has-empty-state>[id^="chart_"]{
+  min-height:180px;
+  display:grid;
+  place-items:center;
+}
+@media(max-width:760px){
+  body.adw #reportGrid>.chart-report-card{padding:14px}
+  body.adw #reportGrid>.chart-report-card>[id^="chart_"]{border-radius:7px}
+}
+
+/* These two dense time reports need their own readable heading and full-width
+   plot area. Scroll wide data tables inside their details, not on the card. */
+body.adw #reportGrid>#report_chart_caller_participation_heatmap,
+body.adw #reportGrid>#report_chart_concurrent_by_telco{
+  grid-column:1/-1;
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+  overflow-x:visible;
+}
+body.adw #reportGrid>#report_chart_caller_participation_heatmap>.report-chart-heading,
+body.adw #reportGrid>#report_chart_concurrent_by_telco>.report-chart-heading{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:4px 16px;
+  align-items:center;
+  min-width:0;
+  padding:0 48px 14px 0;
+}
+body.adw .report-chart-heading .report-chart-title{
+  grid-column:1;
+  color:var(--text);
+  font-size:16px;
+  font-weight:650;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+body.adw .report-chart-heading .report-chart-scope{
+  grid-column:1;
+  color:var(--text-2);
+  font-size:13px;
+  line-height:1.4;
+}
+body.adw .report-chart-heading .report-chart-controls{
+  grid-column:2;
+  grid-row:1/3;
+}
+body.adw .report-chart-heading .report-chart-controls label{
+  display:grid;
+  gap:5px;
+  color:var(--text-2);
+  font-size:12px;
+}
+body.adw .report-chart-heading .report-chart-controls select{
+  min-width:165px;
+  height:36px;
+}
+body.adw #reportGrid>#report_chart_caller_participation_heatmap>[id^="chart_"],
+body.adw #reportGrid>#report_chart_concurrent_by_telco>[id^="chart_"]{
+  width:100%;
+  min-width:0;
+  box-sizing:border-box;
+}
+body.adw #reportGrid>#report_chart_caller_participation_heatmap .modebar,
+body.adw #reportGrid>#report_chart_concurrent_by_telco .modebar{
+  top:8px!important;
+}
+body.adw #reportGrid>#report_chart_caller_participation_heatmap>.report-statistics .report-stat-scroll,
+body.adw #reportGrid>#report_chart_concurrent_by_telco>.report-statistics .report-stat-scroll{
+  max-width:100%;
+  overflow-x:auto;
+}
+@media(max-width:700px){
+  body.adw #reportGrid>#report_chart_concurrent_by_telco>.report-chart-heading{
+    grid-template-columns:1fr;
+  }
+  body.adw .report-chart-heading .report-chart-controls{
+    grid-column:1;
+    grid-row:auto;
+    margin-top:8px;
+  }
+  body.adw .report-chart-heading .report-chart-controls select{width:100%;min-width:0}
+}
+
+/* A complete, searchable index keeps the deeper reports discoverable. */
+body.adw .report-finder{
+  position:relative;
+  z-index:20;
+  display:grid;
+  grid-template-columns:minmax(180px,1fr) minmax(240px,360px);
+  gap:2px 20px;
+  align-items:center;
+  margin:0 0 18px;
+  padding:16px 20px;
+  border:1px solid var(--border);
+  border-radius:10px;
+  background:var(--surface);
+}
+body.adw .report-finder label{font-size:16px;font-weight:700;color:var(--text)}
+body.adw .report-finder p{grid-column:1;grid-row:2;margin:0;color:var(--text-2);font-size:13px}
+body.adw .report-finder input{grid-column:2;grid-row:1/3;width:100%;min-height:40px}
+body.adw .report-finder-results{
+  position:absolute;
+  top:calc(100% - 3px);
+  right:20px;
+  width:min(520px,calc(100% - 40px));
+  max-height:320px;
+  overflow-y:auto;
+  border:1px solid var(--border);
+  border-radius:0 0 8px 8px;
+  background:var(--surface);
+  box-shadow:var(--shadow-pop);
+}
+body.adw .report-finder-results[hidden]{display:none}
+body.adw .report-finder-result{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:12px;
+  width:100%;
+  min-height:40px;
+  padding:8px 12px;
+  border:0;
+  border-bottom:1px solid var(--border);
+  border-radius:0;
+  text-align:left;
+}
+body.adw .report-finder-result small{flex:none;color:var(--text-2);font-size:12px}
+body.adw .report-finder-empty{padding:12px;grid-column:auto;grid-row:auto}
+body.adw #reportGrid>.card:focus{outline:2px solid var(--focus);outline-offset:3px}
+@media(max-width:760px){
+  body.adw .report-finder{grid-template-columns:1fr;gap:6px;padding:14px}
+  body.adw .report-finder p,body.adw .report-finder input{grid-column:1;grid-row:auto}
+  body.adw .report-finder-results{right:14px;width:calc(100% - 28px)}
+}
