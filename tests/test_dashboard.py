@@ -951,7 +951,9 @@ class IncrementalRenderTests(unittest.TestCase):
 
     def test_operational_alerts_are_computed_in_full_data_cube(self):
         core = (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
-        self.assertIn("operationalAlerts: computeOperationalAlerts(rows)", core)
+        # Lời gọi trải nhiều dòng (truyền thêm overview/columnHealth/dailyPrefixStats),
+        # nên chỉ cần khẳng định alerts được tính ngay trong cube đầy đủ.
+        self.assertIn("operationalAlerts: computeOperationalAlerts(rows,", core)
         self.assertIn("cubeVal('operationalAlerts'", self.HTML)
         self.assertIn("scope:{mode:'full'", core)
 
@@ -1977,7 +1979,7 @@ class GatewayHangupCauseChartTests(unittest.TestCase):
 
     def test_bieu_do_phan_bo_phan_tram_theo_gateway(self):
         self.assertIn('id="chart_gateway_hangup_cause_pie"', self.HTML)
-        self.assertIn("function plotGatewayHangupCausePie(rows)", self.HTML)
+        self.assertIn("function plotGatewayHangupCausePie(rows, colors)", self.HTML)
         self.assertIn("title:'Phân bố nguyên nhân kết thúc theo Gateway (%)'", self.HTML)
         self.assertIn("type:'bar', orientation:'h'", self.HTML)
         self.assertIn("barmode:'stack', barnorm:'percent'", self.HTML)
