@@ -1937,7 +1937,7 @@ class GatewayHangupCauseChartTests(unittest.TestCase):
     def test_bieu_do_dung_chung_cube_va_render_trong_tab_advanced(self):
         self.assertIn("cubeVal('gatewayHangupCause'", self.HTML)
         self.assertIn("safePlot('chart_gateway_hangup_cause_pie'", self.HTML)
-        self.assertIn("'table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie'", self.HTML)
+        self.assertIn("'table_gateway_fail','chart_gateway_call_distribution','chart_gateway_minutes','table_gateway_minutes','chart_gateway_hangup_cause_pie'", self.HTML)
 
     def test_bang_hangup_cause_thu_gon_theo_tung_gateway(self):
         self.assertIn('id="gatewayHangupCauseGroups"', self.HTML)

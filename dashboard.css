@@ -677,6 +677,40 @@ body.adw .icon-only{display:inline-flex;align-items:center;justify-content:cente
 body.adw #clearMap,body.adw #mptDeleteProfile{color:var(--error);border-color:var(--border);background:var(--card-bg)}
 body.adw #clearMap:hover,body.adw #mptDeleteProfile:hover{background:rgba(192,28,40,.1)}
 
+/* ---------- Biểu tượng trên nút ----------
+   Icon vẽ bằng mask + currentColor nên nút vẫn đúng màu ở mọi chủ đề, và nhãn
+   do JS đặt lại bằng textContent (Cập nhật, Thời gian, Bộ lọc khác…) không xóa
+   mất icon như khi nhúng <svg> con. */
+body.adw .btn-ico{display:inline-flex;align-items:center;gap:8px}
+body.adw .btn-ico::before{content:"";flex:0 0 auto;width:16px;height:16px;background:currentColor;
+  -webkit-mask:var(--btn-ico) center/16px 16px no-repeat;mask:var(--btn-ico) center/16px 16px no-repeat}
+/* .filter-trigger dùng space-between cho mũi tên ⌄; có icon thì gom icon + nhãn
+   về trái, mũi tên vẫn nằm sát mép phải. */
+/* Biến thể inline: giữ nguyên display của nút để text-overflow:ellipsis còn
+   hiệu lực (nhãn độ mới dữ liệu rất dài). */
+body.adw .btn-ico-inline::before{content:"";display:inline-block;vertical-align:-3px;margin-right:6px;
+  width:16px;height:16px;background:currentColor;
+  -webkit-mask:var(--btn-ico) center/16px 16px no-repeat;mask:var(--btn-ico) center/16px 16px no-repeat}
+body.adw .filter-trigger.btn-ico{justify-content:flex-start}
+body.adw .filter-trigger.btn-ico::after{margin-left:auto;padding-left:8px}
+/* Nút icon-only hẹp: không để icon bị bóp khi padding chủ đề rộng hơn ô chứa. */
+body.adw button>svg{flex:0 0 auto}
+
+body.adw #dataFreshnessSummary{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="5.7"/><path d="M8 4.6V8l2.4 1.6"/></svg>')}
+body.adw #updateReport{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 7a5.5 5.5 0 1 0-.5 3.4"/><path d="M13.6 3.2v3.9h-3.9"/></svg>')}
+body.adw #headerCancelUpdate{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.7" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"/></svg>')}
+body.adw #mobileFilterToggle{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2.4 3.6h11.2L9.4 8.5v4.2l-2.8 1.3V8.5z"/></svg>')}
+body.adw #dateRangeButton{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2.2" y="3.4" width="11.6" height="10.2" rx="1.6"/><path d="M2.2 6.6h11.6M5.4 2.2v2.4M10.6 2.2v2.4"/></svg>')}
+body.adw #accountDropdownBtn{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6.3" cy="6" r="2.5"/><path d="M1.9 13.4c.5-2.2 2.3-3.5 4.4-3.5s3.9 1.3 4.4 3.5"/><path d="M10.6 3.8a2.3 2.3 0 0 1 0 4.4M11.8 10.2c1.3.4 2.2 1.5 2.5 3.2"/></svg>')}
+body.adw #moreFiltersButton{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.6" stroke-linecap="round"><path d="M2.4 4.6h11.2M2.4 8h11.2M2.4 11.4h11.2"/><circle cx="5.6" cy="4.6" r="1.5" fill="%23fff"/><circle cx="10.4" cy="8" r="1.5" fill="%23fff"/><circle cx="6.8" cy="11.4" r="1.5" fill="%23fff"/></svg>')}
+body.adw #clearActiveFilters{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="5.8"/><path d="M5.9 5.9l4.2 4.2M10.1 5.9l-4.2 4.2"/></svg>')}
+body.adw #dataFreshnessUpdate,body.adw #mptRunReport,body.adw #restoreSnapshot{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.4v7.2"/><path d="M5.2 7l2.8 2.8L10.8 7"/><path d="M2.6 11.2v1.4c0 .6.5 1 1 1h8.8c.5 0 1-.4 1-1v-1.4"/></svg>')}
+body.adw .adw-menu-item[data-menu="settings"]{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.2" stroke-linejoin="round"><path d="M6.6 2.4h2.8l.4 1.5c.4.2.8.4 1.1.7l1.5-.5 1.4 2.4-1.1 1.1c.1.4.1.9 0 1.3l1.1 1.1-1.4 2.4-1.5-.5c-.3.3-.7.5-1.1.7l-.4 1.5H6.6l-.4-1.5c-.4-.2-.8-.4-1.1-.7l-1.5.5-1.4-2.4 1.1-1.1c-.1-.4-.1-.9 0-1.3L2.2 6.5l1.4-2.4 1.5.5c.3-.3.7-.5 1.1-.7z"/><circle cx="8" cy="8.2" r="2"/></svg>')}
+body.adw .adw-menu-item[data-menu="view-db"]{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.5" stroke-linecap="round"><ellipse cx="8" cy="4" rx="5.2" ry="2"/><path d="M2.8 4v8c0 1.1 2.3 2 5.2 2s5.2-.9 5.2-2V4M2.8 8c0 1.1 2.3 2 5.2 2s5.2-.9 5.2-2"/></svg>')}
+body.adw .adw-menu-item[data-menu="force-update"]{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.4 7a5.5 5.5 0 1 0-.5 3.4"/><path d="M13.6 3.2v3.9h-3.9"/></svg>')}
+body.adw .adw-menu-item[data-menu="png"]{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.5" stroke-linejoin="round"><rect x="2.2" y="3.2" width="11.6" height="9.6" rx="1.6"/><circle cx="5.8" cy="6.4" r="1.1"/><path d="M2.6 11.4l3.2-3 2.6 2.4 2.2-1.8 2.8 2.4"/></svg>')}
+body.adw .adw-menu-item[data-menu="pdf"]{--btn-ico:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="none" stroke="%23000" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9.2 2.2H4.6c-.6 0-1.1.5-1.1 1.1v9.4c0 .6.5 1.1 1.1 1.1h6.8c.6 0 1.1-.5 1.1-1.1V5.4z"/><path d="M9.2 2.2v3.2h3.3M5.9 9.2h4.2M5.9 11.2h2.8"/></svg>')}
+
 /* ---------- Inputs ---------- */
 body.adw input,body.adw select{font:inherit;font-size:13px;min-height:34px;padding:6px 10px;
   border-radius:var(--radius);border:1px solid var(--border);background:var(--view-bg);color:var(--text)}
@@ -1867,6 +1901,8 @@ body.adw.dark .adw-filterbar{top:var(--header-h,60px);padding:10px 24px;backgrou
 body.adw.dark button{min-height:40px;padding:8px 14px;border-radius:6px;border-color:var(--border);background:var(--surface);color:var(--text);font-size:14px;font-weight:500}
 body.adw.dark button:hover:not(:disabled){background:var(--hover);border-color:#B9B1A7}
 body.adw.dark button:disabled{opacity:.58;background:#E7E2DB;color:#77736E}
+body.adw.dark .flat-btn{background:transparent;border-color:transparent}
+body.adw.dark .icon-only{width:40px;padding:0}
 body.adw.dark .primary-btn,body.adw.dark #updateReport{background:#D97757;border-color:#D97757;color:#1A1A1A}
 body.adw.dark .primary-btn:hover:not(:disabled),body.adw.dark #updateReport:hover:not(:disabled){background:#BF6244;border-color:#BF6244}
 body.adw.dark input,body.adw.dark select{min-height:40px;height:40px;padding:8px 12px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:14px}
@@ -2612,4 +2648,21 @@ body.adw #reportGrid>.card:focus{outline:2px solid var(--focus);outline-offset:3
   body.adw .report-finder{grid-template-columns:1fr;gap:6px;padding:14px}
   body.adw .report-finder p,body.adw .report-finder input{grid-column:1;grid-row:auto}
   body.adw .report-finder-results{right:14px;width:calc(100% - 28px)}
+}
+
+/* Hai khối chủ đề đặt bề rộng sidebar bằng selector mạnh hơn phần Responsive
+   (body.adw:not(.dark) X = 0,3,1 và body.adw.dark X đứng sau theo thứ tự tài
+   liệu), nên breakpoint thu hẹp sidebar bị vô hiệu ở cả hai chủ đề. Lặp lại
+   đúng ba breakpoint cho từng chủ đề để sidebar co lại như thiết kế. */
+@media(min-width:1024px) and (max-width:1279px){
+  body.adw:not(.dark) .adw-sidebar,
+  body.adw.dark .adw-sidebar{flex-basis:180px;width:180px}
+}
+@media(min-width:900px) and (max-width:1023px){
+  body.adw:not(.dark) .adw-sidebar,
+  body.adw.dark .adw-sidebar{flex-basis:64px;width:64px;padding-inline:7px}
+}
+@media(max-width:899px){
+  body.adw:not(.dark) .adw-sidebar,
+  body.adw.dark .adw-sidebar{flex-basis:auto;width:auto;padding:12px}
 }

@@ -16,6 +16,8 @@ Tài liệu này là điểm tham chiếu ngắn cho mọi thay đổi UI sau đ
 - Bộ lọc thường dùng nằm trên thanh lọc; bộ lọc ít dùng nằm trong **Bộ lọc khác**. Bộ lọc đã áp dụng phải hiện thành chip và có thể xóa.
 - Mỗi tab mở mặc định 4–6 báo cáo quyết định. Phần còn lại dùng `report-more-toggle` với nhãn **Hiển thị thêm N báo cáo**.
 - Card báo cáo dùng tiêu đề là câu hỏi/kết luận ngắn và dòng phụ `ngày · số cuộc gọi`. Card rỗng phải nêu nguyên nhân và hành động tiếp theo.
+- Nút hành động chính và các nút mở bộ lọc có biểu tượng: thêm class `btn-ico` (hoặc `btn-ico-inline` khi nhãn cần cắt bằng `text-overflow`) rồi khai báo `--btn-ico` trong `dashboard.css`. Icon vẽ bằng `mask` + `currentColor` nên nhãn do JS đặt lại bằng `textContent` không xóa mất icon.
+- Khối chủ đề `body.adw:not(.dark)` / `body.adw.dark` có độ ưu tiên cao hơn phần Responsive. Khi đổi kích thước theo breakpoint, phải khai báo cho cả hai chủ đề ở cuối `dashboard.css`, nếu không breakpoint sẽ bị chủ đề ghi đè.
 - Dùng skeleton khi đọc lại dữ liệu đã lưu hoặc lọc; modal tiến độ chỉ dành cho quá trình tải/cập nhật có thể hủy.
 - Ở 600 px, bộ lọc mở thành sheet và sidebar thành thanh điều hướng ngang. Không được tạo tràn ngang tài liệu.
 

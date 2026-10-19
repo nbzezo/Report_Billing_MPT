@@ -204,7 +204,7 @@ test('buildCube — phủ đủ các nhóm biểu đồ 5 tab', () => {
   for (const k of ['overview', 'byPrefix', 'minutesPerDay', 'accountKPIs', 'topDest',
     'destTelcoShare', 'telcoConnBreakdown', 'dailyPrefixStats', 'timeHeatmap', 'goldenHours',
     'answerRateByAccountPerDay', 'agentPerf', 'gatewayByAccount', 'gatewayHangupCause', 'gatewayFailTimeline', 'operationalAlerts',
-    'gatewayBlockReconcile', 'callbackStats', 'retryPattern', 'concurrency', 'billing']) {
+    'gatewayBlockReconcile', 'gatewayMinutes', 'callbackStats', 'retryPattern', 'concurrency', 'billing']) {
     assert.ok(k in cube, `thiếu cube.${k}`);
   }
   // gateway trên toàn bộ dòng (không có gwIndex -> mọi cuộc vào nhóm '(chưa map)')
@@ -1106,6 +1106,53 @@ test('CID lifecycle nâng cao — hàng đợi hành động và so sánh dimens
   const gateways = core.computeCidDimensionComparison(tl,rows,'gateway');
   assert.deepEqual(gateways.map(x=>x.name).sort(),['GW1','GW2']);
   assert.equal(gateways.find(x=>x.name==='GW1').stillBlockedPct,100);
+});
+
+test('computeGatewayMinutes — phút gọi theo gateway, ACD, tỷ trọng và chuỗi theo ngày', () => {
+  const rows = [
+    { account_id: '1', gateway: 'GW1', date: '2026-10-01', connType: 'Connected', billsec: 120 },
+    { account_id: '1', gateway: 'GW1', date: '2026-10-02', connType: 'Connected', billsec: 60 },
+    { account_id: '2', gateway: 'GW1', date: '2026-10-02', connType: 'Fail', billsec: 0 },
+    { account_id: '2', gateway: 'GW2', date: '2026-10-01', connType: 'Connected', billsec: 6 },
+    // cuộc chưa map gateway: không vào bảng, chỉ hạ độ phủ
+    { account_id: '2', gateway: '', date: '2026-10-01', connType: 'Connected', billsec: 300 },
+  ];
+  const res = core.computeGatewayMinutes(rows);
+  assert.deepEqual(res.days, ['2026-10-01', '2026-10-02']);
+  assert.equal(res.coverage.total, 5);
+  assert.equal(res.coverage.matched, 4);
+  assert.equal(res.coverage.pct, 80);
+
+  const [gw1, gw2] = res.rows;                 // sắp theo tổng phút giảm dần
+  assert.equal(gw1.gateway, 'GW1');
+  assert.equal(gw1.minutes, 3);                // 180 giây
+  assert.equal(gw1.calls, 3);                  // kể cả cuộc Fail
+  assert.equal(gw1.connected, 2);              // phút chỉ tính cuộc đã kết nối
+  assert.equal(gw1.accountCount, 2);
+  assert.equal(gw1.acdSec, 90);
+  assert.equal(gw1.activeDays, 2);
+  assert.equal(gw1.minutesPerDay, 1.5);
+  assert.equal(gw1.peakDay, '2026-10-01');
+  assert.equal(gw1.peakMinutes, 2);
+  assert.equal(gw1.shortCalls, 0);
+  assert.equal(gw1.longestSec, 120);
+  assert.deepEqual(gw1.series, [2, 1]);
+
+  assert.equal(gw2.gateway, 'GW2');
+  assert.equal(gw2.shortCalls, 1);             // < 10 giây
+  assert.equal(gw2.shortCallPct, 100);
+  assert.deepEqual(gw2.series, [0.1, 0]);      // ngày không có lưu lượng -> 0
+
+  assert.equal(+(gw1.minutesShare + gw2.minutesShare).toFixed(2), 100);
+  assert.equal(res.totals.minutes, 3.1);
+  assert.equal(res.totals.connected, 3);
+  assert.equal(res.totals.gateways, 2);
+  // Tổng phút phải khớp cột "Phút gọi" của computeGatewayFail để hai bảng cạnh
+  // nhau không ra hai con số khác nhau.
+  const fail = core.computeGatewayFail(rows);
+  assert.equal(
+    +fail.rows.reduce((sum, r) => sum + r.minutes, 0).toFixed(2),
+    res.totals.minutes);
 });
 
 test('enrichData — gắn gateway/routing_name từ gatewayCidIndex (join qua caller_id_number)', () => {

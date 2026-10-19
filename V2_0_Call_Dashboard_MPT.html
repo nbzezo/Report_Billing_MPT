@@ -155,10 +155,10 @@ function updateRN_CF_KPIs(rows){
       </div>
     </div>
     <div class="hb-end">
-      <button id="dataFreshnessSummary" type="button" class="flat-btn hb-freshness" aria-haspopup="dialog">Chưa có dữ liệu</button>
+      <button id="dataFreshnessSummary" type="button" class="flat-btn hb-freshness btn-ico-inline" aria-haspopup="dialog">Chưa có dữ liệu</button>
       <div class="update-split filter-popover-wrap">
-        <button id="updateReport" type="button" class="primary-btn">Cập nhật</button>
-        <button id="updateScopeButton" type="button" class="primary-btn icon-only" aria-label="Chọn tài khoản cần tải" aria-haspopup="dialog" aria-expanded="false" aria-controls="updateScopePopover">▾</button>
+        <button id="updateReport" type="button" class="primary-btn btn-ico">Cập nhật</button>
+        <button id="updateScopeButton" type="button" class="primary-btn icon-only" aria-label="Chọn tài khoản cần tải" aria-haspopup="dialog" aria-expanded="false" aria-controls="updateScopePopover"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4.2 6.2L8 10l3.8-3.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div id="updateScopePopover" class="filter-popover update-scope-popover" role="dialog" aria-labelledby="updateScopeTitle" hidden>
           <div id="updateScopeTitle" class="mpt-source-block-title">Tài khoản cần tải từ MPT</div>
           <p class="update-scope-note">Phạm vi tải độc lập với <strong>tài khoản đang xem</strong> trong thanh lọc. Bỏ chọn tất cả để tải mọi tài khoản.</p>
@@ -167,27 +167,27 @@ function updateRN_CF_KPIs(rows){
           <div class="filter-popover-actions"><button id="openConnectionSettings" type="button">Cài đặt kết nối</button><button type="button" class="primary-btn" data-filter-close>Đóng</button></div>
         </div>
       </div>
-      <button id="headerCancelUpdate" type="button" class="flat-btn" hidden>Hủy</button>
+      <button id="headerCancelUpdate" type="button" class="flat-btn btn-ico" hidden>Hủy</button>
       <div class="adw-menu-wrap">
         <button id="appMenuBtn" type="button" class="flat-btn icon-only" aria-haspopup="true" aria-expanded="false" aria-controls="appMenu" title="Menu chính"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
         <div id="appMenu" class="adw-popover" role="menu" hidden>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="settings">Cài đặt</button>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="view-db">Chỉ xem dữ liệu đã lưu</button>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="force-update">Tải lại toàn bộ từ MPT</button>
+          <button type="button" class="adw-menu-item btn-ico" role="menuitem" data-menu="settings">Cài đặt</button>
+          <button type="button" class="adw-menu-item btn-ico" role="menuitem" data-menu="view-db">Chỉ xem dữ liệu đã lưu</button>
+          <button type="button" class="adw-menu-item btn-ico" role="menuitem" data-menu="force-update">Tải lại toàn bộ từ MPT</button>
           <div class="adw-menu-sep"></div>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="png">Xuất PNG từng biểu đồ</button>
-          <button type="button" class="adw-menu-item" role="menuitem" data-menu="pdf">Xuất PDF toàn báo cáo</button>
+          <button type="button" class="adw-menu-item btn-ico" role="menuitem" data-menu="png">Xuất PNG từng biểu đồ</button>
+          <button type="button" class="adw-menu-item btn-ico" role="menuitem" data-menu="pdf">Xuất PDF toàn báo cáo</button>
         </div>
       </div>
     </div>
   </header>
 
   <div class="adw-filterbar">
-    <button id="mobileFilterToggle" type="button" aria-expanded="false" aria-controls="mobileFilterSheet">Bộ lọc</button>
+    <button id="mobileFilterToggle" type="button" class="btn-ico" aria-expanded="false" aria-controls="mobileFilterSheet">Bộ lọc</button>
     <div id="mobileFilterSheet" class="compact-filter-row">
       <label class="compact-profile" title="Kết nối MPT"><span>Kết nối</span><select id="mainMptProfile"><option value="">-- Chọn kết nối --</option></select></label>
       <div class="filter-popover-wrap">
-        <button type="button" id="dateRangeButton" class="filter-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="dateRangePopover">Thời gian</button>
+        <button type="button" id="dateRangeButton" class="filter-trigger btn-ico" aria-haspopup="dialog" aria-expanded="false" aria-controls="dateRangePopover">Thời gian</button>
         <div id="dateRangePopover" class="filter-popover date-range-popover" role="dialog" aria-label="Chọn khoảng thời gian" hidden>
           <div class="quick-range" role="group" aria-label="Chọn nhanh khoảng ngày">
             <button id="qr_today" type="button">Hôm nay</button><button id="qr_yesterday" type="button">Hôm qua</button><button id="qr_7" type="button">7 ngày qua</button><button id="qr_this_month" type="button">Tháng này</button><button id="qr_last_month" type="button">Tháng trước</button>
@@ -201,7 +201,7 @@ function updateRN_CF_KPIs(rows){
       </div>
       <label class="compact-account" title="Tài khoản đang xem"><span class="sr-only">Tài khoản</span>
         <span class="dropdown" id="accountDropdown">
-          <button type="button" id="accountDropdownBtn" class="filter-trigger">Tài khoản: Tất cả</button><span id="accountCount" class="muted"></span>
+          <button type="button" id="accountDropdownBtn" class="filter-trigger btn-ico">Tài khoản: Tất cả</button><span id="accountCount" class="muted"></span>
           <div id="accountDropdownList" class="dropdown-list u-inline-6b99de8b">
             <div class="controls-row"><button id="selectAllAccounts" type="button">Tất cả</button><button id="clearAllAccounts" type="button">Bỏ chọn</button><input id="accountSearch" type="text" placeholder="Tìm tài khoản…" /></div>
             <div class="u-inline-25d1b69a" id="accountListCheckboxes"></div>
@@ -210,7 +210,7 @@ function updateRN_CF_KPIs(rows){
         </span>
       </label>
       <div class="filter-popover-wrap">
-        <button type="button" id="moreFiltersButton" class="filter-trigger" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreFiltersPopover">Bộ lọc khác</button>
+        <button type="button" id="moreFiltersButton" class="filter-trigger btn-ico" aria-haspopup="dialog" aria-expanded="false" aria-controls="moreFiltersPopover">Bộ lọc khác</button>
         <div id="moreFiltersPopover" class="filter-popover more-filters-popover" role="dialog" aria-label="Bộ lọc khác" hidden>
           <div class="more-filter-grid">
             <label>Hướng gọi<select id="mainDirection"><option value="">Tất cả</option><option value="1">Gọi ra</option><option value="2">Gọi vào</option></select></label>
@@ -224,14 +224,14 @@ function updateRN_CF_KPIs(rows){
       </div>
       <button id="applyFilter" type="button" hidden>Áp dụng bộ lọc</button>
     </div>
-    <div id="activeFilterRow" class="active-filter-row" hidden><span>Đang áp dụng:</span><div id="activeFilterChips" class="active-filter-chips"></div><button type="button" id="clearActiveFilters" class="flat-btn">Xóa tất cả</button></div>
+    <div id="activeFilterRow" class="active-filter-row" hidden><span>Đang áp dụng:</span><div id="activeFilterChips" class="active-filter-chips"></div><button type="button" id="clearActiveFilters" class="flat-btn btn-ico">Xóa tất cả</button></div>
     <span id="billingIndependentBadge" class="billing-independent-badge"><span>Cước phí đang dùng khoảng thời gian riêng.</span><button type="button" id="quickSyncBillingFromTop">Dùng khoảng chính</button></span>
     <div class="filter-status-line sr-status"><div id="mainFilterScope" role="status" aria-live="polite"></div><div id="databaseStatus" role="status" aria-live="polite"></div><div id="rowCapNotice" role="status" aria-live="polite" hidden></div></div>
   </div>
 
   <div id="restoreBanner" class="adw-banner" hidden>
     <span id="restoreBannerText" class="adw-banner-text"></span>
-    <button id="restoreSnapshot" type="button" class="primary-btn">Dùng lại</button>
+    <button id="restoreSnapshot" type="button" class="primary-btn btn-ico">Dùng lại</button>
     <button id="dismissSnapshot" type="button">Bỏ qua</button>
   </div>
 
@@ -292,7 +292,7 @@ function updateRN_CF_KPIs(rows){
             </section>
 
             <section class="mpt-source-block mpt-run-block" aria-label="Trạng thái kết nối">
-            <button id="mptRunReport" type="button" class="primary-btn" disabled hidden>Tải / Cập nhật báo cáo</button>
+            <button id="mptRunReport" type="button" class="primary-btn btn-ico" disabled hidden>Tải / Cập nhật báo cáo</button>
               <div id="mptSourceStatus" class="mpt-source-status" role="status" aria-live="polite">Đang khởi tạo nguồn dữ liệu…</div>
             </section>
           </div>
@@ -488,7 +488,7 @@ function updateRN_CF_KPIs(rows){
       <p id="dataFreshnessHint" class="muted"></p>
       <div class="control-row freshness-actions">
         <button type="button" data-close-dialog>Đóng</button>
-        <button type="button" id="dataFreshnessUpdate" class="primary-btn">Cập nhật báo cáo</button>
+        <button type="button" id="dataFreshnessUpdate" class="primary-btn btn-ico">Cập nhật báo cáo</button>
       </div>
     </div>
   </dialog>
@@ -851,6 +851,29 @@ function updateRN_CF_KPIs(rows){
     </div>
 
     <div id="chart_gateway_call_distribution" class="card full" data-tab="advanced" draggable="true"></div>
+
+    <div id="chart_gateway_minutes" class="card full" data-tab="advanced" draggable="true"></div>
+
+    <div id="table_gateway_minutes" class="card full" data-tab="advanced" draggable="true">
+      <h3 class="u-inline-02aaf7e0">Thời lượng gọi (phút) theo Gateway</h3>
+      <div class="muted">Phút gọi = <code>billsec</code> của cuộc <b>đã kết nối</b> chia 60, cùng cách tính với cột “Phút gọi” ở các bảng Gateway khác. <code>TB mỗi cuộc (ACD)</code> là thời lượng trung bình của cuộc đã kết nối; <code>Cuộc ngắn</code> là cuộc kết nối dưới 10 giây. Sắp xếp theo tổng phút giảm dần.</div>
+      <div id="gatewayMinutesCoverage" class="muted u-inline-fe7b4979"></div>
+      <table class="u-inline-0e3249a7" id="gatewayMinutesTable">
+        <thead><tr>
+          <th class="u-inline-30130854">Gateway</th>
+          <th class="u-inline-1fb56c0e">Số tài khoản</th>
+          <th class="u-inline-1fb56c0e">Cuộc kết nối</th>
+          <th class="u-inline-1fb56c0e">Tổng phút</th>
+          <th class="u-inline-1fb56c0e">Tỷ trọng phút</th>
+          <th class="u-inline-1fb56c0e">Phút/ngày</th>
+          <th class="u-inline-1fb56c0e">TB mỗi cuộc (ACD)</th>
+          <th class="u-inline-1fb56c0e">Cuộc ngắn</th>
+          <th class="u-inline-1fb56c0e">Ngày nhiều phút nhất</th>
+        </tr></thead>
+        <tbody></tbody>
+        <tfoot></tfoot>
+      </table>
+    </div>
 
     <div id="table_gateway_hangup_cause" class="card full" data-tab="advanced" draggable="true">
       <h3 class="u-inline-02aaf7e0">Nguyên nhân kết thúc theo Gateway</h3>
@@ -4246,7 +4269,7 @@ const REPORT_FINDER_TITLES={
   chart_billsec_duration_gap:'Chênh lệch thời lượng và thời gian tính cước',chart_duration_hist:'Phân bố thời lượng cuộc gọi',
   table_line_anomalies:'Đầu số bất thường',chart_caller_participation_heatmap:'Đầu số tham gia theo nhà mạng và thời gian',
   gatewayGroupEmpty:'Trạng thái dữ liệu Gateway',table_data_quality:'Chất lượng dữ liệu',
-  chart_gateway_call_distribution:'Phân bố cuộc gọi theo Gateway',chart_gateway_hangup_cause_pie:'Nguyên nhân kết thúc theo Gateway',
+  chart_gateway_call_distribution:'Phân bố cuộc gọi theo Gateway',chart_gateway_minutes:'Thời lượng gọi theo Gateway',table_gateway_minutes:'Bảng thời lượng gọi theo Gateway',chart_gateway_hangup_cause_pie:'Nguyên nhân kết thúc theo Gateway',
   chart_gateway_fail_timeline:'Lỗi Gateway theo thời gian',table_gateway_hangup_cause:'Bảng nguyên nhân kết thúc theo Gateway',
   chart_account_radar:'So sánh chỉ số tài khoản',table_gateway_by_account:'Gateway theo tài khoản',
   table_gateway_block_reconcile:'Đối soát Gateway bị chặn',chart_rn_histogram:'Phân bố số ngẫu nhiên RN',
@@ -4312,7 +4335,7 @@ const REPORT_LAYOUT={
       // tổng quan vận hành
       'panel_alerts','table_data_quality',
       // sức khỏe gateway
-      'gatewayGroupEmpty','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause',
+      'gatewayGroupEmpty','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_minutes','table_gateway_minutes','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause',
       // hiệu suất account
       'chart_agent_perf','table_agent_perf','chart_account_radar','table_gateway_by_account',
       // chẩn đoán chuyên sâu
@@ -4498,7 +4521,7 @@ function applyDashboardV2Layout(){
   document.querySelectorAll('#reportGrid > .card[data-tab]').forEach(card=>{
     card.classList.remove('layout-wide','layout-narrow','layout-full');
   });
-  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','table_gateway_hangup_cause','table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline','table_data_quality','report_rn_cf_by_account','report_rn_detail','table_card','chart_cid_recovery_survival','table_cid_reblock','chart_cid_inventory_trend','table_cid_action_queue','table_cid_comparison',
+  ['report_chart_asr_time','chart_golden_hours_rate','chart_hangup_heatmap','panel_alerts','table_hangup_breakdown','table_fail_reason','table_top_dest','table_ccu_by_telco','table_callback_top','table_line_anomalies','table_agent_perf','table_gateway_fail','chart_gateway_call_distribution','chart_gateway_minutes','table_gateway_minutes','chart_gateway_hangup_cause_pie','table_gateway_hangup_cause','table_gateway_by_account','table_gateway_block_reconcile','chart_gateway_fail_timeline','table_data_quality','report_rn_cf_by_account','report_rn_detail','table_card','chart_cid_recovery_survival','table_cid_reblock','chart_cid_inventory_trend','table_cid_action_queue','table_cid_comparison',
    'panel_billing_config','panel_billing_kpi','chart_billing_by_period','chart_billing_by_telco','table_billing_by_period','table_billing_by_account'].forEach(id=>{
     const card=resolveReportCard(id); if(card) card.classList.add('layout-full');
   });
@@ -4587,7 +4610,7 @@ function updateCidGroupHeaders(tabName){
 
 const ADVANCED_TIER_GROUPS=[
   {id:'advancedGroupOverview',label:'Tổng quan vận hành',color:uiColor('--ux-color-3584e4'),anchor:'panel_alerts',cards:['panel_alerts','table_data_quality']},
-  {id:'advancedGroupGateway',label:'Sức khỏe Gateway',color:uiColor('--ux-color-e15759'),anchor:'table_gateway_fail',cards:['table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause']},
+  {id:'advancedGroupGateway',label:'Sức khỏe Gateway',color:uiColor('--ux-color-e15759'),anchor:'table_gateway_fail',cards:['table_gateway_fail','chart_gateway_call_distribution','chart_gateway_minutes','table_gateway_minutes','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause']},
   {id:'advancedGroupAccount',label:'Hiệu suất Account',color:uiColor('--ux-color-59a14f'),anchor:'chart_agent_perf',cards:['chart_agent_perf','table_agent_perf','chart_account_radar','table_gateway_by_account']},
   {id:'advancedGroupDiagnostics',label:'Chẩn đoán chuyên sâu',color:uiColor('--ux-color-af7aa1'),anchor:'table_gateway_block_reconcile',cards:['table_gateway_block_reconcile','chart_rn_histogram','report_rn_cf_by_account','report_rn_detail']},
   {id:'advancedGroupDetail',label:'Dữ liệu chi tiết',color:uiColor('--ux-color-616161'),anchor:'table_card',cards:['table_card']}
@@ -5143,7 +5166,7 @@ function renderTimeTab(filtered, colors){
   ]);
 }
 
-const GATEWAY_REPORT_IDS=['table_gateway_fail','chart_gateway_call_distribution','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause','table_gateway_by_account','table_gateway_block_reconcile'];
+const GATEWAY_REPORT_IDS=['table_gateway_fail','chart_gateway_call_distribution','chart_gateway_minutes','table_gateway_minutes','chart_gateway_hangup_cause_pie','chart_gateway_fail_timeline','table_gateway_hangup_cause','table_gateway_by_account','table_gateway_block_reconcile'];
 function updateGatewayGroupVisibility(){
   const empty=document.getElementById('gatewayGroupEmpty');
   if(!empty) return;
@@ -5166,6 +5189,8 @@ function renderAdvancedTab(filtered, colors){
     ()=> renderAgentPerfTable(filtered),
     ()=> renderGatewayFailTable(filtered),
     ()=> safePlot('chart_gateway_call_distribution', ()=> plotGatewayCallDistribution(filtered, colors)),
+    ()=> safePlot('chart_gateway_minutes', ()=> plotGatewayMinutes(filtered, colors)),
+    ()=> renderGatewayMinutesTable(filtered),
     ()=> safePlot('chart_gateway_hangup_cause_pie', ()=> plotGatewayHangupCausePie(filtered, colors)),
     ()=> renderGatewayHangupCauseTable(filtered),
     ()=> renderGatewayByAccountTable(filtered),
@@ -7831,6 +7856,107 @@ function plotGatewayCallDistribution(rows, colors){
     showlegend:false,
     paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
   },{responsive:true,displaylogo:false});
+}
+
+// Phút gọi theo Gateway: cột ngang xếp theo tổng phút giảm dần, nhãn ngay trên
+// cột để đọc được số mà không cần rê chuột.
+function plotGatewayMinutes(rows, colors){
+  const elId = 'chart_gateway_minutes';
+  if(!gatewayCidIndex || !Object.keys(gatewayCidIndex).length)
+    return showNoData(elId, 'Chưa có mapping Gateway — vào tab Vòng đời CID để gán routing_id');
+  const res = cubeVal('gatewayMinutes', ()=>computeGatewayMinutes(rows));
+  const data = ((res && res.rows) || []).filter(item=> Number(item.minutes) > 0);
+  if(!data.length) return showNoData(elId, 'Không có phút gọi nào đã map gateway trong khoảng lọc');
+
+  const palette = (colors && colors.Palette && colors.Palette.length)
+    ? colors.Palette : [uiColor('--ux-color-3584e4')];
+  const customdata = data.map(item=>[
+    item.minutesShare || 0,
+    item.acdSec || 0,
+    item.connected || 0,
+    item.minutesPerDay || 0,
+  ]);
+  Plotly.react(elId,[{
+    type:'bar', orientation:'h', name:'Phút gọi',
+    y:data.map(item=>item.gateway),
+    x:data.map(item=>item.minutes),
+    customdata,
+    marker:{color:data.map(item=>categoryColor(item.gateway,palette))},
+    text:data.map(item=>item.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})),
+    textposition:'auto',
+    hovertemplate:'Gateway: %{y}<br>Phút gọi: %{x:,.1f}<br>Tỷ trọng phút: %{customdata[0]:.2f}%<br>TB mỗi cuộc: %{customdata[1]:,.1f} giây<br>Cuộc kết nối: %{customdata[2]:,}<br>Phút/ngày: %{customdata[3]:,.1f}<extra></extra>',
+  }],{
+    title:{text:'Tổng phút gọi theo Gateway',x:.02,xanchor:'left'},
+    height:420,
+    margin:{t:58,r:28,b:52,l:190},
+    xaxis:{title:'Phút gọi',rangemode:'tozero',fixedrange:true,separatethousands:true},
+    yaxis:{type:'category',autorange:'reversed',fixedrange:true,automargin:true},
+    showlegend:false,
+    paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
+  },{responsive:true,displaylogo:false});
+}
+
+function renderGatewayMinutesTable(rows){
+  const table = document.getElementById('gatewayMinutesTable');
+  const tb = table && table.querySelector('tbody');
+  const tf = table && table.querySelector('tfoot');
+  const cov = document.getElementById('gatewayMinutesCoverage');
+  if(!tb) return;
+  tb.innerHTML = '';
+  if(tf) tf.innerHTML = '';
+  const hasMap = gatewayCidIndex && Object.keys(gatewayCidIndex).length > 0;
+  if(!hasMap){
+    if(cov) cov.innerHTML = 'Chưa có mapping Gateway (tab <b>Vòng đời CID</b>).';
+    return;
+  }
+  if(!rows || !rows.length){ if(cov) cov.textContent = ''; return; }
+  const res = cubeVal('gatewayMinutes', ()=>computeGatewayMinutes(rows))
+    || { rows:[], days:[], totals:{}, coverage:{total:0,matched:0,pct:0} };
+  const data = res.rows || [];
+  const totals = res.totals || {};
+  const days = res.days || [];
+  const minutes = v => Number(v||0).toLocaleString('vi-VN',{maximumFractionDigits:1});
+  if(cov){
+    const c = res.coverage || {};
+    cov.innerHTML = `${data.length} gateway · <b>${minutes(totals.minutes)}</b> phút gọi trên `
+      + `${(totals.connected||0).toLocaleString('vi-VN')} cuộc kết nối`
+      + (days.length ? ` · ${days.length} ngày có lưu lượng` : '')
+      + ` · độ phủ gateway <b>${UIFormat.pct(c.pct||0)}</b> (${(c.matched||0).toLocaleString('vi-VN')}/${(c.total||0).toLocaleString('vi-VN')} cuộc).`;
+  }
+  if(!data.length){
+    tb.innerHTML = '<tr><td colspan="9" class="muted u-inline-bee7c325">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</td></tr>';
+    return;
+  }
+  data.forEach(m=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="u-inline-4d2849d1">${reportTableEscape(m.gateway)}</td>
+      <td class="u-inline-12972e58">${m.accountCount.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${m.connected.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${minutes(m.minutes)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.minutesShare)}</td>
+      <td class="u-inline-12972e58">${minutes(m.minutesPerDay)}</td>
+      <td class="u-inline-12972e58">${UIFormat.seconds(m.acdSec)}</td>
+      <td class="u-inline-12972e58">${m.shortCalls.toLocaleString('vi-VN')} · ${UIFormat.pct(m.shortCallPct)}</td>
+      <td class="u-inline-12972e58">${m.peakDay ? `${UIFormat.dateShort(m.peakDay)} · ${minutes(m.peakMinutes)}` : '—'}</td>
+    `;
+    tb.appendChild(tr);
+  });
+  if(tf){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="u-inline-4d2849d1"><b>Tổng</b></td>
+      <td class="u-inline-12972e58"></td>
+      <td class="u-inline-12972e58"><b>${(totals.connected||0).toLocaleString('vi-VN')}</b></td>
+      <td class="u-inline-12972e58"><b>${minutes(totals.minutes)}</b></td>
+      <td class="u-inline-12972e58"><b>${UIFormat.pct(100)}</b></td>
+      <td class="u-inline-12972e58"><b>${minutes(totals.minutesPerDay)}</b></td>
+      <td class="u-inline-12972e58"><b>${UIFormat.seconds(totals.acdSec)}</b></td>
+      <td class="u-inline-12972e58"></td>
+      <td class="u-inline-12972e58"></td>
+    `;
+    tf.appendChild(tr);
+  }
 }
 
 function renderGatewayHangupCauseTable(rows){

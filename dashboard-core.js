@@ -1020,6 +1020,7 @@ function buildCube(enrichedRows, params) {
     agentPerf: computeAgentPerf(rows),
     gatewayByAccount: computeGatewayByAccount(rows),
     gatewayFail: computeGatewayFail(rows),
+    gatewayMinutes: computeGatewayMinutes(rows),
     gatewayHangupCause: computeGatewayHangupCause(rows),
     gatewayFailTimeline: computeGatewayFailTimeline(rows, 30),
     gatewayBlockReconcile: computeGatewayBlockReconcile(rows),
@@ -1159,7 +1160,7 @@ const LLM_CONTEXT_TAB_FIELDS = {
   overview: ['meta', 'overview', 'byPrefix', 'minutesPerDay'],
   quality: ['meta', 'overview', 'byPrefix', 'destTelcoShare', 'telcoConnBreakdown', 'dailyPrefixStats', 'topDest'],
   time: ['meta', 'overview', 'timeHeatmap', 'goldenHours', 'answerRateByAccountPerDay', 'concurrency', 'retryPattern'],
-  advanced: ['meta', 'overview', 'accountKPIs', 'agentPerf', 'gatewayByAccount', 'gatewayFail', 'gatewayHangupCause', 'gatewayBlockReconcile', 'columnHealth', 'timeAnomaly'],
+  advanced: ['meta', 'overview', 'accountKPIs', 'agentPerf', 'gatewayByAccount', 'gatewayFail', 'gatewayMinutes', 'gatewayHangupCause', 'gatewayBlockReconcile', 'columnHealth', 'timeAnomaly'],
   cid: ['meta', 'overview'],
   billing: ['meta', 'overview', 'billing']
 };
@@ -1720,6 +1721,84 @@ function computeGatewayFail(rows){
       failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0
     })).sort((a,b)=> b.failPct - a.failPct || b.total - a.total);
     return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
+  });
+}
+
+/**
+ * Thời lượng gọi (phút) theo GATEWAY — báo cáo lưu lượng, đối trọng với
+ * computeGatewayFail (vốn nhìn theo tỷ lệ lỗi).
+ *
+ * Phút gọi = billsec của cuộc ĐÃ KẾT NỐI chia 60, đúng cột "Phút gọi" của các
+ * bảng Gateway khác nên hai bảng cạnh nhau không ra hai con số khác nhau.
+ * Chỉ tính cuộc đã map gateway; `coverage` cho biết phần CDR còn thiếu ánh xạ.
+ *
+ * Mỗi dòng kèm `series` = phút theo từng ngày trong `days` (cùng thứ tự) để vẽ
+ * dòng thời gian mà không phải quét lại CDR.
+ */
+function computeGatewayMinutes(rows){
+  return __getAgg(rows, 'computeGatewayMinutes', ()=>{
+    const map = {};
+    const daySet = new Set();
+    let total = 0, matched = 0, totalBillsec = 0, totalConnected = 0;
+    (rows||[]).forEach(r=>{
+      total++;
+      const gw = String(r.gateway || '');
+      if(!gw) return;
+      matched++;
+      let m = map[gw];
+      if(!m) m = map[gw] = { gateway: gw, accounts: new Set(), days: new Map(),
+        calls: 0, connected: 0, billsec: 0, shortCalls: 0, longestSec: 0 };
+      m.accounts.add(String(r.account_id || 'Unknown'));
+      m.calls++;
+      const ct = r.connType || classifyCall(r);
+      if(ct !== 'Connected') return;
+      const bs = Number(r.billsec || 0) || 0;
+      m.connected++;
+      m.billsec += bs;
+      totalConnected++;
+      totalBillsec += bs;
+      if(bs < 10) m.shortCalls++;
+      if(bs > m.longestSec) m.longestSec = bs;
+      const day = r.date || 'Unknown';
+      daySet.add(day);
+      m.days.set(day, (m.days.get(day) || 0) + bs);
+    });
+    const days = Array.from(daySet).sort();
+    const rows_ = Object.values(map).map(m=>{
+      let peakDay = '', peakSec = 0;
+      m.days.forEach((sec, day)=>{ if(sec > peakSec){ peakSec = sec; peakDay = day; } });
+      const activeDays = m.days.size;
+      return {
+        gateway: m.gateway,
+        accountCount: m.accounts.size,
+        calls: m.calls,
+        connected: m.connected,
+        minutes: +(m.billsec/60).toFixed(2),
+        minutesShare: totalBillsec ? +(m.billsec/totalBillsec*100).toFixed(2) : 0,
+        // ACD: thời lượng trung bình của cuộc đã kết nối (giây).
+        acdSec: m.connected ? +(m.billsec/m.connected).toFixed(1) : 0,
+        activeDays,
+        minutesPerDay: activeDays ? +(m.billsec/60/activeDays).toFixed(2) : 0,
+        peakDay,
+        peakMinutes: +(peakSec/60).toFixed(2),
+        shortCalls: m.shortCalls,
+        shortCallPct: m.connected ? +(m.shortCalls/m.connected*100).toFixed(2) : 0,
+        longestSec: m.longestSec,
+        series: days.map(day=> +((m.days.get(day) || 0)/60).toFixed(2))
+      };
+    }).sort((a,b)=> b.minutes - a.minutes || String(a.gateway).localeCompare(String(b.gateway)));
+    return {
+      rows: rows_,
+      days,
+      totals: {
+        minutes: +(totalBillsec/60).toFixed(2),
+        connected: totalConnected,
+        gateways: rows_.length,
+        acdSec: totalConnected ? +(totalBillsec/totalConnected).toFixed(1) : 0,
+        minutesPerDay: days.length ? +(totalBillsec/60/days.length).toFixed(2) : 0
+      },
+      coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 }
+    };
   });
 }
 
@@ -3682,7 +3761,7 @@ const __exports = {
   enrichData, filterData, filterCallDetails, queryCallDetails, dedupByUUID,
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax, downsampleSeriesMin,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeConnectRateExcludingFail, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, computeOperationalAlerts, aggregateOverview, aggByPrefix, minutesPerDay,
-  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, excelCellMatch, rowPassesColFilters, computeGatewayByAccount, computeGatewayFail, computeGatewayHangupCause, computeGatewayFailTimeline, computeGatewayBlockReconcile,
+  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, excelCellMatch, rowPassesColFilters, computeGatewayByAccount, computeGatewayFail, computeGatewayMinutes, computeGatewayHangupCause, computeGatewayFailTimeline, computeGatewayBlockReconcile,
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, computeBillingForecast, resolveDateRangePreset, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
