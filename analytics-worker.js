@@ -138,8 +138,9 @@ function datasetMeta(rows) {
 }
 
 function loadDataset(message) {
-  const key = String(message.datasetKey || '');
-  if (datasets.has(key)) {
+  const revisionKey = String(message.datasetKey || '');
+  const key = String(message.datasetBaseKey || revisionKey);
+  if (datasets.has(key) && datasets.get(key).revisionKey === revisionKey) {
     const hit = datasets.get(key);
     datasets.delete(key);
     datasets.set(key, hit);
@@ -148,8 +149,16 @@ function loadDataset(message) {
   const db = new DatabaseSync(message.dbPath, { readOnly: true });
   try {
     const where = whereOf(message.params);
-    const sql = `SELECT ${COLUMNS.join(',')} FROM call_records WHERE ${where.sql} ORDER BY start_stamp`;
-    const raw = db.prepare(sql).all(...where.values);
+    const previous = datasets.get(key);
+    const refreshFrom = String(message.refreshFrom || '');
+    const refreshTo = String(message.refreshTo || '');
+    const canPatch = previous && refreshFrom && refreshTo;
+    const patchClause = canPatch ? ' AND start_stamp>=? AND start_stamp<=?' : '';
+    const sql = `SELECT ${COLUMNS.join(',')} FROM call_records WHERE ${where.sql}${patchClause} ORDER BY start_stamp`;
+    const values = canPatch
+      ? where.values.concat(`${refreshFrom} 00:00:00`, `${refreshTo} 23:59:59`)
+      : where.values;
+    const raw = db.prepare(sql).all(...values);
     // CallStore already stores canonical columns, numeric values, timestamps and
     // UUIDs. Rebuild a uniform V8 object shape for fast analytics, but skip the
     // general CSV normalization pass. Telco names still use the shared rule.
@@ -159,8 +168,22 @@ function loadDataset(message) {
       out.telco = core.normalizeTelcoName(out.telco);
       return out;
     });
-    const rows = core.enrichData(normalized, {}, gatewayIndex(db, message.params.profile_id));
-    const dataset = { rows, meta: datasetMeta(rows), billing: new Map(), cubes: new Map() };
+    const freshRows = core.enrichData(normalized, {}, gatewayIndex(db, message.params.profile_id));
+    let rows = freshRows;
+    if (canPatch) {
+      const fromStamp = `${refreshFrom} 00:00:00`;
+      const toStamp = `${refreshTo} 23:59:59`;
+      // Both the cached dataset and the patch query are already ordered. Split
+      // once and splice the refreshed interval in place; sorting hundreds of
+      // thousands of unchanged rows made a one-day refresh needlessly costly.
+      const before = [], after = [];
+      for (const row of previous.rows) {
+        if (row.start_stamp < fromStamp) before.push(row);
+        else if (row.start_stamp > toStamp) after.push(row);
+      }
+      rows = before.concat(freshRows, after);
+    }
+    const dataset = { rows, meta: datasetMeta(rows), billing: new Map(), cubes: new Map(), revisionKey };
     datasets.set(key, dataset);
     while (datasets.size > DATASET_CACHE_LIMIT) datasets.delete(datasets.keys().next().value);
     return dataset;

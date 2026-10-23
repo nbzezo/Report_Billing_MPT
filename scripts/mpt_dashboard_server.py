@@ -944,16 +944,19 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 self.server.profile_sync_locks[profile_id] = lock
             return lock
 
-    def set_export_progress(self, job_id, done, total, current=""):
+    def set_export_progress(self, job_id, done, total, current="", stage=None, percent=None):
         """Publish sequential-export progress so the dashboard can show 7/40."""
         if not job_id:
             return
         now = monotonic()
         with self.server.export_progress_lock:
+            previous = self.server.export_progress.get(job_id, {})
             self.server.export_progress[job_id] = {
                 "done": done,
                 "total": total,
                 "current": current,
+                "stage": stage if stage is not None else previous.get("stage", "sync"),
+                "percent": percent if percent is not None else previous.get("percent"),
                 "updated": now,
             }
             stale = [
@@ -973,7 +976,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.json_response({})
             return
         self.json_response(
-            {"done": item["done"], "total": item["total"], "current": item["current"]}
+            {"done": item["done"], "total": item["total"], "current": item["current"],
+             "stage": item.get("stage", "sync"), "percent": item.get("percent")}
         )
 
     def handle_profiles(self):
@@ -1461,19 +1465,22 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         source_params = {
             key: params.get(key, "") for key in call_store.QUERY_KEYS
         }
+        revision = self.server.call_store.analytics_revision(profile_id)
+        dataset_base_key = json.dumps(
+            {"params": source_params},
+            sort_keys=True, separators=(",", ":"), ensure_ascii=False,
+        )
         dataset_key = json.dumps(
-            {
-                "params": source_params,
-                "revision": self.server.call_store.analytics_revision(profile_id),
-            },
+            {"params": source_params, "revision": revision},
             sort_keys=True, separators=(",", ":"), ensure_ascii=False,
         )
         return self.server.analytics_worker.request(
-            operation, params=source_params, datasetKey=dataset_key, **payload
+            operation, params=source_params, datasetKey=dataset_key,
+            datasetBaseKey=dataset_base_key, **payload
         )
 
     def _cube_params(self, query, params):
-        return {
+        result = {
             "startDate": params.get("from_day", ""),
             "endDate": params.get("to_day", ""),
             "startTime": params.get("start_time", "00:00"),
@@ -1482,6 +1489,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             "ccuScope": params.get("ccu_scope", "answered"),
             "retry": self._json_query_value(query, "retry", {}),
         }
+        sections = self._json_query_value(query, "cube_sections", None)
+        if isinstance(sections, list):
+            result["sections"] = [str(value) for value in sections]
+        return result
 
     def handle_report_bundle(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
@@ -1489,11 +1500,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         job_id = params.pop("job_id", "")
         sync_mode = params.pop("sync", "auto")
         try:
+            self.set_export_progress(job_id, 0, 1, "", stage="prepare", percent=5)
             sync_params = self.separate_sync_scope(params)
             cache_state = self._sync_calldata(sync_params, job_id, sync_mode)
+            self.set_export_progress(job_id, 0, 1, "", stage="analytics", percent=58)
             result = self._analytics_request(
                 "bundle", params, cubeParams=self._cube_params(query, params),
                 previewLimit=5000,
+                refreshFrom=getattr(self, "_last_sync_from", ""),
+                refreshTo=getattr(self, "_last_sync_to", ""),
             )
             account_ids = [
                 value for value in params.get("account_id", "").split(",")
@@ -1508,6 +1523,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 "syncedAt": summary["syncedAt"],
                 "missingDays": summary["missingDays"],
             })
+            self.set_export_progress(job_id, 1, 1, "", stage="finalize", percent=92)
             self.json_response(result)
         except Exception as exc:
             self.error_response(exc)
@@ -1601,6 +1617,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def _sync_calldata(self, params, job_id="", sync_mode="auto"):
         """Synchronize missing/stale MPT partitions without materializing CSV."""
+        self._last_sync_from = ""
+        self._last_sync_to = ""
         from_day = params.get("from_day", "")
         to_day = params.get("to_day", "")
         try:
@@ -1668,6 +1686,12 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                         sync_from = plan["nextSyncFrom"] if plan else min(stale)
                         sync_to = plan["nextSyncTo"] if plan else max(stale)
                 if should_sync:
+                    self._last_sync_from = sync_from
+                    self._last_sync_to = sync_to
+                    self.set_export_progress(
+                        job_id, 0, max(1, len(account_ids or all_account_ids)), "",
+                        stage="sync", percent=8,
+                    )
                     if hasattr(self.server.call_store, "mark_sync_started"):
                         self.server.call_store.mark_sync_started(
                             profile_id, scopes, sync_from, sync_to
@@ -1696,7 +1720,9 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                             data = self.merge_account_exports(
                                 client, source_params, export_account_ids,
                                 progress=lambda done, current: self.set_export_progress(
-                                    job_id, done, len(export_account_ids), current
+                                    job_id, done, len(export_account_ids), current,
+                                    stage="sync",
+                                    percent=8 + int(45 * done / max(1, len(export_account_ids)))
                                 ),
                                 names=names,
                                 exporter=direction_exporter,
@@ -1713,9 +1739,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                         raise
                     with self.server.profile_sync_locks_lock:
                         self.server.profile_sync_completed[sync_key] = monotonic()
-                    analytics = getattr(self.server, "analytics_worker", None)
-                    if analytics:
-                        analytics.invalidate()
                     cache_state = "SYNC"
         if monotonic() - self.server.last_store_cleanup > 6 * 60 * 60:
             self.server.call_store.cleanup()

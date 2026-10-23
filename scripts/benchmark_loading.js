@@ -13,6 +13,7 @@ if (!fromDay || !toDay) {
   process.exit(2);
 }
 const previewLimit = Number(process.argv[4] || 50000);
+const sections = process.argv[5] ? String(process.argv[5]).split(',').filter(Boolean) : undefined;
 const profile = db.prepare('SELECT profile_id FROM call_records WHERE start_stamp>=? AND start_stamp<? GROUP BY profile_id ORDER BY COUNT(*) DESC LIMIT 1').get(fromDay, toDay);
 if (!profile) throw new Error('No matching calls');
 const columns = ['uuid','account_id','account_name','caller_id_number','destination_number','ani','direction','calltype','start_stamp','answer_stamp','end_stamp','duration','billsec','hangup_cause','status_code','telco','mos','quality_pct','jitter_min','jitter_max','jitter_loss_rate','packet_count','skip_packet_count','rtcp_packet_count','rtcp_rtt','gateway'];
@@ -32,7 +33,7 @@ t = performance.now();
 const enriched = core.enrichData(normalized, {}, {});
 timings.enrichMs = performance.now() - t;
 t = performance.now();
-const cube = core.slimCubeForTransfer(core.buildCube(enriched, {startDate:fromDay,endDate:toDay,account:'all',startTime:'00:00',endTime:'23:59'}));
+const cube = core.slimCubeForTransfer(core.buildCube(enriched, {startDate:fromDay,endDate:toDay,account:'all',startTime:'00:00',endTime:'23:59',sections}));
 timings.cubeMs = performance.now() - t;
 t = performance.now();
 const payload = JSON.stringify({cube, rows:enriched.slice(0, previewLimit)});

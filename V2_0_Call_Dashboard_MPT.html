@@ -140,6 +140,8 @@ function updateRN_CF_KPIs(rows){
       <div class="loading-spinner" aria-hidden="true"></div>
       <div id="reportLoadingTitle" class="loading-title">Đang tải dữ liệu cuộc gọi</div>
       <div id="reportLoadingDetail" class="loading-detail" aria-live="polite">Đang kiểm tra dữ liệu đã lưu…</div>
+      <div class="loading-progress" aria-hidden="true"><span id="reportLoadingProgress"></span></div>
+      <div id="reportLoadingStage" class="loading-stage">Chuẩn bị · Đồng bộ · Phân tích · Vẽ báo cáo</div>
       <div id="reportLoadingError" class="loading-error" role="alert" hidden></div>
       <details id="reportLoadingErrorDetails" class="loading-error-details" hidden><summary>Chi tiết</summary><pre id="reportLoadingErrorTechnical"></pre></details>
       <div class="loading-actions"><button id="cancelReportLoad" type="button">Hủy</button><button class="u-inline-6b99de8b" id="closeReportLoad" type="button">Đóng</button><button id="retryReportLoad" type="button" class="primary-btn u-inline-6b99de8b">Thử lại</button></div>
@@ -4154,7 +4156,8 @@ let currentFilterKey = null;
 let renderedTabs = new Set();
 const FILTER_CACHE_LIMIT = 3;
 const filterCache = new Map();
-const dashState = { filterKey:null, filtered:[], ov:null, cube:null, colors:null, drilldownParams:null };
+const dashState = { filterKey:null, filtered:[], ov:null, cube:null, colors:null, drilldownParams:null,
+  cubeParams:null, cubeSections:new Set() };
 
 // Tham số lọc + config phụ để worker dựng cube.
 function currentCubeParams(start,end,st,et,accParam){
@@ -4162,7 +4165,8 @@ function currentCubeParams(start,end,st,et,accParam){
   return {
     startDate:start, endDate:end, startTime:st, endTime:et, account:accParam,
     ccuScope:(typeof ccuScope==='function') ? ccuScope() : 'answered',
-    retry: rc ? {windowMinutes:rc.windowMinutes, scope:rc.scope} : undefined
+    retry: rc ? {windowMinutes:rc.windowMinutes, scope:rc.scope} : undefined,
+    sections:['common',currentTab||'overview']
   };
 }
 // Lấy một nhánh của cube hiện tại; thiếu -> gọi fallback (compute* trực tiếp).
@@ -4196,6 +4200,7 @@ async function computeCubeFor(params){
       cubeUrl.searchParams.set('ccu_scope',params.ccuScope||'answered');
       cubeUrl.searchParams.set('cube_account',JSON.stringify(params.account||'all'));
       cubeUrl.searchParams.set('retry',JSON.stringify(params.retry||{}));
+      cubeUrl.searchParams.set('cube_sections',JSON.stringify(params.sections||[]));
       if(Array.isArray(params.account) && params.account.length){
         cubeUrl.searchParams.set('account_id',params.account.join(','));
       }
@@ -4216,6 +4221,22 @@ async function computeCubeFor(params){
   }catch(e){ console.warn('dashWorker.cube lỗi, fallback main-thread:', e && e.message); }
   try{ return buildCube(enriched, params); }
   catch(e){ console.warn('buildCube lỗi:', e); return null; }
+}
+
+async function ensureCubeSection(section){
+  if(!serverBackedReport || !dashState.cubeParams) return;
+  if(!['quality','time','advanced'].includes(section)) return;
+  if(dashState.cubeSections.has(section)) return;
+  const params={...dashState.cubeParams,sections:[section]};
+  setReportLoading(true,`Đang tính dữ liệu cho tab ${section==='quality'?'Chất lượng':section==='time'?'Thời gian':'Nâng cao'}…`);
+  try{
+    const cube=await computeCubeFor(params);
+    if(cube){
+      dashState.cube={...(dashState.cube||{}),...cube,
+        meta:{...((dashState.cube&&dashState.cube.meta)||{}),...(cube.meta||{})}};
+      dashState.cubeSections.add(section);
+    }
+  }finally{ setReportLoading(false); }
 }
 const tablePagingState = { dataTable: { page:0, pageSize:20, rows:[] } };
 
@@ -5102,6 +5123,7 @@ async function renderSteps(steps){
     try{ steps[i](); }catch(e){ console.warn('render step', i, e); }
     if(overlay?.classList.contains('show') && !reportLoadingFailed())
       setReportLoadingDetail(`Đang vẽ biểu đồ ${Math.min(i+1,total)}/${total}…`);
+    if(overlay?.classList.contains('show')) setReportProgress(94+5*((i+1)/Math.max(1,total)),'Đang vẽ biểu đồ');
     await yieldFrame();
   }
 }
@@ -6886,6 +6908,7 @@ function renderGatewayMapPanel(){
 
 async function ensureTabRendered(tabName, force=false){
   if(!dashState) return;
+  await ensureCubeSection(tabName);
   const filtered = dashState.filtered || [];
   if(!force && renderedTabs.has(tabName)) return;
 
@@ -8547,6 +8570,8 @@ async function updateDashboardWithFilters(){
   dashState.filtered = filtered;
   dashState.ov = ov;
   dashState.cube = cached.cube || null;
+  dashState.cubeParams = params;
+  dashState.cubeSections = new Set(params.sections||[]);
   dashState.colors = colors;
   // Drilldown luôn dùng bộ lọc đã Apply này; không đọc lại input đang sửa dở.
   dashState.drilldownParams = { startDate:start, endDate:end, startTime:st, endTime:et,
@@ -8887,6 +8912,7 @@ function setReportLoading(show, detail='Đang kiểm tra dữ liệu đã lưu�
   if(retry) retry.style.display=failed?'':'none';
   clearInterval(reportLoadingTimer);
   if(show&&!failed){
+    setReportProgress(2,'Đang khởi tạo');
     reportLoadingStarted=Date.now();
     reportLoadingTimer=setInterval(()=>{
       const seconds=Math.max(1,Math.round((Date.now()-reportLoadingStarted)/1000));
@@ -8904,6 +8930,14 @@ function setReportLoadingDetail(detail){
   if(!detailEl) return;
   const seconds=reportLoadingStarted?Math.max(1,Math.round((Date.now()-reportLoadingStarted)/1000)):0;
   detailEl.textContent=seconds?`${detail} (${seconds} giây)`:detail;
+}
+
+function setReportProgress(percent,stage=''){
+  const bar=document.getElementById('reportLoadingProgress');
+  const label=document.getElementById('reportLoadingStage');
+  const value=Math.max(0,Math.min(100,Number(percent)||0));
+  if(bar) bar.style.width=value+'%';
+  if(label && stage) label.textContent=`${stage} · ${Math.round(value)}%`;
 }
 
 // Đóng hẳn màn hình chờ khi tải lỗi: bỏ luôn ?csv= để lần F5 sau không tự chạy lại và kẹt tiếp.
@@ -8934,6 +8968,16 @@ function startReportProgressPolling(jobId,total){
       if(!res.ok) return;
       const progress=await res.json();
       if(!progress||!progress.total) return;
+      const stageLabels={prepare:'Đang chuẩn bị dữ liệu',sync:'Đang đồng bộ từ MPT',analytics:'Đang đọc DB và tính KPI',finalize:'Đang chuẩn bị hiển thị'};
+      if(progress.percent!=null) setReportProgress(progress.percent,stageLabels[progress.stage]||'Đang xử lý');
+      if(progress.stage==='analytics'){
+        setReportLoadingDetail('Đang đọc DB và tính KPI cho tab hiện tại…');
+        return;
+      }
+      if(progress.stage==='finalize'){
+        setReportLoadingDetail('Đang chuẩn bị dữ liệu để hiển thị…');
+        return;
+      }
       const done=Math.min(Number(progress.done||0)+1,progress.total);
       const name=progress.current?` — ${progress.current}`:'';
       setReportLoadingDetail(`Đang tải tài khoản ${done}/${progress.total}${name}`);
@@ -9270,8 +9314,9 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
   bundleUrl.searchParams.set('ccu_scope',cubeParams.ccuScope||'answered');
   bundleUrl.searchParams.set('cube_account',JSON.stringify(cubeParams.account));
   bundleUrl.searchParams.set('retry',JSON.stringify(cubeParams.retry||{}));
+  bundleUrl.searchParams.set('cube_sections',JSON.stringify(cubeParams.sections||[]));
   let jobId='';
-  if((syncAccountIds.length||accountIds.length)>1&&!readOnly){
+  if(!readOnly){
     jobId='job-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8);
     bundleUrl.searchParams.set('job_id',jobId);
   }
@@ -9312,9 +9357,10 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
     const statusEl=document.getElementById('uploadStatus'); if(statusEl) statusEl.innerText=stat;
     updateMptLoadedSummary(dataUrl,total,accountCount);
     adwHideRestoreBanner();
-    setReportLoading(false);
+    if(!readOnly){ setReportProgress(94,'Đang vẽ báo cáo'); setReportLoadingDetail('Đang vẽ biểu đồ trên màn hình…'); }
     toast(stat);
     await updateDashboardWithFilters();
+    if(!readOnly){ setReportProgress(100,'Hoàn tất'); setReportLoading(false); }
     return true;
   }catch(error){
     if(!isCurrent()) return false;

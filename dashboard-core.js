@@ -965,6 +965,13 @@ function minutesPerDay(rows){
 // params: {startDate,endDate,account,startTime,endTime} (account: 'all' | mảng id)
 function buildCube(enrichedRows, params) {
   params = params || {};
+  // A report refresh only needs the common KPIs plus the tab the user can see.
+  // Keep the historical all-in-one behaviour when `sections` is absent so
+  // exports/tests and older clients remain compatible.
+  const requestedSections = Array.isArray(params.sections)
+    ? new Set(params.sections.map(value => String(value || '').toLowerCase()))
+    : null;
+  const wants = section => !requestedSections || requestedSections.has(section);
   const rows = filterData(
     enrichedRows,
     params.startDate, params.endDate,
@@ -985,9 +992,7 @@ function buildCube(enrichedRows, params) {
   const filterSpanSec = filterWindowSec(params);
   const retry = params.retry || {};
   const overview = aggregateOverview(rows);
-  const columnHealth = computeRequiredColumnHealth(rows);
-  const dailyPrefixStats = computeDailyPrefixStats(rows);
-  return {
+  const result = {
     meta: {
       rows: rows.length,
       accounts: accounts.size,
@@ -998,25 +1003,52 @@ function buildCube(enrichedRows, params) {
     },
     // --- Tổng quan / renderCommon ---
     overview,
+    billing: null
+  };
+  // --- Chung / Tổng quan ---
+  if (wants('common') || wants('overview')) {
+    const columnHealth = computeRequiredColumnHealth(rows);
+    const dailyPrefixStats = computeDailyPrefixStats(rows);
+    Object.assign(result, {
+      columnHealth,
+      timeAnomaly: computeTimeAnomalyMetrics(rows),
+      operationalAlerts: computeOperationalAlerts(rows, {
+        overview, columnHealth, dailyPrefixStats,
+        destinationQuality: overview.destinationQuality
+      }),
+      accountKPIs: computeAccountKPIs(rows),
+      topDest: computeTopDest(rows),
+      dailyPrefixStats
+    });
+  }
+  // --- Chất lượng ---
+  if (wants('quality')) Object.assign(result, {
     byPrefix: aggByPrefix(rows),
-    minutesPerDay: minutesPerDay(rows),
-    columnHealth,
-    timeAnomaly: computeTimeAnomalyMetrics(rows),
-    operationalAlerts: computeOperationalAlerts(rows, {
-      overview, columnHealth, dailyPrefixStats,
-      destinationQuality: overview.destinationQuality
-    }),
-    accountKPIs: computeAccountKPIs(rows),
-    topDest: computeTopDest(rows),
-    // --- Chất lượng ---
     destTelcoShare: aggDestTelcoShare(rows),
     telcoConnBreakdown: aggTelcoConnBreakdown(rows),
-    dailyPrefixStats,
-    // --- Thời gian ---
-    timeHeatmap: computeTimeHeatmap(rows),
-    goldenHours: computeGoldenHours(rows),
-    answerRateByAccountPerDay: computeAnswerRateByAccountPerDay(rows),
-    // --- Nâng cao ---
+    dailyPrefixStats: result.dailyPrefixStats || computeDailyPrefixStats(rows)
+  });
+  // --- Thời gian ---
+  if (wants('time')) {
+    Object.assign(result, {
+      minutesPerDay: minutesPerDay(rows),
+      timeHeatmap: computeTimeHeatmap(rows),
+      goldenHours: computeGoldenHours(rows),
+      answerRateByAccountPerDay: computeAnswerRateByAccountPerDay(rows),
+      callbackStats: computeCallbackStats(rows),
+      retryPattern: computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account')
+    });
+    result.concurrency = (() => {
+      const byTelco = __computeConcurrency(rows, getTelco, ccuScope);
+      return {
+        all: __computeConcurrency(rows, () => 'Tất cả', ccuScope),
+        byTelco,
+        ccuByTelco: computeCcuByTelco(rows, { scope: ccuScope, filterSpanSec, byTelco })
+      };
+    })();
+  }
+  // --- Nâng cao ---
+  if (wants('advanced')) Object.assign(result, {
     agentPerf: computeAgentPerf(rows),
     gatewayByAccount: computeGatewayByAccount(rows),
     gatewayFail: computeGatewayFail(rows),
@@ -1024,19 +1056,12 @@ function buildCube(enrichedRows, params) {
     gatewayHangupCause: computeGatewayHangupCause(rows),
     gatewayFailTimeline: computeGatewayFailTimeline(rows, 15),
     gatewayBlockReconcile: computeGatewayBlockReconcile(rows),
-    callbackStats: computeCallbackStats(rows),
-    retryPattern: computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account'),
-    concurrency: (() => {
-      const byTelco = __computeConcurrency(rows, getTelco, ccuScope);
-      return {
-        all: __computeConcurrency(rows, () => 'Tất cả', ccuScope),
-        byTelco,
-        ccuByTelco: computeCcuByTelco(rows, { scope: ccuScope, filterSpanSec, byTelco })
-      };
-    })(),
-    // --- Cước phí (chỉ khi có cấu hình billing) ---
-    billing: params.billing ? computeBilling(rows, params.billing) : null
-  };
+    callbackStats: result.callbackStats || computeCallbackStats(rows),
+    retryPattern: result.retryPattern || computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account')
+  });
+  // --- Cước phí (chỉ khi có cấu hình billing) ---
+  if (params.billing && wants('billing')) result.billing = computeBilling(rows, params.billing);
+  return result;
 }
 
 /* ==========================================================================
