@@ -8,7 +8,7 @@
 from pathlib import Path
 
 ROOT = Path(SPECPATH).parent
-ICON = ROOT / "build" / "app.ico"
+ICON = ROOT / "favicon.ico"
 
 a = Analysis(
     [str(ROOT / "scripts" / "mpt_dashboard_app.py")],

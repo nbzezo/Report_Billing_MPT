@@ -58,5 +58,5 @@ Copy **cả thư mục** `MPT Call Dashboard\`. Kể cả `config\` → mật kh
 - `.exe` mở lên tắt ngay → build lại với `console=True` trong `build/mpt_dashboard.spec` để
   đọc traceback.
 - `MPT_DASHBOARD_DEBUG=1` → cửa sổ mở kèm DevTools.
-- Icon: đặt file `build\app.ico` là spec tự nhận.
+- Icon dùng chung cho `.exe` và cửa sổ ứng dụng: `favicon.ico` ở thư mục gốc.
 ```

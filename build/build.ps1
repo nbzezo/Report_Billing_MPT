@@ -31,7 +31,7 @@ if ($Clean) {
 }
 
 if (-not (Test-Path $venvPython)) { python -m venv $venv }
-& $venvPython -m pip install -r (Join-Path $root 'build\requirements-build.txt')
+& $venvPython -X utf8 -m pip install -r (Join-Path $root 'build\requirements-build.txt')
 & $venvPython -m PyInstaller (Join-Path $root 'build\mpt_dashboard.spec') --noconfirm `
     --distpath $dist --workpath $work
 
@@ -52,6 +52,7 @@ Copy-Item (Join-Path $root 'dashboard-core.js')           $appDir
 Copy-Item (Join-Path $root 'dashboard.css')               $appDir
 Copy-Item (Join-Path $root 'dashboard-csv-worker.js')     $appDir
 Copy-Item (Join-Path $root 'analytics-worker.js')         $appDir
+Copy-Item (Join-Path $root 'favicon.ico')                 $appDir
 Copy-Item (Join-Path $root 'vendor')                      $appDir -Recurse -Force
 
 # Backend analytics dùng chính dashboard-core.js qua Node và đọc SQLite trực
