@@ -264,6 +264,8 @@ class CallStore:
                     synced_at TEXT NOT NULL,
                     PRIMARY KEY(profile_id, account_scope, day)
                 );
+                CREATE INDEX IF NOT EXISTS idx_sync_days_profile_day_scope
+                    ON sync_days(profile_id, day, account_scope);
                 CREATE TABLE IF NOT EXISTS sync_partitions (
                     profile_id TEXT NOT NULL,
                     account_scope TEXT NOT NULL,
@@ -277,6 +279,8 @@ class CallStore:
                     revision INTEGER NOT NULL DEFAULT 0,
                     PRIMARY KEY(profile_id, account_scope, day)
                 );
+                CREATE INDEX IF NOT EXISTS idx_sync_partitions_profile_day_scope
+                    ON sync_partitions(profile_id, day, account_scope);
                 CREATE TABLE IF NOT EXISTS data_revisions (
                     profile_id TEXT PRIMARY KEY,
                     revision INTEGER NOT NULL DEFAULT 0,
@@ -319,9 +323,30 @@ class CallStore:
                     source_rows INTEGER NOT NULL,
                     stored_rows INTEGER NOT NULL,
                     source_hash TEXT NOT NULL,
-                    status TEXT NOT NULL
+                    status TEXT NOT NULL,
+                    error TEXT NOT NULL DEFAULT ''
                 );
+                CREATE INDEX IF NOT EXISTS idx_ingestion_runs_profile_finished
+                    ON ingestion_runs(profile_id, finished_at DESC);
             """)
+            # Database files created by older versions do not receive new
+            # columns from CREATE TABLE IF NOT EXISTS.
+            run_columns = {
+                row[1] for row in db.execute("PRAGMA table_info(ingestion_runs)").fetchall()
+            }
+            if "error" not in run_columns:
+                db.execute(
+                    "ALTER TABLE ingestion_runs ADD COLUMN error TEXT NOT NULL DEFAULT ''"
+                )
+            # Promote legacy day markers into the richer partition table once.
+            # Existing partition rows (including running/error) always win.
+            db.execute(
+                "INSERT OR IGNORE INTO sync_partitions("
+                "profile_id,account_scope,day,status,row_count,source_hash,"
+                "started_at,completed_at,error,revision) "
+                "SELECT profile_id,account_scope,day,'complete',0,'',"
+                "synced_at,synced_at,'',0 FROM sync_days"
+            )
 
     def data_revision(self, profile_id):
         with self.connect() as db:
@@ -360,14 +385,22 @@ class CallStore:
 
     def mark_sync_failed(self, profile_id, scopes, from_day, to_day, error):
         message = str(error or "")[:2000]
+        now = datetime.now().astimezone().isoformat(timespec="seconds")
+        scope_values = [str(scope) for scope in (scopes or ["*"])]
         with self.connect() as db:
             for day in self._days(from_day, to_day):
-                for scope in (scopes or ["*"]):
+                for scope in scope_values:
                     db.execute(
                         "UPDATE sync_partitions SET status='error',error=? "
                         "WHERE profile_id=? AND account_scope=? AND day=?",
                         (message, profile_id, scope, day),
                     )
+            db.execute(
+                "INSERT INTO ingestion_runs(profile_id,started_at,finished_at,from_day,to_day,"
+                "account_scope,source_rows,stored_rows,source_hash,status,error) "
+                "VALUES(?,?,?,?,?,?,0,0,'','error',?)",
+                (profile_id, now, now, from_day, to_day, ",".join(scope_values), message),
+            )
 
     @staticmethod
     def _days(from_day, to_day):
@@ -377,19 +410,82 @@ class CallStore:
             yield start.isoformat()
             start += timedelta(days=1)
 
+    def _sync_times_by_day(self, db, profile_id, scopes, from_day, to_day):
+        """Load sync coverage for the whole range with one indexed query.
+
+        An all-account (``*``) synchronization may satisfy a specific account,
+        while an exact account record takes precedence when both exist.
+        """
+        scopes = [str(scope) for scope in (scopes or ["*"])]
+        candidates = list(dict.fromkeys(scopes + ["*"]))
+        placeholders = ",".join("?" for _ in candidates)
+        query_params = [profile_id, from_day, to_day] + candidates
+        rows = db.execute(
+            # sync_partitions is authoritative. The UNION keeps databases/tests
+            # with legacy sync_days-only rows compatible without a second query.
+            "SELECT account_scope,day,"
+            "CASE WHEN status='complete' THEN completed_at ELSE NULL END AS synced_at "
+            "FROM sync_partitions WHERE profile_id=? AND day>=? AND day<=? "
+            f"AND account_scope IN ({placeholders}) "
+            "UNION ALL "
+            "SELECT d.account_scope,d.day,d.synced_at FROM sync_days d "
+            "WHERE d.profile_id=? AND d.day>=? AND d.day<=? "
+            f"AND d.account_scope IN ({placeholders}) AND NOT EXISTS ("
+            "SELECT 1 FROM sync_partitions p WHERE p.profile_id=d.profile_id "
+            "AND p.account_scope=d.account_scope AND p.day=d.day)",
+            query_params + query_params,
+        ).fetchall()
+        indexed = {(row["account_scope"], row["day"]): row["synced_at"] for row in rows}
+        result = {}
+        for day in self._days(from_day, to_day):
+            times = []
+            for scope in scopes:
+                raw = indexed.get((scope, day))
+                if raw is None and scope != "*":
+                    raw = indexed.get(("*", day))
+                try:
+                    times.append(datetime.fromisoformat(raw) if raw else None)
+                except (TypeError, ValueError):
+                    times.append(None)
+            result[day] = times
+        return result
+
     def _day_sync_times(self, db, profile_id, scopes, day):
-        """synced_at of every scope for one day (None = never synchronized)."""
-        times = []
-        for scope in scopes:
-            row = db.execute(
-                "SELECT synced_at FROM sync_days WHERE profile_id=? AND account_scope IN (?, '*') AND day=? ORDER BY account_scope=? DESC LIMIT 1",
-                (profile_id, scope, day, scope),
-            ).fetchone()
-            try:
-                times.append(datetime.fromisoformat(row["synced_at"]) if row else None)
-            except ValueError:
-                times.append(None)
-        return times
+        """Compatibility helper for callers that inspect a single day."""
+        return self._sync_times_by_day(db, profile_id, scopes, day, day)[day]
+
+    def sync_plan(self, profile_id, account_scopes, from_day, to_day,
+                  max_age=TODAY_FRESH_SECONDS):
+        """Return the minimal date span that needs another MPT download."""
+        scopes = [str(scope) for scope in (account_scopes or ["*"])]
+        now = datetime.now().astimezone()
+        stale, successful = [], []
+        with self.connect() as db:
+            coverage = self._sync_times_by_day(
+                db, profile_id, scopes, from_day, to_day
+            )
+        for day, times in coverage.items():
+            complete_after = datetime.combine(
+                date.fromisoformat(day) + timedelta(days=1), datetime.min.time()
+            ).astimezone() + timedelta(seconds=DAY_SETTLE_SECONDS)
+            day_stale = False
+            for synced in times:
+                if synced is None:
+                    day_stale = True
+                    continue
+                if synced.tzinfo is None:
+                    synced = synced.astimezone()
+                successful.append(synced)
+                if synced < complete_after and (now - synced).total_seconds() > max_age:
+                    day_stale = True
+            if day_stale:
+                stale.append(day)
+        return {
+            "staleDays": stale,
+            "nextSyncFrom": min(stale) if stale else "",
+            "nextSyncTo": max(stale) if stale else "",
+            "lastSuccessfulAt": max(successful).isoformat(timespec="seconds") if successful else "",
+        }
 
     def stale_days(self, profile_id, account_scopes, from_day, to_day,
                    max_age=TODAY_FRESH_SECONDS):
@@ -401,24 +497,9 @@ class CallStore:
         while it was still today, which previously stayed incomplete forever.
         ``max_age=0`` means: refresh every incomplete day now.
         """
-        scopes = account_scopes or ["*"]
-        now = datetime.now().astimezone()
-        stale = []
-        with self.connect() as db:
-            for day in self._days(from_day, to_day):
-                complete_after = datetime.combine(
-                    date.fromisoformat(day) + timedelta(days=1), datetime.min.time()
-                ).astimezone() + timedelta(seconds=DAY_SETTLE_SECONDS)
-                for synced in self._day_sync_times(db, profile_id, scopes, day):
-                    if synced is None:
-                        stale.append(day)
-                        break
-                    if synced.tzinfo is None:
-                        synced = synced.astimezone()
-                    if synced < complete_after and (now - synced).total_seconds() > max_age:
-                        stale.append(day)
-                        break
-        return stale
+        return self.sync_plan(
+            profile_id, account_scopes, from_day, to_day, max_age
+        )["staleDays"]
 
     def needs_sync(self, profile_id, account_scopes, from_day, to_day, force=False):
         if force:
@@ -437,8 +518,10 @@ class CallStore:
                 "SELECT COUNT(*) AS rows, MAX(start_stamp) AS last_call FROM call_records WHERE " + where,
                 values,
             ).fetchone()
-            for day in self._days(from_day, to_day):
-                times = self._day_sync_times(db, profile_id, scopes, day)
+            coverage = self._sync_times_by_day(
+                db, profile_id, scopes, from_day, to_day
+            )
+            for day, times in coverage.items():
                 if any(t is None for t in times):
                     missing.append(day)
                 synced_times.extend(t for t in times if t is not None)
@@ -567,7 +650,7 @@ class CallStore:
                     )
             stored = len([row for row in rows if row.get("start_stamp")])
             db.execute(
-                "INSERT INTO ingestion_runs(profile_id,started_at,finished_at,from_day,to_day,account_scope,source_rows,stored_rows,source_hash,status) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                "INSERT INTO ingestion_runs(profile_id,started_at,finished_at,from_day,to_day,account_scope,source_rows,stored_rows,source_hash,status,error) VALUES(?,?,?,?,?,?,?,?,?,?,'')",
                 (profile_id, started, now, from_day, to_day, ",".join(scopes),
                  len(rows), stored, digest, "ok"),
             )
@@ -671,6 +754,7 @@ class CallStore:
                 "DELETE FROM call_records WHERE substr(start_stamp,1,10) < ?", (cutoff,)
             ).rowcount
             db.execute("DELETE FROM sync_days WHERE day < ?", (cutoff,))
+            db.execute("DELETE FROM sync_partitions WHERE day < ?", (cutoff,))
             db.execute("DELETE FROM ingestion_runs WHERE finished_at < ?", (
                 (datetime.now().astimezone() - timedelta(days=90)).isoformat(timespec="seconds"),
             ))
@@ -718,6 +802,13 @@ class CallStore:
             page_size = db.execute("PRAGMA page_size").fetchone()[0]
             free_pages = db.execute("PRAGMA freelist_count").fetchone()[0]
             auto_vacuum = db.execute("PRAGMA auto_vacuum").fetchone()[0]
+            last_run = db.execute(
+                "SELECT started_at,finished_at,from_day,to_day,account_scope,"
+                "source_rows,stored_rows,status,error FROM ingestion_runs "
+                "WHERE profile_id=? ORDER BY id DESC LIMIT 1",
+                (profile_id,),
+            ).fetchone()
+        run = dict(last_run) if last_run else None
         return {
             "rows": row["rows"], "dateMin": row["min_day"], "dateMax": row["max_day"],
             "updatedAt": row["updated_at"], "retentionDays": self.retention_days,
@@ -726,6 +817,7 @@ class CallStore:
             "freeBytes": free_pages * page_size,
             # 0 = file được tạo trước bản sửa: xoá dữ liệu cũ không làm file nhỏ lại.
             "autoVacuum": auto_vacuum,
+            "lastSync": run,
         }
 
     # --- Account Name Map persistence ---

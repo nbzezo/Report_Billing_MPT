@@ -490,6 +490,58 @@ class CallStoreTests(unittest.TestCase):
             summary = store.scope_summary({"profile_id": "p", "from_day": days[0], "to_day": days[2]}, [])
             self.assertEqual(summary["missingDays"], [days[1]])
 
+    def test_sync_plan_uses_partition_metadata_and_returns_next_span(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today()
+            days = [(today - timedelta(days=n)).isoformat() for n in (4, 3, 2)]
+            completed_at = datetime.combine(
+                today, datetime.min.time()
+            ).astimezone().isoformat()
+            with store.connect() as db:
+                # Wildcard coverage satisfies both requested accounts on day 1.
+                db.execute(
+                    "INSERT INTO sync_days VALUES('p','*',?,?)",
+                    (days[0], completed_at),
+                )
+                # Only account 1 exists on day 2, so account 2 makes it stale.
+                db.execute(
+                    "INSERT INTO sync_days VALUES('p','1',?,?)",
+                    (days[1], completed_at),
+                )
+                # Both exact scopes are complete on day 3.
+                db.executemany(
+                    "INSERT INTO sync_days VALUES('p',?,?,?)",
+                    [(scope, days[2], completed_at) for scope in ("1", "2")],
+                )
+
+            plan = store.sync_plan("p", ["1", "2"], days[0], days[2])
+
+            self.assertEqual(plan["staleDays"], [days[1]])
+            self.assertEqual(plan["nextSyncFrom"], days[1])
+            self.assertEqual(plan["nextSyncTo"], days[1])
+            self.assertTrue(plan["lastSuccessfulAt"])
+
+    def test_status_reports_latest_successful_and_failed_sync_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            store.ingest_csv(
+                "p",
+                f"uuid,account_id,start_stamp\nu1,1,{today} 10:00:00\n".encode(),
+                {}, ["1"], today, today,
+            )
+            success = store.status("p")["lastSync"]
+            self.assertEqual(success["status"], "ok")
+            self.assertEqual(success["from_day"], today)
+            self.assertEqual(success["stored_rows"], 1)
+
+            store.mark_sync_started("p", ["1"], today, today)
+            store.mark_sync_failed("p", ["1"], today, today, "MPT timeout")
+            failed = store.status("p")["lastSync"]
+            self.assertEqual(failed["status"], "error")
+            self.assertEqual(failed["error"], "MPT timeout")
+
     def test_cleanup_removes_rows_outside_rolling_window(self):
         with tempfile.TemporaryDirectory() as directory:
             store = SERVER.call_store.CallStore(directory)
@@ -1280,7 +1332,7 @@ class FrontendRegressionTests(unittest.TestCase):
             "Bảng điều khiển cuộc gọi MPT",
             "Tỷ lệ cuộc gọi ngắn",
             "Lượt gọi lại",
-            "Phân bố số lượng cuộc gọi theo Gateway",
+            "Số cuộc gọi và tỷ lệ fail theo Gateway",
             "Nguyên nhân kết thúc",
             "Không thể xuất CSV vì chưa có dữ liệu gọi lại",
         ):
@@ -1914,10 +1966,14 @@ class GatewayHangupCauseChartTests(unittest.TestCase):
     def test_bieu_do_phan_bo_so_cuoc_goi_theo_gateway(self):
         self.assertIn('id="chart_gateway_call_distribution"', self.HTML)
         self.assertIn("function plotGatewayCallDistribution(rows, colors)", self.HTML)
-        self.assertIn("title:{text:'Phân bố số lượng cuộc gọi theo Gateway'", self.HTML)
+        self.assertIn("title:{text:'Số cuộc gọi và tỷ lệ fail theo Gateway'", self.HTML)
         self.assertIn("cubeVal('gatewayFail'", self.HTML)
         self.assertIn("safePlot('chart_gateway_call_distribution'", self.HTML)
         self.assertIn("Tỷ trọng: %{customdata[0]:.2f}%", self.HTML)
+        self.assertIn("type:'scatter', mode:'markers+text', name:'Tỷ lệ fail', xaxis:'x2'", self.HTML)
+        self.assertIn("x:data.map(item=>item.failPct || 0)", self.HTML)
+        self.assertIn("xaxis2:{title:'Tỷ lệ fail'", self.HTML)
+        self.assertIn("Tỷ lệ fail: %{x:.2f}%", self.HTML)
 
     def test_bieu_do_phan_bo_phan_tram_theo_gateway(self):
         self.assertIn('id="chart_gateway_hangup_cause_pie"', self.HTML)

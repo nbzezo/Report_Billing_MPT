@@ -1651,13 +1651,22 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 else:
                     # Only re-download the span that is missing/incomplete;
                     # days already complete in SQLite are served as-is.
-                    stale = self.server.call_store.stale_days(
-                        profile_id, scopes, from_day, to_day,
-                        max_age=0 if explicit else call_store.TODAY_FRESH_SECONDS,
-                    )
+                    max_age = 0 if explicit else call_store.TODAY_FRESH_SECONDS
+                    plan = None
+                    if hasattr(self.server.call_store, "sync_plan"):
+                        plan = self.server.call_store.sync_plan(
+                            profile_id, scopes, from_day, to_day, max_age=max_age,
+                        )
+                        stale = plan["staleDays"]
+                    else:
+                        # Compatibility with lightweight stores used by extensions/tests.
+                        stale = self.server.call_store.stale_days(
+                            profile_id, scopes, from_day, to_day, max_age=max_age,
+                        )
                     should_sync = bool(stale)
                     if stale:
-                        sync_from, sync_to = min(stale), max(stale)
+                        sync_from = plan["nextSyncFrom"] if plan else min(stale)
+                        sync_to = plan["nextSyncTo"] if plan else max(stale)
                 if should_sync:
                     if hasattr(self.server.call_store, "mark_sync_started"):
                         self.server.call_store.mark_sync_started(

@@ -7837,6 +7837,7 @@ function plotGatewayCallDistribution(rows, colors){
     item.accountCount || 0,
     item.connected || 0,
     item.fail || 0,
+    item.failPct || 0,
   ]);
   Plotly.react(elId,[{
     type:'bar', orientation:'h', name:'Số cuộc gọi',
@@ -7846,14 +7847,25 @@ function plotGatewayCallDistribution(rows, colors){
     marker:{color:data.map(item=>categoryColor(item.gateway,palette))},
     text:data.map(item=>item.total.toLocaleString('vi-VN')),
     textposition:'auto',
-    hovertemplate:`Gateway: %{y}<br>Số cuộc gọi: %{x:,}<br>Tỷ trọng: %{customdata[0]:.2f}%<br>Số tài khoản: %{customdata[1]:,}<br>${statusLabel('Connected')}: %{customdata[2]:,}<br>${statusLabel('Fail')}: %{customdata[3]:,}<extra></extra>`,
+    hovertemplate:`Gateway: %{y}<br>Số cuộc gọi: %{x:,}<br>Tỷ trọng: %{customdata[0]:.2f}%<br>Số tài khoản: %{customdata[1]:,}<br>${statusLabel('Connected')}: %{customdata[2]:,}<br>${statusLabel('Fail')}: %{customdata[3]:,}<br>Tỷ lệ fail: %{customdata[4]:.2f}%<extra></extra>`,
+  },{
+    type:'scatter', mode:'markers+text', name:'Tỷ lệ fail', xaxis:'x2',
+    y:data.map(item=>item.gateway),
+    x:data.map(item=>item.failPct || 0),
+    customdata:data.map(item=>[item.fail || 0,item.total || 0]),
+    marker:{color:uiColor('--ux-color-e15759'),size:10,symbol:'diamond',line:{color:'rgba(255,255,255,.8)',width:1}},
+    text:data.map(item=>`${(item.failPct||0).toFixed(2)}%`),
+    textposition:'middle right',
+    cliponaxis:false,
+    hovertemplate:`Gateway: %{y}<br>Tỷ lệ fail: %{x:.2f}%<br>${statusLabel('Fail')}: %{customdata[0]:,} / %{customdata[1]:,} cuộc<extra></extra>`,
   }],{
-    title:{text:'Phân bố số lượng cuộc gọi theo Gateway',x:.02,xanchor:'left'},
+    title:{text:'Số cuộc gọi và tỷ lệ fail theo Gateway',x:.02,xanchor:'left'},
     height:420,
-    margin:{t:58,r:28,b:52,l:190},
+    margin:{t:82,r:64,b:52,l:190},
     xaxis:{title:'Số cuộc gọi',rangemode:'tozero',fixedrange:true,separatethousands:true},
+    xaxis2:{title:'Tỷ lệ fail',overlaying:'x',side:'top',range:[0,100],ticksuffix:'%',fixedrange:true,showgrid:false},
     yaxis:{type:'category',autorange:'reversed',fixedrange:true,automargin:true},
-    showlegend:false,
+    legend:{orientation:'h',x:1,y:1.18,xanchor:'right',yanchor:'bottom'},
     paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
   },{responsive:true,displaylogo:false});
 }
@@ -9832,11 +9844,15 @@ async function updateDatabaseStatus(){
     const mb=bytes=>(Number(bytes||0)/1024/1024).toFixed(1);
     // Dung lượng là của CẢ file (mọi kết nối), nên ghi kèm tổng số dòng cho khỏi hiểu nhầm.
     const fileText=`cả file: ${Number(status.totalRows||0).toLocaleString('vi-VN')} dòng · ${mb(status.databaseBytes)} MB`;
+    const run=status.lastSync;
+    const lastSyncText=run
+      ? ` · lần tải MPT cuối: ${new Date(run.finished_at).toLocaleString('vi-VN')} (${run.from_day||'—'} → ${run.to_day||'—'}, ${run.status==='ok'?'thành công':'lỗi'})`
+      : ' · chưa có lịch sử tải MPT';
     if(!status.rows){
-      target.textContent=`DB chưa có dữ liệu cho kết nối này (${fileText}) · lưu tối đa ${status.retentionDays} ngày.`;
+      target.textContent=`DB chưa có dữ liệu cho kết nối này (${fileText})${lastSyncText} · lưu tối đa ${status.retentionDays} ngày.`;
     }else{
       const updated=status.updatedAt?new Date(status.updatedAt).toLocaleString('vi-VN'):'—';
-      target.textContent=`DB kết nối này: ${Number(status.rows).toLocaleString('vi-VN')} dòng · ${status.dateMin||'—'} → ${status.dateMax||'—'} · cập nhật ${updated} · ${fileText} · lưu ${status.retentionDays} ngày`;
+      target.textContent=`DB kết nối này: ${Number(status.rows).toLocaleString('vi-VN')} dòng · ${status.dateMin||'—'} → ${status.dateMax||'—'} · cập nhật ${updated}${lastSyncText} · ${fileText} · lưu ${status.retentionDays} ngày`;
     }
     // File tạo trước bản sửa auto_vacuum (hoặc có nhiều trang trống) -> cho thu gọn.
     if(status.autoVacuum===0||Number(status.freeBytes||0)>64*1024*1024){
