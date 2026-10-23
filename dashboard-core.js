@@ -1298,6 +1298,21 @@ function llmTrimCubeField(key, value) {
   return value;
 }
 
+const LLM_SENSITIVE_KEYS = new Set([
+  'ani', 'caller', 'callerid', 'calleridnumber', 'cid', 'destination',
+  'destinationnumber', 'dn', 'phonenumber'
+]);
+function llmRedactIdentifiers(value) {
+  if (Array.isArray(value)) return value.map(llmRedactIdentifiers);
+  if (!value || typeof value !== 'object') return value;
+  const out = {};
+  for (const [key, item] of Object.entries(value)) {
+    const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+    out[key] = LLM_SENSITIVE_KEYS.has(normalized) ? '[redacted]' : llmRedactIdentifiers(item);
+  }
+  return out;
+}
+
 function buildLlmContext(cube, tabKey, extra) {
   if (!cube) return null;
   // '__all__' exposes every analytical domain computed from the complete
@@ -1309,12 +1324,14 @@ function buildLlmContext(cube, tabKey, extra) {
   const coverage = {};
   for (const key of fields) {
     if (!(key in cube) || cube[key] == null) continue;
-    out[key] = llmCompactValue(llmTrimCubeField(key, cube[key]), 0);
+    out[key] = llmRedactIdentifiers(
+      llmCompactValue(llmTrimCubeField(key, cube[key]), 0)
+    );
     if (Array.isArray(cube[key]) && cube[key].length > 50) {
       coverage[key] = { total: cube[key].length, included: out[key].length };
     }
   }
-  if (extra && typeof extra === 'object') Object.assign(out, extra);
+  if (extra && typeof extra === 'object') Object.assign(out, llmRedactIdentifiers(extra));
   // Chốt trần kích thước: bỏ miền lớn nhất (trừ meta/overview) tới khi vừa.
   const sizes = Object.keys(out)
     .filter(key => key !== 'meta' && key !== 'overview')

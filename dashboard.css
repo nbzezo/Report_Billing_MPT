@@ -2046,6 +2046,19 @@ body.adw #settingsAppearanceContent .color-controls label{
 body.adw #settingsAppearanceContent .color-controls input[type=color]{width:32px;height:28px;min-height:28px;padding:2px;border-radius:4px}
 body.adw #settingsAppearance .settings-local-actions{margin-top:18px;padding-top:16px}
 body.adw #settingsAppearance .settings-local-actions .primary-btn{min-width:120px}
+body.adw .report-statistics summary,
+body.adw.dark .report-statistics summary,
+body.adw .asr-time-toolbar .report-heading,
+body.adw.dark .asr-time-toolbar .report-heading,
+body.adw #asrTimeSubtitle,
+body.adw.dark #asrTimeSubtitle,
+body.adw #panel_billing_config .control-title,
+body.adw.dark #panel_billing_config .control-title{color:var(--text)}
+body.adw .settings-saved-status{color:var(--text-2)}
+body.adw .mpt-source-status.ready{color:var(--ux-color-166534)}
+body.adw .skip-link{color:var(--accent-fg)}
+body.adw:not(.dark) .primary-btn:hover:not(:disabled),
+body.adw.dark .primary-btn:hover:not(:disabled){background:var(--ux-color-a84f35);border-color:var(--ux-color-a84f35);color:var(--ux-color-ffffff);transition:none}
 @media(max-width:760px){
   body.adw #settingsAppearanceContent>.control-row{align-items:stretch;flex-direction:column;gap:8px}
   body.adw #settingsAppearanceContent>.control-row label{justify-content:space-between}
@@ -2231,7 +2244,7 @@ body.adw #panel_billing_config .control-group{
 }
 body.adw #panel_billing_config .control-title{
   margin:0;
-  color:var(--accent-text);
+  color:var(--text);
   font-size:13px;
   font-weight:700;
   letter-spacing:.045em;
@@ -2579,7 +2592,7 @@ body.adw #reportGrid>.chart-report-card>.report-statistics{
 body.adw #reportGrid>.chart-report-card>.report-statistics summary{
   padding:11px 14px;
   background:var(--surface-2);
-  color:var(--accent-text);
+  color:var(--text);
 }
 body.adw #reportGrid>.chart-report-card>.report-statistics[open] summary{
   border-bottom:1px solid var(--border);

@@ -6,7 +6,7 @@ Trang co nut Export -> GET `/routing/exportCid/<routing_id>` tra ve mot file
     Position | Gateway | CID | Status | Viettel | Mobi | Vina | Other | Desc | Notes
 
 MPT KHONG gan account vao trang nay. `account_id` do nguoi dung gan tay voi
-`routing_id` (config/gateway-map.json) qua giao dien app. Moi CID trong export
+`routing_id` (SQLite; file JSON cũ chỉ được migration một lần) qua giao dien app. Moi CID trong export
 cua routing 6151 => thuoc account da map voi 6151 (suy mot lan, cache lai).
 
 Parse .xlsx bang stdlib (zipfile + xml) de ban portable khong phai them openpyxl
@@ -295,10 +295,10 @@ def merge_maps(base, discovered):
 # ---------------------------------------------------------------- cache + chi muc
 
 class GatewayMapStore:
-    """config/gateway-map.json (mapping tay) + cache raw theo routing +
+    """SQLite gateway mapping + cache raw theo routing +
     chi muc CID hop nhat (thu dashboard doc)."""
 
-    def __init__(self, root, profile_id):
+    def __init__(self, root, profile_id, call_store_instance=None):
         self.root = Path(root)
         self.profile_id = profile_id or "default"
         self.config_dir = self.root / "config"
@@ -306,27 +306,27 @@ class GatewayMapStore:
         safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(self.profile_id))
         self.cache_dir = self.config_dir / ".cache" / "gateway" / safe
         self.index_path = self.cache_dir / "gateway-cids.json"
-        self.call_store = call_store.CallStore(self.root)
+        self.call_store = call_store_instance or call_store.CallStore(self.root)
 
     # --- mapping tay: {account_id: [{routing_id, routing_name}]} ---
 
     def load_map(self):
-        # Ưu tiên đọc từ SQLite DB
-        db_map = self.call_store.load_gateway_map(self.profile_id)
-        if db_map:
-            return db_map
-        if not self.map_path.exists():
+        with self.call_store.lock:
+            db_map = self.call_store.load_gateway_map(self.profile_id)
+            if db_map:
+                return db_map
+            if not self.map_path.exists() or self.call_store.has_gateway_maps():
+                return {}
+            try:
+                data = json.loads(self.map_path.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data:
+                    # File cũ là dữ liệu toàn cục: chỉ nhập đúng một lần vào DB.
+                    clean = self._clean_map(data)
+                    self.call_store.save_gateway_map(self.profile_id, clean)
+                    return clean
+            except Exception:
+                return {}
             return {}
-        try:
-            data = json.loads(self.map_path.read_text(encoding="utf-8"))
-            if isinstance(data, dict) and data:
-                # Tự động đồng bộ từ file JSON cũ vào DB nếu DB chưa có
-                clean = self._clean_map(data)
-                self.call_store.save_gateway_map(self.profile_id, clean)
-                return clean
-        except Exception:
-            return {}
-        return data if isinstance(data, dict) else {}
 
     @staticmethod
     def _clean_map(mapping):
@@ -342,7 +342,7 @@ class GatewayMapStore:
                     rname = str(e.get("routing_name", "")).strip()
                 else:
                     rid, rname = str(e).strip(), ""
-                if rid and rid not in seen:
+                if rid.isdigit() and rid not in seen:
                     seen.add(rid)
                     lst.append({"routing_id": rid, "routing_name": rname})
             if lst:
@@ -352,13 +352,6 @@ class GatewayMapStore:
     def save_map(self, mapping):
         clean = self._clean_map(mapping)
         self.call_store.save_gateway_map(self.profile_id, clean)
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        try:
-            self.map_path.write_text(
-                json.dumps(clean, ensure_ascii=False, indent=2), encoding="utf-8"
-            )
-        except Exception:
-            pass
         return clean
 
     def routing_to_account(self, mapping=None):
@@ -373,15 +366,21 @@ class GatewayMapStore:
 
     # --- cache raw theo routing ---
 
+    def _routing_path(self, routing_id):
+        routing_id = str(routing_id).strip()
+        if not routing_id.isdigit():
+            raise ValueError("routing_id phải là số.")
+        return self.cache_dir / f"routing_{routing_id}.json"
+
     def write_routing(self, routing_id, rows, meta):
         self.cache_dir.mkdir(parents=True, exist_ok=True)
-        (self.cache_dir / f"routing_{routing_id}.json").write_text(
+        self._routing_path(routing_id).write_text(
             json.dumps({"meta": meta, "rows": rows}, ensure_ascii=False),
             encoding="utf-8",
         )
 
     def read_routing(self, routing_id):
-        p = self.cache_dir / f"routing_{routing_id}.json"
+        p = self._routing_path(routing_id)
         if not p.exists():
             return None
         try:

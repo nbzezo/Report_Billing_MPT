@@ -5,7 +5,8 @@ Tạo một thư mục chạy độc lập, **không cần cài Python**, copy s
 ## Yêu cầu trên máy build
 
 - Windows 10/11, Python 3.11+, Node.js 22.5+
-- `python -m pip install -r build/requirements-build.txt`
+
+Script tự tạo `build\_venv\` và cài đúng phiên bản dependency đã khóa.
 
 ## Build
 
@@ -20,7 +21,6 @@ MPT Call Dashboard\
 ├─ MPT Call Dashboard.exe        ← chạy cái này
 ├─ _internal\                    ← Python runtime + cryptography (rất gọn)
 ├─ V2_0_Call_Dashboard_MPT.html  ← file rời, sửa nóng được
-├─ mpt_filter.html
 ├─ dashboard-core.js             ← logic thuần dùng chung
 ├─ dashboard-csv-worker.js       ← Web Worker (tổng hợp ngoài luồng UI)
 ├─ analytics-worker.js           ← analytics backend đọc SQLite trực tiếp

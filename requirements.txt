@@ -1,6 +1,6 @@
 # Runtime dependencies (chạy từ mã nguồn).
 #   python -m pip install -r requirements.txt
-cryptography>=42          # mã hóa mật khẩu profile bằng keyfile (AES-256-GCM)
+cryptography==47.0.0      # mã hóa mật khẩu profile bằng keyfile (AES-256-GCM)
 #
 # Ứng dụng native (scripts/mpt_dashboard_app.py) KHÔNG cần thư viện GUI nào:
 # nó mở dashboard bằng cửa sổ Microsoft Edge / Chrome ở chế độ --app.
@@ -8,13 +8,13 @@ cryptography>=42          # mã hóa mật khẩu profile bằng keyfile (AES-25
 # Tích hợp AI (tuỳ chọn, opt-in - xem scripts/llm_providers/). Chỉ 2 provider
 # cần SDK thật; DeepSeek và Cổng LLM (9Router/OpenRouter/...) dùng urllib có
 # sẵn (API OpenAI-compatible, không cần thêm dependency).
-anthropic>=0.40           # scripts/llm_providers/anthropic_provider.py (Claude)
-google-genai>=0.3         # scripts/llm_providers/gemini_provider.py (Gemini)
+anthropic==0.120.2        # scripts/llm_providers/anthropic_provider.py (Claude)
+google-genai==2.0.0       # scripts/llm_providers/gemini_provider.py (Gemini)
 #
 # Tab "Vòng đời CID" — Báo cáo rủi ro tự động (scripts/risk_engine.py, port của
 # skill telecom-cid-risk-optimizer). Chỉ dùng khi bấm "Chạy phân tích rủi ro";
 # server import các gói này LAZY (khi gọi /api/risk-analysis), nên thiếu gói
 # không làm sập các tính năng khác của dashboard.
-pandas>=2.0
-numpy>=1.24
-openpyxl>=3.1
+pandas==3.0.3
+numpy==2.4.4
+openpyxl==3.1.5

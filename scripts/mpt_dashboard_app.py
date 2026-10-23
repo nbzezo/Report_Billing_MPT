@@ -186,7 +186,7 @@ def main():
 
     try:
         server = create_server(host="127.0.0.1", port=0, root=root)
-    except OSError as exc:
+    except Exception as exc:
         _fatal(f"Không khởi động được máy chủ nội bộ:\n{exc}")
         return
 

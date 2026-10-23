@@ -98,6 +98,9 @@ function whereOf(params) {
     if (directionValues) {
       clauses.push(`LOWER(TRIM(direction)) IN (${directionValues.map(() => '?').join(',')})`);
       values.push(...directionValues);
+    } else if (['hangupcause', 'calltype', 'telco'].includes(name)) {
+      clauses.push(`LOWER(TRIM(${column}))=?`);
+      values.push(value.trim().toLowerCase());
     } else {
       clauses.push(`${column}=?`);
       values.push(value);

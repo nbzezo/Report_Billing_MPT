@@ -1386,6 +1386,7 @@ test('buildLlmContext — chỉ giữ trường liên quan tab, cắt top-N mả
   assert.equal(quality.topDest.length, 20);
   // Sắp giảm dần theo total — CID có total lớn nhất (49) phải đứng đầu.
   assert.equal(quality.topDest[0].total, 49);
+  assert.equal(quality.topDest[0].dn, '[redacted]');
   assert.equal(quality.gatewayFail, undefined); // không thuộc tab quality
 
   const time = core.buildLlmContext(cube, 'time');
@@ -1427,8 +1428,12 @@ test('buildLlmContext — rút gọn chuỗi đồng thời và giữ dưới tr
 });
 
 test('buildLlmContext — extra gộp thêm vào context (vd dữ liệu CID rời cube)', () => {
-  const out = core.buildLlmContext({ meta: {} }, 'cid', { cidSummary: { locked: 3 } });
-  assert.deepEqual(out.cidSummary, { locked: 3 });
+  const out = core.buildLlmContext({ meta: {} }, 'cid', {
+    cidSummary: { locked: 3, cid: '0901234567', nested: { destination: '0912345678' } }
+  });
+  assert.deepEqual(out.cidSummary, {
+    locked: 3, cid: '[redacted]', nested: { destination: '[redacted]' }
+  });
 });
 
 test('buildLlmContext — chế độ AI toàn DB đọc mọi miền nhưng vẫn là cube đã lọc', () => {

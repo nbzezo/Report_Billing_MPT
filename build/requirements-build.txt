@@ -1,5 +1,5 @@
 # Dependencies để đóng gói bản portable.
 #   python -m pip install -r build/requirements-build.txt
 -r ../requirements.txt
-pyinstaller>=6.6
-pyinstaller-hooks-contrib>=2024.7
+pyinstaller==6.22.2
+pyinstaller-hooks-contrib==2026.7

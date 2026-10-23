@@ -3,6 +3,8 @@ import argparse
 import base64
 import csv
 import ctypes
+import hashlib
+import ipaddress
 import json
 import io
 import mimetypes
@@ -25,7 +27,7 @@ from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 from http.cookiejar import CookieJar
 from pathlib import Path
 from queue import Empty, Queue
-from threading import Lock, Thread
+from threading import Lock, RLock, Thread
 from time import monotonic
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -45,6 +47,20 @@ def _hidden_subprocess_kwargs():
     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     startupinfo.wShowWindow = 0  # SW_HIDE
     return {"creationflags": _NO_WINDOW, "startupinfo": startupinfo}
+
+
+def _atomic_write_text(path, text, encoding):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=path.parent)
+    try:
+        with os.fdopen(fd, "w", encoding=encoding) as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        Path(temporary).unlink(missing_ok=True)
 
 
 class _DataBlob(ctypes.Structure):
@@ -71,25 +87,27 @@ class SecretProtector:
     def __init__(self, key_path):
         self.key_path = Path(key_path)
         self._key = None
+        self._lock = Lock()
 
     # -- keyfile -----------------------------------------------------------
     def _key_material(self, create=False):
-        if self._key is None:
-            if self.key_path.exists():
-                key = base64.b64decode(self.key_path.read_text(encoding="ascii").strip())
-                if len(key) != self.KEY_BYTES:
-                    raise RuntimeError("config/secret.key không hợp lệ (cần 32 byte).")
-                self._key = key
-            elif create:
-                self._key = os.urandom(self.KEY_BYTES)
-                self.key_path.parent.mkdir(parents=True, exist_ok=True)
-                self.key_path.write_text(
-                    base64.b64encode(self._key).decode("ascii"), encoding="ascii"
-                )
-                self._lock_down(self.key_path)
-            else:
-                raise RuntimeError("Thiếu config/secret.key để giải mã mật khẩu đã lưu.")
-        return self._key
+        with self._lock:
+            if self._key is None:
+                if self.key_path.exists():
+                    key = base64.b64decode(self.key_path.read_text(encoding="ascii").strip())
+                    if len(key) != self.KEY_BYTES:
+                        raise RuntimeError("config/secret.key không hợp lệ (cần 32 byte).")
+                    self._key = key
+                elif create:
+                    key = os.urandom(self.KEY_BYTES)
+                    _atomic_write_text(
+                        self.key_path, base64.b64encode(key).decode("ascii"), "ascii"
+                    )
+                    self._lock_down(self.key_path)
+                    self._key = key
+                else:
+                    raise RuntimeError("Thiếu config/secret.key để giải mã mật khẩu đã lưu.")
+            return self._key
 
     @staticmethod
     def _lock_down(path):
@@ -161,8 +179,14 @@ DEFAULT_DOMAINS = [
 EXPORT_PROGRESS_TTL_SECONDS = 15 * 60
 RISK_ANALYSIS_CACHE_TTL_SECONDS = 10 * 60
 RISK_ANALYSIS_CACHE_MAX_ITEMS = 8
+MAX_JSON_BODY_BYTES = 2 * 1024 * 1024
+DASHBOARD_FILE = "V2_0_Call_Dashboard_MPT.html"
 # ~250K token: lưới an toàn phía server, trên mức client tự cắt (400K ký tự).
 LLM_ASK_MAX_CHARS = 800_000
+
+
+class RequestTooLarge(ValueError):
+    pass
 
 
 class AnalyticsWorker:
@@ -281,6 +305,24 @@ def normalize_domain(value):
     return f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
 
 
+_SENSITIVE_LLM_KEYS = {
+    "ani", "caller", "callerid", "calleridnumber", "cid", "destination",
+    "destinationnumber", "dn", "phonenumber",
+}
+
+
+def redact_sensitive_identifiers(value):
+    if isinstance(value, list):
+        return [redact_sensitive_identifiers(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    return {
+        key: ("[redacted]" if re.sub(r"[^a-z0-9]", "", str(key).lower())
+              in _SENSITIVE_LLM_KEYS else redact_sensitive_identifiers(item))
+        for key, item in value.items()
+    }
+
+
 def mpt_connection_error_message(exc):
     """Return an actionable message for outbound MPT connection failures."""
     reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
@@ -305,6 +347,7 @@ class ProfileStore:
         self.config_dir = self.root / "config"
         self.path = self.config_dir / "profiles.json"
         self.secrets = SecretProtector(self.config_dir / "secret.key")
+        self.lock = RLock()
         self._migrate_plaintext_passwords()
         self._migrate_legacy_encryption()
 
@@ -313,9 +356,15 @@ class ProfileStore:
             return []
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-        except Exception:
-            return []
-        return data.get("profiles", []) if isinstance(data, dict) else []
+        except Exception as exc:
+            raise RuntimeError(
+                "config/profiles.json bị hỏng; ứng dụng sẽ không ghi đè file này."
+            ) from exc
+        if not isinstance(data, dict) or not isinstance(data.get("profiles", []), list):
+            raise RuntimeError(
+                "config/profiles.json không đúng định dạng; ứng dụng sẽ không ghi đè file này."
+            )
+        return data.get("profiles", [])
 
     def load(self):
         profiles = self._read_raw()
@@ -330,18 +379,19 @@ class ProfileStore:
         return profiles
 
     def save_all(self, profiles):
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        safe_profiles = []
-        for profile in profiles:
-            item = dict(profile)
-            password = item.pop("password", "")
-            protected = item.pop("passwordEncrypted", "")
-            item["passwordEncrypted"] = self.secrets.protect(password) if password else protected
-            safe_profiles.append(item)
-        self.path.write_text(
-            json.dumps({"profiles": safe_profiles}, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        with self.lock:
+            safe_profiles = []
+            for profile in profiles:
+                item = dict(profile)
+                password = item.pop("password", "")
+                protected = item.pop("passwordEncrypted", "")
+                item["passwordEncrypted"] = self.secrets.protect(password) if password else protected
+                safe_profiles.append(item)
+            _atomic_write_text(
+                self.path,
+                json.dumps({"profiles": safe_profiles}, ensure_ascii=False, indent=2),
+                "utf-8",
+            )
 
     def _migrate_plaintext_passwords(self):
         profiles = self._read_raw()
@@ -384,48 +434,51 @@ class ProfileStore:
         return None
 
     def upsert(self, payload):
-        profiles = self.load()
-        domain = normalize_domain(payload.get("domain"))
-        username = (payload.get("username") or "").strip()
-        profile_id = payload.get("id") or str(uuid.uuid4())
-        existing = next((p for p in profiles if p.get("id") == profile_id), None)
-        password = payload.get("password") or (existing or {}).get("password", "")
-        if not domain or not username or not password:
-            raise ValueError("Cần có domain, tên đăng nhập và mật khẩu.")
-        name = (payload.get("name") or f"{username} @ {urllib.parse.urlparse(domain).netloc}").strip()
-        item = {
-            "id": profile_id,
-            "name": name,
-            "domain": domain,
-            "username": username,
-            "password": password,
-            "accounts": (existing or {}).get("accounts", []),
-            "lastVerifiedAt": (existing or {}).get("lastVerifiedAt"),
-        }
-        profiles = [p for p in profiles if p.get("id") != profile_id]
-        profiles.append(item)
-        self.save_all(profiles)
-        return {k: item[k] for k in ("id", "name", "domain", "username")}
+        with self.lock:
+            profiles = self.load()
+            domain = normalize_domain(payload.get("domain"))
+            username = (payload.get("username") or "").strip()
+            profile_id = payload.get("id") or str(uuid.uuid4())
+            existing = next((p for p in profiles if p.get("id") == profile_id), None)
+            password = payload.get("password") or (existing or {}).get("password", "")
+            if not domain or not username or not password:
+                raise ValueError("Cần có domain, tên đăng nhập và mật khẩu.")
+            name = (payload.get("name") or f"{username} @ {urllib.parse.urlparse(domain).netloc}").strip()
+            item = {
+                "id": profile_id,
+                "name": name,
+                "domain": domain,
+                "username": username,
+                "password": password,
+                "accounts": (existing or {}).get("accounts", []),
+                "lastVerifiedAt": (existing or {}).get("lastVerifiedAt"),
+            }
+            profiles = [p for p in profiles if p.get("id") != profile_id]
+            profiles.append(item)
+            self.save_all(profiles)
+            return {k: item[k] for k in ("id", "name", "domain", "username")}
 
     def delete(self, profile_id):
-        profiles = self.load()
-        updated = [p for p in profiles if p.get("id") != profile_id]
-        self.save_all(updated)
-        return len(updated) != len(profiles)
+        with self.lock:
+            profiles = self.load()
+            updated = [p for p in profiles if p.get("id") != profile_id]
+            self.save_all(updated)
+            return len(updated) != len(profiles)
 
     def update_accounts(self, profile_id, accounts):
-        profiles = self.load()
-        changed = False
-        for profile in profiles:
-            if profile.get("id") == profile_id:
-                profile["accounts"] = accounts
-                profile["lastVerifiedAt"] = datetime.now().astimezone().isoformat(
-                    timespec="seconds"
-                )
-                changed = True
-                break
-        if changed:
-            self.save_all(profiles)
+        with self.lock:
+            profiles = self.load()
+            changed = False
+            for profile in profiles:
+                if profile.get("id") == profile_id:
+                    profile["accounts"] = accounts
+                    profile["lastVerifiedAt"] = datetime.now().astimezone().isoformat(
+                        timespec="seconds"
+                    )
+                    changed = True
+                    break
+            if changed:
+                self.save_all(profiles)
 
 
 class LlmConfigStore:
@@ -451,6 +504,7 @@ class LlmConfigStore:
         self.config_dir = self.root / "config"
         self.path = self.config_dir / "llm_config.json"
         self.secrets = SecretProtector(self.config_dir / "secret.key")
+        self.lock = RLock()
 
     def _default(self):
         providers = {}
@@ -468,10 +522,14 @@ class LlmConfigStore:
             return merged
         try:
             data = json.loads(self.path.read_text(encoding="utf-8"))
-        except Exception:
-            return merged
+        except Exception as exc:
+            raise RuntimeError(
+                "config/llm_config.json bị hỏng; ứng dụng sẽ không ghi đè file này."
+            ) from exc
         if not isinstance(data, dict):
-            return merged
+            raise RuntimeError(
+                "config/llm_config.json không đúng định dạng; ứng dụng sẽ không ghi đè file này."
+            )
         if data.get("activeProvider") in self.PROVIDER_KEYS:
             merged["activeProvider"] = data["activeProvider"]
         for key in self.PROVIDER_KEYS:
@@ -481,9 +539,8 @@ class LlmConfigStore:
         return merged
 
     def _write_raw(self, data):
-        self.config_dir.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8"
+        _atomic_write_text(
+            self.path, json.dumps(data, ensure_ascii=False, indent=2), "utf-8"
         )
 
     def public_status(self):
@@ -503,36 +560,37 @@ class LlmConfigStore:
         }
 
     def save(self, payload):
-        raw = self._read_raw()
-        active = payload.get("activeProvider")
-        if active in self.PROVIDER_KEYS:
-            raw["activeProvider"] = active
-        for key, incoming in (payload.get("providers") or {}).items():
-            if key not in self.PROVIDER_KEYS or not isinstance(incoming, dict):
-                continue
-            current = raw["providers"][key]
-            api_key = (incoming.get("apiKey") or "").strip()
-            if api_key:
-                current["apiKeyEncrypted"] = self.secrets.protect(api_key)
-            elif incoming.get("clearApiKey"):
-                current["apiKeyEncrypted"] = ""
-            if "model" in incoming:
-                current["model"] = (incoming.get("model") or "").strip()
-            if "baseUrl" in incoming and key in self.DEFAULT_BASE_URL:
-                current["baseUrl"] = (
-                    (incoming.get("baseUrl") or "").strip() or self.DEFAULT_BASE_URL[key]
-                )
-        for key, incoming in (payload.get("features") or {}).items():
-            if key not in self.FEATURE_KEYS or not isinstance(incoming, dict):
-                continue
-            current = raw["features"][key]
-            if "enabled" in incoming:
-                current["enabled"] = bool(incoming["enabled"])
-            if "provider" in incoming:
-                provider = incoming.get("provider")
-                current["provider"] = provider if provider in self.PROVIDER_KEYS else None
-        self._write_raw(raw)
-        return self.public_status()
+        with self.lock:
+            raw = self._read_raw()
+            active = payload.get("activeProvider")
+            if active in self.PROVIDER_KEYS:
+                raw["activeProvider"] = active
+            for key, incoming in (payload.get("providers") or {}).items():
+                if key not in self.PROVIDER_KEYS or not isinstance(incoming, dict):
+                    continue
+                current = raw["providers"][key]
+                api_key = (incoming.get("apiKey") or "").strip()
+                if api_key:
+                    current["apiKeyEncrypted"] = self.secrets.protect(api_key)
+                elif incoming.get("clearApiKey"):
+                    current["apiKeyEncrypted"] = ""
+                if "model" in incoming:
+                    current["model"] = (incoming.get("model") or "").strip()
+                if "baseUrl" in incoming and key in self.DEFAULT_BASE_URL:
+                    current["baseUrl"] = (
+                        (incoming.get("baseUrl") or "").strip() or self.DEFAULT_BASE_URL[key]
+                    )
+            for key, incoming in (payload.get("features") or {}).items():
+                if key not in self.FEATURE_KEYS or not isinstance(incoming, dict):
+                    continue
+                current = raw["features"][key]
+                if "enabled" in incoming:
+                    current["enabled"] = bool(incoming["enabled"])
+                if "provider" in incoming:
+                    provider = incoming.get("provider")
+                    current["provider"] = provider if provider in self.PROVIDER_KEYS else None
+            self._write_raw(raw)
+            return self.public_status()
 
     def resolve(self, feature_key):
         """{"provider","apiKey","model","baseUrl"} đã giải mã, sẵn sàng truyền
@@ -737,10 +795,9 @@ class MptClient:
         )
 
 
-def is_allowed_static_path(path, dashboard):
+def is_allowed_static_path(path):
     return path in {
-        f"/{dashboard}",
-        "/mpt_filter.html",
+        f"/{DASHBOARD_FILE}",
         "/dashboard-core.js",
         "/dashboard.css",
         "/dashboard-csv-worker.js",
@@ -756,14 +813,32 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'none'")
+        self.send_header("X-Frame-Options", "DENY")
         super().end_headers()
 
+    def reject_cross_site_request(self):
+        origin = self.headers.get("Origin", "")
+        host = self.headers.get("Host", "")
+        if (self.headers.get("Sec-Fetch-Site", "").lower() == "cross-site" or
+                (origin and urllib.parse.urlparse(origin).netloc != host)):
+            self.send_error(403)
+            return True
+        return False
+
     def do_GET(self):
+        if self.reject_cross_site_request():
+            return
         parsed = urllib.parse.urlparse(self.path)
 
         if parsed.path == "/":
-            self.path = f"/{self.server.dashboard}"
+            self.path = f"/{DASHBOARD_FILE}"
             super().do_GET()
+            return
+        if parsed.path == "/mpt_filter.html":
+            self.send_response(308)
+            self.send_header("Location", "/")
+            self.end_headers()
             return
         if parsed.path == "/api/profiles":
             self.handle_profiles()
@@ -814,13 +889,15 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             self.handle_dashboard(parsed)
             return
 
-        if not is_allowed_static_path(parsed.path, self.server.dashboard):
+        if not is_allowed_static_path(parsed.path):
             self.send_error(404)
             return
 
         super().do_GET()
 
     def do_POST(self):
+        if self.reject_cross_site_request():
+            return
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/api/profiles":
             self.handle_save_profile()
@@ -880,6 +957,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.end_headers()
 
     def do_DELETE(self):
+        if self.reject_cross_site_request():
+            return
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/api/profiles":
             self.handle_delete_profile(parsed)
@@ -895,6 +974,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def error_response(self, exc, status=502):
+        if isinstance(exc, RequestTooLarge):
+            status = 413
         raw = str(exc)
         if isinstance(exc, urllib.error.HTTPError) and exc.code in (401, 403):
             message = "Đăng nhập MPT không hợp lệ hoặc phiên đã hết hạn."
@@ -908,8 +989,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def read_json_body(self):
         length = int(self.headers.get("Content-Length", "0") or "0")
+        if length < 0:
+            raise ValueError("Content-Length không hợp lệ.")
+        if length > MAX_JSON_BODY_BYTES:
+            raise RequestTooLarge("JSON request vượt giới hạn 2 MB.")
         if not length:
             return {}
+        if self.headers.get("Content-Type", "").partition(";")[0].strip().lower() != "application/json":
+            raise ValueError("Content-Type phải là application/json.")
         return json.loads(self.rfile.read(length).decode("utf-8"))
 
     def get_client(self, profile_id):
@@ -1114,11 +1201,13 @@ class DashboardHandler(SimpleHTTPRequestHandler):
     # ------------------------------------------------------------------ Gateway
     # Nguon: trang MPT `routing/cids/<routing_id>` -> nut Export -> .xlsx.
     # MPT khong gan account; nguoi dung gan tay routing_id <-> account_id o giao
-    # dien, luu config/gateway-map.json. Dong bo tai .xlsx tung routing roi suy
+    # dien, luu SQLite. Dong bo tai .xlsx tung routing roi suy
     # CID -> account mot lan, cache xuong config/.cache/gateway/<profile>/.
 
     def _gateway_store(self, profile_id):
-        return gateway_map.GatewayMapStore(self.server.root, profile_id)
+        return gateway_map.GatewayMapStore(
+            self.server.root, profile_id, self.server.call_store
+        )
 
     def handle_gateway_map_get(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)
@@ -1179,7 +1268,7 @@ class DashboardHandler(SimpleHTTPRequestHandler):
 
     def handle_gateway_automap(self, parsed):
         """Suy account_id <-> routing_id tu trang MPT `routing/monitoring`
-        (ten routing == ten account), gop vao gateway-map.json, roi dong bo CID
+        (ten routing == ten account), gop vao SQLite, roi dong bo CID
         nhu nut "Dong bo Gateway". `sync=0` de bo qua buoc tai CID."""
         query = urllib.parse.parse_qs(parsed.query)
         profile_id = query.get("profile_id", [""])[-1]
@@ -1336,6 +1425,16 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             while len(self.server.risk_analysis_cache) > RISK_ANALYSIS_CACHE_MAX_ITEMS:
                 self.server.risk_analysis_cache.popitem(last=False)
 
+    @staticmethod
+    def risk_analysis_cache_key(scope, revision, events, events_meta=None):
+        source = dict(scope)
+        source["revision"] = revision
+        source["eventsHash"] = hashlib.sha256(json.dumps(
+            {"events": events, "meta": events_meta or {}}, ensure_ascii=False,
+            sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        return json.dumps(source, ensure_ascii=False, sort_keys=True)
+
     def handle_risk_analysis(self):
         try:
             payload = self.read_json_body()
@@ -1346,18 +1445,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             account_id = payload.get("account_id", "0") or "0"
             from_day = payload.get("from_day", "")
             to_day = payload.get("to_day", "")
-            cache_key = json.dumps(
-                {"profile_id": profile_id, "account_id": account_id,
-                 "from_day": from_day, "to_day": to_day, "telco": telco},
-                sort_keys=True,
-            )
+            cache_scope = {"profile_id": profile_id, "account_id": account_id,
+                           "from_day": from_day, "to_day": to_day, "telco": telco}
         except Exception as exc:
             self.error_response(exc, 400)
-            return
-
-        cached = self._get_cached_risk_analysis(cache_key)
-        if cached is not None:
-            self.json_response(cached)
             return
 
         try:
@@ -1369,36 +1460,50 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             }
             csv_bytes, _cache_state = self._export_calldata_csv(params)
             gateway_index = self._gateway_store(profile_id).read_index().get("index", {})
-            events, _events_meta = routing_events.RoutingEventCache(
+            events, events_meta = routing_events.RoutingEventCache(
                 self.server.root, profile_id
             ).load_window()
+            cache_key = self.risk_analysis_cache_key(
+                cache_scope, self.server.call_store.analytics_revision(profile_id),
+                events, events_meta
+            )
         except Exception as exc:
             self.error_response(exc)
             return
 
-        try:
-            import risk_engine
-        except ImportError:
-            self.error_response(RuntimeError(
-                "Chưa cài thư viện phân tích rủi ro (pandas/numpy/openpyxl). "
-                "Chạy: python -m pip install -r requirements.txt"
-            ), 500)
-            return
+        cached = self._get_cached_risk_analysis(cache_key)
+        if cached is None:
+            try:
+                import risk_engine
+            except ImportError:
+                self.error_response(RuntimeError(
+                    "Chưa cài thư viện phân tích rủi ro (pandas/numpy/openpyxl). "
+                    "Chạy: python -m pip install -r requirements.txt"
+                ), 500)
+                return
+            try:
+                analysis = risk_engine.run_analysis(csv_bytes, gateway_index, events, telco)
+            except Exception as exc:
+                self.error_response(exc, 400)
+                return
+            cached = {
+                "analysis": analysis,
+                "eventsMeta": events_meta,
+                "eventHistoryComplete": not (
+                    events_meta.get("missingDays") or events_meta.get("truncatedDays")
+                ),
+            }
+            self._cache_risk_analysis(cache_key, cached)
 
-        try:
-            analysis = risk_engine.run_analysis(csv_bytes, gateway_index, events, telco)
-        except Exception as exc:
-            self.error_response(exc, 400)
-            return
-
-        result = {"analysis": analysis, "narrative": None, "narrativeError": None,
+        result = {**cached, "narrative": None, "narrativeError": None,
                    "narrativeProvider": None, "narrativeModel": None}
         cfg = self.server.llm_config_store.resolve("riskReport")
         if cfg:
             try:
                 messages = [{"role": "user", "content":
                              "Dữ liệu phân tích rủi ro CID/Gateway (JSON):\n" +
-                             json.dumps(analysis, ensure_ascii=False)}]
+                             json.dumps(redact_sensitive_identifiers(cached),
+                                        ensure_ascii=False)}]
                 narrative = llm_client.send_for_feature(cfg, "risk_report", messages)
                 result["narrative"] = narrative["text"]
                 result["narrativeProvider"] = narrative["providerLabel"]
@@ -1406,7 +1511,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             except Exception as exc:
                 result["narrativeError"] = str(exc)
 
-        self._cache_risk_analysis(cache_key, result)
         self.json_response(result)
 
     def handle_calldata(self, parsed):
@@ -1586,35 +1690,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         except Exception as exc:
             self.error_response(exc)
 
-    def build_report_cube(self, csv_bytes, cube_params, names, gateway_index):
-        script = Path(self.server.root) / "scripts" / "report_cube.js"
-        if not script.exists():
-            raise RuntimeError("Thiếu scripts/report_cube.js để tính report cube.")
-        with tempfile.TemporaryDirectory(prefix="mpt-report-cube-") as directory:
-            temp_dir = Path(directory)
-            csv_path = temp_dir / "calls.csv"
-            params_path = temp_dir / "params.json"
-            names_path = temp_dir / "names.json"
-            gateway_path = temp_dir / "gateway.json"
-            csv_path.write_bytes(csv_bytes)
-            params_path.write_text(json.dumps(cube_params, ensure_ascii=False), encoding="utf-8")
-            names_path.write_text(json.dumps(names or {}, ensure_ascii=False), encoding="utf-8")
-            gateway_path.write_text(json.dumps(gateway_index or {}, ensure_ascii=False), encoding="utf-8")
-            completed = subprocess.run(
-                ["node", str(script), str(csv_path), str(params_path), str(names_path), str(gateway_path)],
-                cwd=self.server.root,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                capture_output=True,
-                timeout=180,
-                check=False,
-            )
-            if completed.returncode != 0:
-                message = (completed.stderr or completed.stdout or "").strip()
-                raise RuntimeError(message or "Không tính được report cube ở backend.")
-            return json.loads(completed.stdout or "{}")
-
     def _sync_calldata(self, params, job_id="", sync_mode="auto"):
         """Synchronize missing/stale MPT partitions without materializing CSV."""
         self._last_sync_from = ""
@@ -1628,7 +1703,10 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             raise ValueError("Khoảng ngày không hợp lệ.") from exc
         if start_day > end_day:
             raise ValueError("Từ ngày phải trước hoặc bằng Đến ngày.")
-        retention_start = date.today() - timedelta(days=self.server.call_store.retention_days - 1)
+        today = date.today()
+        if end_day > today:
+            raise ValueError("Đến ngày không được nằm trong tương lai.")
+        retention_start = today - timedelta(days=self.server.call_store.retention_days - 1)
         if start_day < retention_start:
             raise ValueError(
                 f"Chỉ hỗ trợ dữ liệu trong {self.server.call_store.retention_days} ngày gần nhất "
@@ -1727,7 +1805,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                                 names=names,
                                 exporter=direction_exporter,
                             )
-                        data = self.inject_account_names(data, names)
                         self.server.call_store.ingest_csv(
                             profile_id, data, names, scopes, sync_from, sync_to,
                         )
@@ -1888,6 +1965,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
                 continue
             if header is None:
                 header = parsed[0]
+            elif parsed[0] != header:
+                raise ValueError("Các CSV MPT không có cùng cấu trúc cột.")
             for row in parsed[1:]:
                 if not row or not any(row):
                     continue
@@ -1905,40 +1984,6 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         writer.writerow(header)
         writer.writerows(rows)
         return output.getvalue().encode("utf-8-sig")
-
-    # MPT chỉ trả account_id trong CSV. Ghép thêm cột account_name (từ danh sách
-    # tài khoản đã lưu) để dashboard hiển thị TÊN thay vì id — áp cho cả luồng
-    # 1 account lẫn "tất cả".
-    _ACCOUNT_ID_HEADERS = ("accountid", "account", "tenant")
-
-    @staticmethod
-    def inject_account_names(csv_bytes, names):
-        if not names or not csv_bytes:
-            return csv_bytes
-        text = csv_bytes.decode("utf-8-sig", errors="replace")
-        parsed = list(csv.reader(io.StringIO(text)))
-        if not parsed or not parsed[0]:
-            return csv_bytes
-        header = parsed[0]
-        norm = [re.sub(r"[^a-z0-9]", "", h.lower()) for h in header]
-        if "accountname" in norm:
-            return csv_bytes
-        try:
-            acc_idx = next(
-                i for i, h in enumerate(norm)
-                if h in DashboardHandler._ACCOUNT_ID_HEADERS
-            )
-        except StopIteration:
-            return csv_bytes
-        out = io.StringIO(newline="")
-        writer = csv.writer(out, lineterminator="\n")
-        writer.writerow(header + ["account_name"])
-        for row in parsed[1:]:
-            if not row or not any(row):
-                continue
-            acc = row[acc_idx].strip() if len(row) > acc_idx else ""
-            writer.writerow(row + [names.get(acc, "")])
-        return out.getvalue().encode("utf-8-sig")
 
     def handle_dashboard(self, parsed):
         qs = urllib.parse.urlparse(self.path).query
@@ -1990,6 +2035,8 @@ def app_root():
 
 
 class MPTDashboardServer(ThreadingHTTPServer):
+    daemon_threads = True
+
     def server_close(self):
         analytics = getattr(self, "analytics_worker", None)
         if analytics:
@@ -1997,12 +2044,16 @@ class MPTDashboardServer(ThreadingHTTPServer):
         super().server_close()
 
 
-def create_server(host="127.0.0.1", port=8787, root=None,
-                  dashboard="V2_0_Call_Dashboard_MPT.html"):
+def create_server(host="127.0.0.1", port=8787, root=None):
+    try:
+        loopback = host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        loopback = False
+    if not loopback:
+        raise ValueError("Dashboard chỉ được phép lắng nghe trên localhost.")
     root = str(root if root is not None else app_root())
     server = MPTDashboardServer((host, port), DashboardHandler)
     server.root = root
-    server.dashboard = dashboard
     server.profile_store = ProfileStore(root)
     server.llm_config_store = LlmConfigStore(root)
     server.call_store = call_store.CallStore(root)
@@ -2025,12 +2076,11 @@ def main():
         description="MPT Call Dashboard with filter page."
     )
     parser.add_argument("--root", default=str(app_root()))
-    parser.add_argument("--dashboard", default="V2_0_Call_Dashboard_MPT.html")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8787)
     args = parser.parse_args()
 
-    server = create_server(args.host, args.port, args.root, args.dashboard)
+    server = create_server(args.host, args.port, args.root)
 
     url = f"http://{args.host}:{args.port}/"
     print(f"Filter page: {url}")

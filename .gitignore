@@ -9,6 +9,7 @@ __pycache__/
 # Bản đóng gói portable + dữ liệu runtime của app native
 dist/
 build/_pyi/
+build/_venv/
 data/
 # Dữ liệu cuộc gọi thật (có số điện thoại khách hàng) — không đưa vào repo
 calldata-*.csv

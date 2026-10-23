@@ -627,7 +627,7 @@ function updateRN_CF_KPIs(rows){
   <section id="reportFinder" class="report-finder" aria-label="Tìm báo cáo">
     <label for="reportFinderInput">Tìm nhanh báo cáo</label>
     <p>Gõ tên hoặc chủ đề để mở thẳng một báo cáo, kể cả báo cáo đang thu gọn.</p>
-    <input id="reportFinderInput" type="search" autocomplete="off" placeholder="Ví dụ: Gateway, nhà mạng, CID…" aria-controls="reportFinderResults" aria-expanded="false">
+    <input id="reportFinderInput" type="search" role="combobox" aria-autocomplete="list" autocomplete="off" placeholder="Ví dụ: Gateway, nhà mạng, CID…" aria-controls="reportFinderResults" aria-expanded="false">
     <div id="reportFinderResults" class="report-finder-results" hidden></div>
   </section>
 <div id="reportGrid" class="grid report-grid">
@@ -11987,6 +11987,10 @@ function llmRenderRiskEngineResult(data){
   const summaryRows = llmRiskEngineSummaryRows(analysis);
   const gatewayRows = Object.entries(analysis.gateway || {}).sort((a,b)=>(b[1].lock_rate || 0) - (a[1].lock_rate || 0));
   let html = '<div class="risk-report">';
+  if(data.eventHistoryComplete === false){
+    const meta=data.eventsMeta||{}, missing=(meta.missingDays||[]).length, truncated=(meta.truncatedDays||[]).length;
+    html += `<div class="risk-empty-note">Dữ liệu sự kiện chưa đầy đủ (${missing} ngày thiếu, ${truncated} ngày chạm trần). Các kết quả backtest/reblock chỉ mang tính tham khảo.</div>`;
+  }
   if(summaryRows.length){
     html += '<section class="risk-section"><div class="risk-section-head"><h4 class="risk-section-title">Tổng quan vận hành</h4><div class="risk-section-note">Các chỉ số chính trong phạm vi đang chọn</div></div><div class="risk-kpi-grid">' +
       summaryRows.map(([k,v], index)=> `<div class="risk-kpi"><div class="risk-kpi-label">${reportTableEscape(k)}</div><div class="risk-kpi-value">${reportTableEscape(String(v))}</div>${index === 0 ? '<div class="risk-kpi-detail">Mẫu dữ liệu dùng cho phân tích</div>' : ''}</div>`).join('') +

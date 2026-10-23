@@ -118,6 +118,46 @@ class ProfileStoreTests(unittest.TestCase):
             self.assertEqual(public["accountCount"], 1)
             self.assertTrue(public["lastVerifiedAt"])
 
+    def test_failed_atomic_replace_keeps_existing_profiles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.ProfileStore(directory)
+            saved = store.upsert({
+                "domain": "example.com", "username": "user", "password": "secret",
+            })
+            before = store.path.read_bytes()
+            with mock.patch.object(SERVER.os, "replace", side_effect=OSError("disk error")):
+                with self.assertRaises(OSError):
+                    store.upsert({
+                        "id": saved["id"], "domain": "example.com",
+                        "username": "changed", "password": "secret",
+                    })
+            self.assertEqual(store.path.read_bytes(), before)
+
+    def test_failed_key_write_is_retried_without_caching_an_unpersisted_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.ProfileStore(directory)
+            with mock.patch.object(SERVER, "_atomic_write_text", side_effect=OSError("disk full")):
+                with self.assertRaises(OSError):
+                    store.upsert({
+                        "domain": "example.com", "username": "user", "password": "secret",
+                    })
+            self.assertIsNone(store.secrets._key)
+            self.assertFalse(store.secrets.key_path.exists())
+            saved = store.upsert({
+                "domain": "example.com", "username": "user", "password": "secret",
+            })
+            self.assertEqual(SERVER.ProfileStore(directory).get(saved["id"])["password"], "secret")
+
+    def test_invalid_profile_json_is_not_silently_overwritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config" / "profiles.json"
+            path.parent.mkdir()
+            path.write_text("{broken", encoding="utf-8")
+            before = path.read_bytes()
+            with self.assertRaisesRegex(RuntimeError, "profiles.json bị hỏng"):
+                SERVER.ProfileStore(directory)
+            self.assertEqual(path.read_bytes(), before)
+
 
 class MptClientAuthenticationTests(unittest.TestCase):
     LOGIN_HTML = b'<form><input name="username_softswitch"><input name="password_softswitch"></form>'
@@ -336,6 +376,16 @@ class LlmConfigStoreTests(unittest.TestCase):
             self.assertNotIn("baseUrl", status["providers"]["anthropic"])
             self.assertNotIn("baseUrl", status["providers"]["gemini"])
 
+    def test_invalid_config_is_not_overwritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.LlmConfigStore(directory)
+            store.path.parent.mkdir()
+            store.path.write_text("[]", encoding="utf-8")
+            before = store.path.read_bytes()
+            with self.assertRaisesRegex(RuntimeError, "không đúng định dạng"):
+                store.save({"activeProvider": "anthropic"})
+            self.assertEqual(store.path.read_bytes(), before)
+
 
 class AppRootTests(unittest.TestCase):
     def test_app_root_is_the_repo_root_when_running_from_source(self):
@@ -369,25 +419,138 @@ class CreateServerTests(unittest.TestCase):
                 self.assertIsInstance(server.analytics_worker, SERVER.AnalyticsWorker)
                 self.assertTrue(hasattr(server, "profile_sync_locks"))
                 self.assertTrue(hasattr(server, "profile_sync_completed"))
-                self.assertEqual(server.dashboard, "V2_0_Call_Dashboard_MPT.html")
+                self.assertTrue(server.daemon_threads)
             finally:
                 server.server_close()
+
+    def test_create_server_rejects_non_loopback_bind(self):
+        with self.assertRaisesRegex(ValueError, "localhost"):
+            SERVER.create_server(host="0.0.0.0", port=0)
 
 
 class ServerSafetyTests(unittest.TestCase):
     def test_static_allowlist_blocks_sensitive_and_backup_files(self):
-        dashboard = "V2_0_Call_Dashboard_MPT.html"
-        self.assertTrue(SERVER.is_allowed_static_path(f"/{dashboard}", dashboard))
-        self.assertTrue(SERVER.is_allowed_static_path("/dashboard-core.js", dashboard))
-        self.assertTrue(SERVER.is_allowed_static_path("/dashboard.css", dashboard))
-        self.assertTrue(SERVER.is_allowed_static_path("/dashboard-csv-worker.js", dashboard))
+        self.assertTrue(SERVER.is_allowed_static_path("/V2_0_Call_Dashboard_MPT.html"))
+        self.assertTrue(SERVER.is_allowed_static_path("/dashboard-core.js"))
+        self.assertTrue(SERVER.is_allowed_static_path("/dashboard.css"))
+        self.assertTrue(SERVER.is_allowed_static_path("/dashboard-csv-worker.js"))
         for path in ("/config/profiles.json", "/logs/server.log", "/README.md", "/backup.html", "/.git/config"):
-            self.assertFalse(SERVER.is_allowed_static_path(path, dashboard), path)
+            self.assertFalse(SERVER.is_allowed_static_path(path), path)
 
     def test_domain_normalization(self):
         self.assertEqual(SERVER.normalize_domain("example.com/path"), "https://example.com")
         self.assertEqual(SERVER.normalize_domain(" https://example.com/a "), "https://example.com")
         self.assertEqual(SERVER.normalize_domain(""), "")
+
+    def test_cross_site_requests_and_non_json_bodies_are_rejected(self):
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        handler.headers = {"Host": "127.0.0.1:8787", "Sec-Fetch-Site": "cross-site"}
+        handler.send_error = mock.Mock()
+        self.assertTrue(handler.reject_cross_site_request())
+        handler.send_error.assert_called_once_with(403)
+
+        handler.headers = {"Content-Length": "2", "Content-Type": "text/plain"}
+        handler.rfile = io.BytesIO(b"{}")
+        with self.assertRaisesRegex(ValueError, "application/json"):
+            handler.read_json_body()
+
+        handler.headers = {"Content-Length": str(SERVER.MAX_JSON_BODY_BYTES + 1),
+                           "Content-Type": "application/json"}
+        with self.assertRaises(SERVER.RequestTooLarge):
+            handler.read_json_body()
+        handler.headers = {"Content-Length": "-1", "Content-Type": "application/json"}
+        with self.assertRaisesRegex(ValueError, "Content-Length"):
+            handler.read_json_body()
+
+    def test_security_headers_block_framing(self):
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        handler.send_header = mock.Mock()
+        with mock.patch.object(SERVER.SimpleHTTPRequestHandler, "end_headers"):
+            handler.end_headers()
+        handler.send_header.assert_any_call("Content-Security-Policy", "frame-ancestors 'none'")
+        handler.send_header.assert_any_call("X-Frame-Options", "DENY")
+
+    def test_gateway_store_reuses_the_server_call_store(self):
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        shared = object()
+        handler.server = types.SimpleNamespace(root=".", call_store=shared)
+        with mock.patch.object(SERVER.gateway_map, "GatewayMapStore") as factory:
+            handler._gateway_store("p")
+        factory.assert_called_once_with(".", "p", shared)
+
+    def test_llm_redaction_removes_phone_identifiers_recursively(self):
+        value = {"cid": "0901234567", "nested": [{"destination_number": "0912345678"}],
+                 "cids": 3}
+        redacted = SERVER.redact_sensitive_identifiers(value)
+        self.assertEqual(redacted["cid"], "[redacted]")
+        self.assertEqual(redacted["nested"][0]["destination_number"], "[redacted]")
+        self.assertEqual(redacted["cids"], 3)
+
+    def test_risk_cache_key_changes_with_calls_and_events(self):
+        scope = {"profile_id": "p", "from_day": "2026-10-01"}
+        key = SERVER.DashboardHandler.risk_analysis_cache_key(scope, "1", [])
+        self.assertNotEqual(
+            key, SERVER.DashboardHandler.risk_analysis_cache_key(scope, "2", [])
+        )
+        self.assertNotEqual(
+            key, SERVER.DashboardHandler.risk_analysis_cache_key(
+                scope, "1", [], {"missingDays": ["2026-10-01"]}
+            )
+        )
+        self.assertNotEqual(
+            key,
+            SERVER.DashboardHandler.risk_analysis_cache_key(
+                scope, "1", [{"cid": "0901", "kind": "block"}]
+            ),
+        )
+
+    def test_risk_cache_refreshes_narrative_and_reports_incomplete_events(self):
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        responses = []
+        config = {"value": None}
+        run_analysis = mock.Mock(return_value={"telco_calls": 1, "cid": "0901234567"})
+        handler.server = types.SimpleNamespace(
+            root=".", call_store=types.SimpleNamespace(analytics_revision=lambda _p: "1"),
+            llm_config_store=types.SimpleNamespace(resolve=lambda _feature: config["value"]),
+            risk_analysis_cache=SERVER.OrderedDict(), risk_analysis_cache_lock=Lock(),
+        )
+        handler.read_json_body = lambda: {
+            "profile_id": "p", "from_day": "2026-10-01", "to_day": "2026-10-01",
+        }
+        handler._export_calldata_csv = lambda _params: (b"csv", "DB")
+        handler._gateway_store = lambda _profile: types.SimpleNamespace(
+            read_index=lambda: {"index": {}}
+        )
+        handler.json_response = lambda value, status=200: responses.append(value)
+        handler.error_response = lambda exc, status=502: self.fail(str(exc))
+        event_cache = types.SimpleNamespace(load_window=lambda: (
+            [], {"missingDays": ["2026-10-01"], "truncatedDays": [], "eventCount": 0}
+        ))
+        risk_module = types.SimpleNamespace(run_analysis=run_analysis)
+        narrative = mock.Mock(return_value={
+            "text": "ok", "providerLabel": "Test", "model": "model",
+        })
+        with mock.patch.object(SERVER.routing_events, "RoutingEventCache", return_value=event_cache), \
+                mock.patch.dict(sys.modules, {"risk_engine": risk_module}), \
+                mock.patch.object(SERVER.llm_client, "send_for_feature", narrative):
+            handler.handle_risk_analysis()
+            config["value"] = {"provider": "gateway", "apiKey": "x", "model": "model"}
+            handler.handle_risk_analysis()
+
+        self.assertEqual(run_analysis.call_count, 1)
+        self.assertEqual(narrative.call_count, 1)
+        self.assertIsNone(responses[0]["narrative"])
+        self.assertEqual(responses[1]["narrative"], "ok")
+        self.assertFalse(responses[1]["eventHistoryComplete"])
+        self.assertNotIn("0901234567", narrative.call_args.args[2][0]["content"])
+
+    def test_build_script_preserves_runtime_across_failed_builds(self):
+        script = (ROOT / "build" / "build.ps1").read_text(encoding="utf-8")
+        self.assertIn("Copy-Item -LiteralPath $source", script)
+        self.assertNotIn("Move-Item -LiteralPath $source", script)
+        self.assertGreater(script.index("if (Test-Path $appDir)"),
+                           script.index("$runtimePreserve"))
+        self.assertIn("build\\_venv", script)
 
 
 class CallStoreTests(unittest.TestCase):
@@ -609,6 +772,36 @@ class CallStoreTests(unittest.TestCase):
                 ).fetchone()
             self.assertEqual(tuple(partition), ("complete", 1, 2))
 
+    def test_invalid_csv_cannot_delete_a_good_partition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            params = {"profile_id": "p", "from_day": today, "to_day": today}
+            store.ingest_csv(
+                "p", f"uuid,start_stamp\nu1,{today} 10:00:00\n".encode(),
+                {}, ["*"], today, today,
+            )
+            with self.assertRaisesRegex(ValueError, "header"):
+                store.ingest_csv("p", b"", {}, ["*"], today, today)
+            self.assertIn("u1", store.query_csv(params).decode("utf-8-sig"))
+
+            with self.assertRaisesRegex(ValueError, "thời gian bắt đầu"):
+                store.ingest_csv(
+                    "p", b"uuid,start_stamp\nu2,not-a-date\n",
+                    {}, ["*"], today, today,
+                )
+            self.assertIn("u1", store.query_csv(params).decode("utf-8-sig"))
+
+            with self.assertRaisesRegex(ValueError, "ngoài khoảng"):
+                store.ingest_csv(
+                    "p", b"uuid,start_stamp\nu2,2000-01-01 10:00:00\n",
+                    {}, ["*"], today, today,
+                )
+            self.assertIn("u1", store.query_csv(params).decode("utf-8-sig"))
+
+            store.ingest_csv("p", b"uuid,start_stamp\n", {}, ["*"], today, today)
+            self.assertNotIn("u1", store.query_csv(params).decode("utf-8-sig"))
+
 
 class AnalyticsWorkerTests(unittest.TestCase):
     @unittest.skipIf(shutil.which("node") is None, "Node.js is required")
@@ -674,6 +867,36 @@ class AnalyticsWorkerTests(unittest.TestCase):
                 )
                 self.assertEqual(outbound["meta"]["count"], 1)
                 self.assertEqual(outbound["rows"][0]["uuid"], "u3")
+            finally:
+                worker.stop()
+
+    @unittest.skipIf(shutil.which("node") is None, "Node.js is required")
+    def test_worker_categorical_filters_ignore_case_and_spaces(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            store.ingest_csv(
+                "p",
+                ("uuid,account_id,start_stamp,telco,hangup_cause,calltype\n"
+                 f"u1,334,{today} 10:00:00,  MOBI  ,normal_clearing,external\n"
+                 f"u2,334,{today} 11:00:00,Viettel,NO_ANSWER,Local\n").encode(),
+                {}, ["334"], today, today,
+            )
+            worker = SERVER.AnalyticsWorker(ROOT, store.path)
+            common = {"profile_id": "p", "account_id": "334",
+                      "from_day": today, "to_day": today}
+            cube = {"startDate": today, "endDate": today,
+                    "startTime": "00:00", "endTime": "23:59", "account": "all"}
+            try:
+                for key, value in (("telco", "Mobi"),
+                                   ("hangupcause", "NORMAL_CLEARING"),
+                                   ("calltype", "3")):
+                    result = worker.request(
+                        "bundle", params=dict(common, **{key: value}),
+                        datasetKey=f"p:{key}", cubeParams=cube, previewLimit=10,
+                    )
+                    self.assertEqual(result["meta"]["count"], 1, key)
+                    self.assertEqual(result["rows"][0]["uuid"], "u1", key)
             finally:
                 worker.stop()
 
@@ -979,6 +1202,18 @@ class IncrementalRenderTests(unittest.TestCase):
 
 
 class ExportProgressTests(unittest.TestCase):
+    def test_sync_rejects_future_end_date_before_planning_days(self):
+        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
+        handler.server = types.SimpleNamespace(
+            call_store=types.SimpleNamespace(retention_days=60)
+        )
+        today = date.today()
+        with self.assertRaisesRegex(ValueError, "tương lai"):
+            handler._sync_calldata({
+                "from_day": today.isoformat(),
+                "to_day": (today + timedelta(days=1)).isoformat(),
+            })
+
     def test_direction_aware_export_splits_sources_without_direction_column(self):
         class FakeClient:
             def __init__(self):
@@ -1029,6 +1264,7 @@ class ExportProgressTests(unittest.TestCase):
         self.assertIn(b"Outbound", data)
 
     def test_overlapping_force_requests_for_same_scope_are_coalesced(self):
+        today = date.today().isoformat()
         export_started = Event()
         second_reached_lock = Event()
         release_export = Event()
@@ -1043,7 +1279,7 @@ class ExportProgressTests(unittest.TestCase):
                 return True
 
             def stale_days(self, *args, **kwargs):
-                return ["2026-09-23"]
+                return [today]
 
             def ingest_csv(self, *args, **kwargs):
                 return None
@@ -1061,7 +1297,7 @@ class ExportProgressTests(unittest.TestCase):
                 FakeClient.calls += 1
                 export_started.set()
                 self.assert_released = release_export.wait(2)
-                return b"uuid,account_id,start_stamp,direction\nu1,334,2026-09-23 10:00:00,Outbound\n"
+                return f"uuid,account_id,start_stamp,direction\nu1,334,{today} 10:00:00,Outbound\n".encode()
 
         handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
         handler.server = types.SimpleNamespace(
@@ -1082,7 +1318,7 @@ class ExportProgressTests(unittest.TestCase):
         handler.get_profile_sync_lock = get_sync_lock
         params = {
             "profile_id": "p", "account_id": "334",
-            "from_day": "2026-09-23", "to_day": "2026-09-23",
+            "from_day": today, "to_day": today,
         }
         results = []
         errors = []
@@ -1137,6 +1373,26 @@ class ExportProgressTests(unittest.TestCase):
         self.assertEqual(events[0][1], "Acc A")
         self.assertEqual(events[2][1], "Account 3")
         self.assertIn("u3,3", data.decode("utf-8-sig"))
+
+    def test_multi_account_export_rejects_mismatched_headers(self):
+        class FakeClient:
+            base_url = "https://example.com"
+            username = "user"
+            password = "secret"
+
+            def __init__(self, *args, **kwargs):
+                pass
+
+            def export_csv(self, params):
+                if params["account_id"] == "1":
+                    return b"uuid,account_id\nu1,1\n"
+                return b"account_id,uuid\n2,u2\n"
+
+        with mock.patch.object(SERVER, "MptClient", FakeClient):
+            with self.assertRaisesRegex(ValueError, "cấu trúc cột"):
+                SERVER.DashboardHandler.merge_account_exports(
+                    FakeClient(), {}, ["1", "2"]
+                )
 
     def test_all_account_sync_exports_each_saved_account(self):
         class FakeStore:
@@ -1196,49 +1452,6 @@ class ExportProgressTests(unittest.TestCase):
         self.assertEqual(exported_accounts, ["1", "2"])
         self.assertEqual(store.ingest_scopes, ["1", "2"])
 
-    def test_inject_account_names_adds_a_name_column_from_the_id_map(self):
-        inject = SERVER.DashboardHandler.inject_account_names
-        names = {"388": "VCLASS BOT", "421": "SALE OUTBOUND"}
-        # MPT "new format" header uses "Account" for the id column.
-        src = "Account,Destination\r\n388,09xx\r\n421,08yy\r\n999,07zz\r\n".encode("utf-8-sig")
-        out = inject(src, names).decode("utf-8-sig")
-        lines = [ln for ln in out.splitlines() if ln]
-        self.assertEqual(lines[0], "Account,Destination,account_name")
-        self.assertEqual(lines[1], "388,09xx,VCLASS BOT")
-        self.assertEqual(lines[2], "421,08yy,SALE OUTBOUND")
-        self.assertEqual(lines[3], "999,07zz,")  # id không có trong map -> để trống
-        # Không có map / đã có cột name -> giữ nguyên.
-        self.assertEqual(inject(src, {}), src)
-        self.assertEqual(inject(out.encode("utf-8-sig"), names).decode("utf-8-sig"), out)
-
-    @unittest.skipIf(shutil.which("node") is None, "Node.js is required for backend cube")
-    def test_backend_report_cube_uses_dashboard_core(self):
-        handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
-        handler.server = types.SimpleNamespace(root=str(ROOT))
-        csv_bytes = (
-            "uuid,account_id,caller_id_number,destination_number,direction,start_stamp,end_stamp,duration,billsec,hangup_cause\n"
-            "u1,421,0901,0911,Outbound,2026-09-01 08:00:00,2026-09-01 08:01:00,60,30,NORMAL_CLEARING\n"
-            "u2,421,0902,0912,Outbound,2026-09-01 09:00:00,2026-09-01 09:00:00,0,0,NO_ROUTE_DESTINATION\n"
-        ).encode("utf-8-sig")
-
-        result = handler.build_report_cube(
-            csv_bytes,
-            {
-                "startDate": "2026-09-01",
-                "endDate": "2026-09-01",
-                "startTime": "00:00",
-                "endTime": "23:59",
-                "account": "all",
-            },
-            {"421": "HNI_Pana_BOT_Biva"},
-            {},
-        )
-
-        self.assertEqual(result["meta"]["sourceRows"], 2)
-        self.assertEqual(result["cube"]["meta"]["rows"], 2)
-        self.assertEqual(result["cube"]["overview"]["totalCalls"], 2)
-        self.assertEqual(result["cube"]["overview"]["counts"]["Connected"], 1)
-
     def test_job_id_is_removed_before_the_database_query_is_built(self):
         source = SERVER_PATH.read_text(encoding="utf-8")
         self.assertLess(
@@ -1259,17 +1472,12 @@ class ExportProgressTests(unittest.TestCase):
 class FrontendRegressionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.filter_html = (ROOT / "mpt_filter.html").read_text(encoding="utf-8")
         cls.dashboard_html = (
             (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
             + (ROOT / "dashboard.css").read_text(encoding="utf-8")
             + (ROOT / "dashboard-core.js").read_text(encoding="utf-8")
         )
         cls.server_source = SERVER_PATH.read_text(encoding="utf-8")
-
-    def test_filter_uses_local_date_instead_of_utc_date(self):
-        self.assertIn("const today = localISODate();", self.filter_html)
-        self.assertNotIn("const today = new Date().toISOString().slice(0,10)", self.filter_html)
 
     def test_dashboard_bootstraps_after_late_report_functions(self):
         function_position = self.dashboard_html.index("function plotDirectionSplit")
@@ -1619,7 +1827,9 @@ class FrontendRegressionTests(unittest.TestCase):
         self.assertNotIn("--v2-canvas", self.dashboard_html)
 
     def test_root_opens_integrated_dashboard(self):
-        self.assertIn('self.path = f"/{self.server.dashboard}"', self.server_source)
+        self.assertIn('self.path = f"/{DASHBOARD_FILE}"', self.server_source)
+        self.assertIn('if parsed.path == "/mpt_filter.html":', self.server_source)
+        self.assertIn('self.send_header("Location", "/")', self.server_source)
         self.assertIn('target = f"/?csv={encoded}"', self.server_source)
 
 
@@ -2171,6 +2381,8 @@ class CidRiskReportPresentationTests(unittest.TestCase):
             self.assertIn(class_name, self.HTML)
         self.assertIn("Xếp hạng rủi ro Gateway", self.HTML)
         self.assertIn("Sắp xếp theo tỷ lệ CID bị khoá giảm dần", self.HTML)
+        self.assertIn("data.eventHistoryComplete === false", self.HTML)
+        self.assertIn("Các kết quả backtest/reblock chỉ mang tính tham khảo", self.HTML)
 
     def test_ai_narrative_is_formatted_instead_of_raw_pre_wrap(self):
         self.assertIn("function llmSafeNarrativeHtml(value)", self.HTML)

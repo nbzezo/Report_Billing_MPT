@@ -89,8 +89,27 @@ class StoreTests(unittest.TestCase):
             })
             self.assertEqual(set(clean), {"244", "300"})
             self.assertEqual(clean["300"], [{"routing_id": "7001", "routing_name": ""}])
-            on_disk = json.loads((Path(tmp) / "config" / "gateway-map.json").read_text("utf-8"))
-            self.assertEqual(on_disk, clean)
+            self.assertEqual(store.call_store.load_gateway_map("profile-x"), clean)
+            self.assertFalse((Path(tmp) / "config" / "gateway-map.json").exists())
+
+    def test_legacy_global_map_is_migrated_only_once(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config" / "gateway-map.json"
+            path.parent.mkdir()
+            path.write_text(json.dumps({"244": [{"routing_id": "6151"}]}), "utf-8")
+            first = GM.GatewayMapStore(tmp, "profile-a")
+            self.assertIn("244", first.load_map())
+            second = GM.GatewayMapStore(tmp, "profile-b", first.call_store)
+            self.assertEqual(second.load_map(), {})
+
+    def test_routing_ids_cannot_escape_the_cache_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = self._store(tmp)
+            clean = store.save_map({"244": [{"routing_id": "x/../../../../profiles"}]})
+            self.assertEqual(clean, {})
+            with self.assertRaisesRegex(ValueError, "phải là số"):
+                store.write_routing("x/../../../../profiles", [], {})
+            self.assertFalse((Path(tmp) / "config" / "profiles.json").exists())
 
     def test_routing_to_account_inverts_map(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -249,12 +268,10 @@ class MonitoringAutoMapTests(unittest.TestCase):
             self.assertEqual(result["monitoringRoutings"], 4)
             self.assertEqual(result["added"], 2)          # 494 + 5950 (777 da co)
             self.assertEqual(len(result["unmatched"]), 1)  # 5962 HNI_Palfish_SIP
-            on_disk = json.loads(
-                (Path(tmp) / "config" / "gateway-map.json").read_text("utf-8")
-            )
-            self.assertEqual(sorted(on_disk), ["225", "244", "334"])
-            self.assertEqual(on_disk["244"], [{"routing_id": "777",
-                                               "routing_name": "HNI_BAOAN_SIP"}])
+            saved = store.call_store.load_gateway_map("profile-x")
+            self.assertEqual(sorted(saved), ["225", "244", "334"])
+            self.assertEqual(saved["244"], [{"routing_id": "777",
+                                             "routing_name": "HNI_BAOAN_SIP"}])
 
 
 if __name__ == "__main__":

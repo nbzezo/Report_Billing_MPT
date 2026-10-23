@@ -118,7 +118,7 @@ def _timestamp(value):
             return datetime.strptime(normalized, pattern).strftime("%Y-%m-%d %H:%M:%S")
         except ValueError:
             continue
-    return normalized
+    return ""
 
 
 def normalize_row(raw, account_names, occurrence):
@@ -537,7 +537,16 @@ class CallStore:
         started = datetime.now().astimezone().isoformat(timespec="seconds")
         digest = hashlib.sha256(csv_bytes).hexdigest()
         text = csv_bytes.decode("utf-8-sig", errors="replace")
-        reader = list(csv.DictReader(io.StringIO(text)))
+        csv_reader = csv.DictReader(io.StringIO(text))
+        start_field = next((
+            name for name in (csv_reader.fieldnames or [])
+            if ALIASES.get(_key(name)) == "start_stamp"
+        ), None)
+        if not start_field:
+            raise ValueError("CSV MPT không có header hoặc cột thời gian bắt đầu.")
+        reader = list(csv_reader)
+        if any(not _timestamp(raw.get(start_field)) for raw in reader):
+            raise ValueError("CSV MPT có thời gian bắt đầu trống hoặc không hợp lệ.")
         reader.sort(key=lambda r: (
             str(r.get("start_stamp") or r.get("starttime") or r.get("calldate") or ""),
             str(r.get("caller_id_number") or r.get("caller") or r.get("callernumber") or ""),
@@ -547,6 +556,8 @@ class CallStore:
         ))
         occurrence = defaultdict(int)
         rows = [normalize_row(raw, account_names or {}, occurrence) for raw in reader]
+        if any(not (from_day <= row["start_stamp"][:10] <= to_day) for row in rows):
+            raise ValueError("CSV MPT có dữ liệu nằm ngoài khoảng ngày đang đồng bộ.")
         scopes = [str(scope) for scope in (account_scopes or ["*"])]
         if len(scopes) == 1 and scopes[0] != "*":
             for row in rows:
@@ -869,6 +880,10 @@ class CallStore:
                     "routing_name": r["routing_name"],
                 })
             return out
+
+    def has_gateway_maps(self):
+        with self.connect() as db:
+            return bool(db.execute("SELECT 1 FROM gateway_mappings LIMIT 1").fetchone())
 
     def save_gateway_map(self, profile_id, clean_mapping):
         now = datetime.now().isoformat(timespec="seconds")

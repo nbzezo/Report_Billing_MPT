@@ -12,14 +12,16 @@ $dist = Join-Path $root 'dist'
 $appDir = Join-Path $dist 'MPT Call Dashboard'
 $runtimePreserve = Join-Path $root 'build\_runtime-preserve'
 $runtimeDirs = @('config', 'data', '.cache', 'logs')
+$venv = Join-Path $root 'build\_venv'
+$venvPython = Join-Path $venv 'Scripts\python.exe'
 
-Remove-Item -Recurse -Force $runtimePreserve -ErrorAction SilentlyContinue
 if (Test-Path $appDir) {
+    Remove-Item -Recurse -Force $runtimePreserve -ErrorAction SilentlyContinue
     New-Item -ItemType Directory -Path $runtimePreserve | Out-Null
     foreach ($name in $runtimeDirs) {
         $source = Join-Path $appDir $name
         if (Test-Path -LiteralPath $source) {
-            Move-Item -LiteralPath $source -Destination $runtimePreserve -Force
+            Copy-Item -LiteralPath $source -Destination $runtimePreserve -Recurse -Force
         }
     }
 }
@@ -28,8 +30,9 @@ if ($Clean) {
     Remove-Item -Recurse -Force $work, $dist -ErrorAction SilentlyContinue
 }
 
-python -m pip install -r (Join-Path $root 'build\requirements-build.txt')
-python -m PyInstaller (Join-Path $root 'build\mpt_dashboard.spec') --noconfirm `
+if (-not (Test-Path $venvPython)) { python -m venv $venv }
+& $venvPython -m pip install -r (Join-Path $root 'build\requirements-build.txt')
+& $venvPython -m PyInstaller (Join-Path $root 'build\mpt_dashboard.spec') --noconfirm `
     --distpath $dist --workpath $work
 
 if (-not (Test-Path $appDir)) { throw "PyInstaller không tạo được $appDir" }
@@ -38,14 +41,13 @@ if (-not (Test-Path $appDir)) { throw "PyInstaller không tạo được $appDir
 foreach ($name in $runtimeDirs) {
     $saved = Join-Path $runtimePreserve $name
     if (Test-Path -LiteralPath $saved) {
-        Move-Item -LiteralPath $saved -Destination $appDir -Force
+        Copy-Item -LiteralPath $saved -Destination $appDir -Recurse -Force
     }
 }
 Remove-Item -Recurse -Force $runtimePreserve -ErrorAction SilentlyContinue
 
 # Dashboard + tài nguyên đi kèm dạng file rời cạnh .exe (sửa nóng được).
 Copy-Item (Join-Path $root 'V2_0_Call_Dashboard_MPT.html') $appDir
-Copy-Item (Join-Path $root 'mpt_filter.html')             $appDir
 Copy-Item (Join-Path $root 'dashboard-core.js')           $appDir
 Copy-Item (Join-Path $root 'dashboard.css')               $appDir
 Copy-Item (Join-Path $root 'dashboard-csv-worker.js')     $appDir

@@ -251,6 +251,7 @@ try {
         impact: item.impact || 'unknown',
         nodes: item.nodes.length,
         targets: item.nodes.slice(0, 3).map(node => node.target.join(' ')),
+        detail: item.nodes[0]?.failureSummary || '',
       }));
     }
     await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
@@ -277,7 +278,13 @@ try {
     if (!independentScope || independentScope.viewSyncAccount !== null || independentScope.updateSyncAccount !== independentScope.id || independentScope.viewAccount !== independentScope.updateAccount)
       throw new Error(`Phạm vi tải và phạm vi xem chưa độc lập: ${JSON.stringify(independentScope)}`);
     const dialogAudit = await page.evaluate(() => window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa'] } }));
-    axeSummary.updateScope = dialogAudit.violations.map(item => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+    axeSummary.updateScope = dialogAudit.violations.map(item => ({
+      id: item.id,
+      impact: item.impact,
+      nodes: item.nodes.length,
+      targets: item.nodes.slice(0, 3).map(node => node.target.join(' ')),
+      detail: item.nodes[0]?.failureSummary || '',
+    }));
     if (!auditOnly) await page.screenshot({ path: path.join(out, `${theme}-update-scope.png`) });
     await page.keyboard.press('Escape');
     if (!(await page.locator('#updateScopePopover').isHidden())) throw new Error('Popover phạm vi tải không đóng bằng Escape.');
@@ -374,6 +381,8 @@ try {
       if (!auditOnly) await page.screenshot({ path: path.join(out, 'light-global-empty.png'), fullPage: true });
     }
     console.log(`${theme} axe theo màn hình: ${JSON.stringify(axeSummary)}`);
+    const axeFailures = Object.entries(axeSummary).filter(([, violations]) => violations.length);
+    if (axeFailures.length) throw new Error(`Axe còn lỗi: ${JSON.stringify(Object.fromEntries(axeFailures))}`);
     if (errors.length) console.warn(`${theme} page errors: ${errors.slice(0, 5).join(' | ')}`);
     await context.close();
   }

@@ -28,7 +28,6 @@ Can xem log/debug thi chay:
 Dong goi thanh mot thu muc chay doc lap, **khong can cai Python**, copy sang may khac la chay.
 
 ```powershell
-python -m pip install -r build\requirements-build.txt
 .\build\build.ps1
 ```
 
@@ -60,7 +59,8 @@ devnull khi khong co console nen van chay binh thuong.
 5. Nếu chưa có kết nối, vào **Cài đặt → Kết nối MPT**, nhập Domain/Username/Password, kiểm tra rồi lưu.
 6. Đọc KPI Tổng quan trước, sau đó chuyển nhóm báo cáo bằng sidebar. Mỗi nhóm mở tối đa 4–6 báo cáo chính; dùng **Hiển thị thêm** để xem phân tích chuyên sâu.
 7. Bấm KPI hoặc chip trạng thái để mở drilldown; nhấn `Esc` để đóng và quay lại đúng vị trí.
-8. Mở trợ lý AI bằng nút nổi hoặc `Ctrl+/`. Trợ lý chỉ dùng phạm vi lọc đã áp dụng.
+8. Mở trợ lý AI bằng nút nổi hoặc `Ctrl+/`. Trợ lý chỉ dùng phạm vi lọc đã áp dụng;
+   các số CID/người gọi/đích được loại khỏi payload trước khi gửi nhà cung cấp AI.
 
 ## Hieu nang
 
@@ -90,7 +90,7 @@ doi lai, ai doc duoc thu muc deu giai ma duoc (xem **Bao mat**).
   hop NGOAI luong UI cho file nguoi dung tai thu cong va lam fallback.
 - `analytics-worker.js` - tien trinh Node ben vung: doc SQLite truc tiep, dung cube,
   drilldown va bao cao cuoc ma khong gui toan bo CDR sang trinh duyet.
-- `mpt_filter.html` - Trang filter cu, duoc giu lai de tuong thich
+- `/mpt_filter.html` - URL cu duoc redirect sang Dashboard chinh de giu bookmark
 - `scripts/mpt_dashboard_server.py` - Server noi bo (proxy MPT API)
 - `scripts/mpt_dashboard_app.py` - Cua so native (dung cho ban portable)
 - `scripts/routing_events.py` - Thu thap lich su Block/Reactive CID tu trang MPT
