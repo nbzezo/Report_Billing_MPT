@@ -3736,12 +3736,23 @@ function computeCidActionQueue(timeline, rows){
   }).sort((a,b)=>b.score-a.score||b.ageHours-a.ageHours);
 }
 
-function computeCidDimensionComparison(timeline, rows, dimension){
+function computeCidDimensionComparison(timeline, rows, dimension, cidIndex, accountNames){
   const ivs=(timeline&&timeline.intervals)||[], meta=__cidMetaByNumber(rows);
+  const index=(cidIndex&&typeof cidIndex==='object')?cidIndex:{};
+  const names=(accountNames&&typeof accountNames==='object')?accountNames:{};
   const duty=computeCidDutyCycle(timeline);
   const groups=new Map();
   const groupForCid=cid=>{
-    const m=meta.get(normalizeCidNational(cid))||{account:'Unknown',gateway:'(chưa map)'};
+    const key=normalizeCidNational(cid);
+    let m=meta.get(key);
+    if(!m){
+      const saved=index[key];
+      if(saved){
+        const accountId=String(saved.account_id||'');
+        m={account:String(names[accountId]||accountId||'Unknown'),gateway:String(saved.gateway||'(chưa map)')};
+      }
+    }
+    m=m||{account:'Unknown',gateway:'(chưa map)'};
     return dimension==='account'?m.account:m.gateway;
   };
   const ensure=name=>{ if(!groups.has(name)) groups.set(name,{name,cids:new Set(),blocks:0,stillBlocked:0,recoveredMin:[],recovered:0,reblocked:0,uptime:[]}); return groups.get(name); };

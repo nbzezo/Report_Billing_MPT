@@ -365,6 +365,20 @@ test('computeCidDutyCycle — nhieu routing dung chung CID thi HOP NHAT, khong c
   assert.deepEqual(duty[0].routings, ['R1', 'R2']);
 });
 
+test('computeCidDimensionComparison — dùng mapping đã lưu khi mẫu CDR không có CID', () => {
+  const end = Date.parse('2026-09-01T10:00:00');
+  const tl = core.buildCidTimeline([
+    E('0994345507', 'VT', '2026-09-01 09:00:00', 'block', 'SIP_MTC_AUTOCALL'),
+  ], { windowEnd: end });
+  const index = {
+    '0994345507': { account_id: '548', gateway: 'GIP2_new', routing_name: 'SIP_MTC_AUTOCALL' },
+  };
+  const gateways = core.computeCidDimensionComparison(tl, [], 'gateway', index, { '548': 'HNI_MTC' });
+  const accounts = core.computeCidDimensionComparison(tl, [], 'account', index, { '548': 'HNI_MTC' });
+  assert.deepEqual(gateways.map(x => x.name), ['GIP2_new']);
+  assert.deepEqual(accounts.map(x => x.name), ['HNI_MTC']);
+});
+
 test('computeCidAvailability — mau so mac dinh la can duoi va phai tu khai bao', () => {
   const end = Date.parse('2026-09-01T12:00:00');
   const tl = core.buildCidTimeline([

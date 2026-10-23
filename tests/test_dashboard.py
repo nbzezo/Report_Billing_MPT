@@ -443,6 +443,26 @@ class CallStoreTests(unittest.TestCase):
             self.assertIn("u-external", exported)
             self.assertNotIn("u-local", exported)
 
+    def test_categorical_filters_ignore_case_and_surrounding_spaces(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            payload = (
+                "Account,Caller,Start time,Call ID,Telco,Hangup Cause,Call Type\n"
+                f"334,0901,{today} 10:00:00,u-match,  MOBI  ,normal_clearing,external\n"
+                f"334,0902,{today} 11:00:00,u-other,Viettel,NO_ANSWER,Local\n"
+            ).encode("utf-8")
+            store.ingest_csv("p", payload, {}, ["334"], today, today)
+
+            common = {"profile_id": "p", "account_id": "334",
+                      "from_day": today, "to_day": today}
+            for key, value in (("telco", "Mobi"),
+                               ("hangupcause", "NORMAL_CLEARING"),
+                               ("calltype", "3")):
+                exported = store.query_csv(dict(common, **{key: value})).decode("utf-8-sig")
+                self.assertIn("u-match", exported, key)
+                self.assertNotIn("u-other", exported, key)
+
     def test_query_cache_is_reused_until_data_changes(self):
         with tempfile.TemporaryDirectory() as directory:
             store = SERVER.call_store.CallStore(directory)
@@ -1414,9 +1434,10 @@ class FrontendRegressionTests(unittest.TestCase):
             'id="updateScopeButton"',
             'id="mptAccountList"',
             'id="accountDropdown"',
-            "const syncAccountIds=mode==='view'?[]:mptSelectedAccountIds()",
+            "const configuredSyncAccountIds=mode==='view'?[]:mptSelectedAccountIds()",
+            "configuredSyncAccountIds.length?configuredSyncAccountIds:accountIds",
             "params.set('sync_account_id'",
-            'Phạm vi tải độc lập',
+            'hệ thống sẽ cập nhật các <strong>tài khoản đang xem</strong>',
         ):
             self.assertIn(token, self.dashboard_html)
         self.assertIn('def separate_sync_scope(params):', self.server_source)
@@ -1814,7 +1835,13 @@ class CidTabTests(unittest.TestCase):
     def test_moc_cua_so_lay_tu_meta_chu_khong_suy_tu_du_lieu(self):
         # neu suy tu su kien dau tien thi mau so duty cycle se co gian theo du lieu
         self.assertIn("function cidWindowBounds()", self.HTML)
-        self.assertIn("computeCidDutyCycle(cidState.timeline, cidWindowBounds())", self.HTML)
+        self.assertIn("computeCidDutyCycle(cidTimeline(), cidWindowBounds())", self.HTML)
+
+    def test_bang_ty_le_hoat_dong_di_theo_pham_vi_routing_va_duoc_viet_hoa(self):
+        self.assertNotIn("computeCidDutyCycle(cidState.timeline, cidWindowBounds())", self.HTML)
+        self.assertIn("Tỷ lệ hoạt động từng CID", self.HTML)
+        self.assertIn("Thời gian khôi phục TB", self.HTML)
+        self.assertIn("<th class=\"u-inline-30130854\">Routing</th>", self.HTML)
 
     def test_mau_so_kha_dung_lay_tu_CDR_de_khong_bi_quan(self):
         self.assertIn("function cidUniverseFromCdr(rows)", self.HTML)

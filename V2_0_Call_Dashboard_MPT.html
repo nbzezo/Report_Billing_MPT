@@ -163,7 +163,7 @@ function updateRN_CF_KPIs(rows){
         <button id="updateScopeButton" type="button" class="primary-btn icon-only" aria-label="Chọn tài khoản cần tải" aria-haspopup="dialog" aria-expanded="false" aria-controls="updateScopePopover"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M4.2 6.2L8 10l3.8-3.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
         <div id="updateScopePopover" class="filter-popover update-scope-popover" role="dialog" aria-labelledby="updateScopeTitle" hidden>
           <div id="updateScopeTitle" class="mpt-source-block-title">Tài khoản cần tải từ MPT</div>
-          <p class="update-scope-note">Phạm vi tải độc lập với <strong>tài khoản đang xem</strong> trong thanh lọc. Bỏ chọn tất cả để tải mọi tài khoản.</p>
+          <p class="update-scope-note">Nếu không chọn riêng tại đây, hệ thống sẽ cập nhật các <strong>tài khoản đang xem</strong> trong thanh lọc. Khi cả hai nơi đều không chọn, hệ thống mới tải mọi tài khoản.</p>
           <div id="mptUpdateScopeContent"></div>
           <div id="updateScopeStatus" class="mpt-source-status" role="status" aria-live="polite"></div>
           <div class="filter-popover-actions"><button id="openConnectionSettings" type="button">Cài đặt kết nối</button><button type="button" class="primary-btn" data-filter-close>Đóng</button></div>
@@ -203,8 +203,8 @@ function updateRN_CF_KPIs(rows){
       </div>
       <label class="compact-account" title="Tài khoản đang xem"><span class="sr-only">Tài khoản</span>
         <span class="dropdown" id="accountDropdown">
-          <button type="button" id="accountDropdownBtn" class="filter-trigger btn-ico">Tài khoản: Tất cả</button><span id="accountCount" class="muted"></span>
-          <div id="accountDropdownList" class="dropdown-list u-inline-6b99de8b">
+          <button type="button" id="accountDropdownBtn" class="filter-trigger btn-ico" aria-haspopup="dialog" aria-expanded="false" aria-controls="accountDropdownList">Tài khoản: Tất cả</button><span id="accountCount" class="muted"></span>
+          <div id="accountDropdownList" class="dropdown-list u-inline-6b99de8b" role="dialog" aria-label="Chọn tài khoản">
             <div class="controls-row"><button id="selectAllAccounts" type="button">Tất cả</button><button id="clearAllAccounts" type="button">Bỏ chọn</button><input id="accountSearch" type="text" placeholder="Tìm tài khoản…" /></div>
             <div class="u-inline-25d1b69a" id="accountListCheckboxes"></div>
             <div class="controls-row account-dropdown-actions"><button id="applyAccounts" type="button" class="primary-btn">Áp dụng</button></div>
@@ -1383,12 +1383,12 @@ function updateRN_CF_KPIs(rows){
     </div>
 
     <div id="table_cid_duty" class="card full" data-tab="cid" draggable="true">
-      <h3 class="u-inline-02aaf7e0">Duty cycle từng CID</h3>
-      <div class="muted">Sống bao nhiêu % thời gian, theo từng cặp <b>CID × nhà mạng</b> — một số có thể đang bị VT chặn mà vẫn gọi MB bình thường. Sắp xếp tệ nhất lên đầu, hiển thị tối đa 200 dòng.</div>
+      <h3 class="u-inline-02aaf7e0">Tỷ lệ hoạt động từng CID</h3>
+      <div class="muted">Tỷ lệ thời gian hoạt động của từng cặp <b>CID × nhà mạng</b> — một số có thể đang bị VT chặn nhưng vẫn gọi MB bình thường. Sắp xếp từ thấp đến cao, hiển thị tối đa 200 dòng.</div>
       <table class="u-inline-0e3249a7" id="cidDutyTable">
         <thead><tr>
-          <th class="u-inline-30130854">CID</th><th class="u-inline-30130854">Nhà mạng</th><th class="u-inline-1fb56c0e">Uptime</th><th class="u-inline-1fb56c0e">Số lần khoá</th>
-          <th class="u-inline-1fb56c0e">Giờ bị khoá</th><th class="u-inline-1fb56c0e">MTTR</th><th class="u-inline-30130854">Trạng thái</th><th class="u-inline-30130854">Routing</th>
+          <th class="u-inline-30130854">CID</th><th class="u-inline-30130854">Nhà mạng</th><th class="u-inline-1fb56c0e">Tỷ lệ hoạt động</th><th class="u-inline-1fb56c0e">Số lần khoá</th>
+          <th class="u-inline-1fb56c0e">Giờ bị khoá</th><th class="u-inline-1fb56c0e">Thời gian khôi phục TB</th><th class="u-inline-30130854">Trạng thái</th><th class="u-inline-30130854">Routing</th>
         </tr></thead><tbody></tbody>
       </table></div>
     </div>
@@ -3829,12 +3829,18 @@ function refreshAccountFilter(selectedOverride){
   const clearAllBtn=document.getElementById('clearAllAccounts');
   const applyBtn=document.getElementById('applyAccounts');
   if(!btn||!list) return;
-  btn.addEventListener('click', (e)=>{ e.stopPropagation(); list.style.display = list.style.display==='none'?'block':'none'; });
-  document.addEventListener('click', (ev)=>{ if(!list) return; if(list.style.display==='block'){ if(!list.contains(ev.target) && ev.target!==btn) list.style.display='none'; }});
+  const setOpen=(open,returnFocus=false)=>{
+    list.style.display=open?'block':'none';
+    btn.setAttribute('aria-expanded',String(open));
+    if(returnFocus) btn.focus();
+  };
+  btn.addEventListener('click', ()=>{ setOpen(btn.getAttribute('aria-expanded')!=='true'); });
+  document.addEventListener('click', (ev)=>{ if(list.style.display==='block' && !list.contains(ev.target) && ev.target!==btn) setOpen(false); });
+  document.addEventListener('keydown', (ev)=>{ if(ev.key==='Escape' && list.style.display==='block'){ ev.preventDefault(); setOpen(false,true); } });
   if(search){ search.addEventListener('input', ()=>{ const q = search.value.trim().toLowerCase(); Array.from(document.querySelectorAll('#accountListCheckboxes .acc-item')).forEach(item=>{ const text = item.textContent.trim().toLowerCase(); item.style.display = text.indexOf(q) === -1 ? 'none' : ''; }); }); }
   if(selectAllBtn){ selectAllBtn.addEventListener('click', ()=>{ Array.from(document.querySelectorAll('.acc-checkbox')).forEach(cb=>{ if(cb.parentElement.style.display!=='none') cb.checked=true; }); }); }
   if(clearAllBtn){ clearAllBtn.addEventListener('click', ()=>{ Array.from(document.querySelectorAll('.acc-checkbox')).forEach(cb=> cb.checked=false); }); }
-  if(applyBtn){ applyBtn.addEventListener('click', ()=>{ const sel = getSelectedAccounts(); activeReportAccountIds=sel.slice(); saveAccountFilterIds(sel); const btn=document.getElementById('accountDropdownBtn'); const countEl=document.getElementById('accountCount'); if(btn){ btn.innerText = summarizeSelected(sel); btn.title=selectedAccountsTitle(sel); } if(countEl) countEl.innerText = ''; document.getElementById('accountDropdownList').style.display='none'; markFilterDirty(true); document.getElementById('applyFilter')?.click(); }); }
+  if(applyBtn){ applyBtn.addEventListener('click', ()=>{ const sel = getSelectedAccounts(); activeReportAccountIds=sel.slice(); saveAccountFilterIds(sel); const btn=document.getElementById('accountDropdownBtn'); const countEl=document.getElementById('accountCount'); if(btn){ btn.innerText = summarizeSelected(sel); btn.title=selectedAccountsTitle(sel); } if(countEl) countEl.innerText = ''; setOpen(false); markFilterDirty(true); document.getElementById('applyFilter')?.click(); }); }
 })();
 
 // ---------- Mapping panel events ----------
@@ -6188,7 +6194,8 @@ function renderCidDutyTable(){
   if(!tb) return;
   if(!cidState.loaded || !cidState.timeline){
     tb.innerHTML = '<tr><td colspan="8" class="muted u-inline-492c8f92">Chưa tải lịch sử khoá số.</td></tr>'; return; }
-  const duty = computeCidDutyCycle(cidState.timeline, cidWindowBounds());
+  // Luôn dùng timeline đã giới hạn theo Account/Routing đang chọn.
+  const duty = computeCidDutyCycle(cidTimeline(), cidWindowBounds());
   const td = 'class="u-inline-1fb56c0e"';
   const tl = 'class="u-inline-4d2849d1"';
   tb.innerHTML = duty.slice(0, 200).map(d=>
@@ -6638,8 +6645,10 @@ function renderCidComparison(){
     <th class="u-inline-30130854">${title}</th><th class="u-inline-1fb56c0e">CID</th><th class="u-inline-1fb56c0e">Block</th><th class="u-inline-1fb56c0e">Còn khóa</th><th class="u-inline-1fb56c0e">Uptime TB</th><th class="u-inline-1fb56c0e">Hồi phục P50</th><th class="u-inline-1fb56c0e">Tái khóa</th></tr></thead><tbody>`+
     data.map(r=>`<tr><td class="u-inline-4d2849d1">${reportTableEscape(r.name)}</td><td class="u-inline-12972e58">${r.cids}</td><td class="u-inline-12972e58">${r.blocks}</td><td class="u-inline-12972e58">${r.stillBlockedPct.toFixed(1)}%</td><td class="u-inline-12972e58">${r.avgUptimePct==null?'—':r.avgUptimePct.toFixed(1)+'%'}</td><td class="u-inline-12972e58">${cidFmtHours(r.medianRecoveryMin)}</td><td class="u-inline-12972e58">${r.reblockPct.toFixed(1)}%</td></tr>`).join('')+
     '</tbody></table>';
-  const gateways=computeCidDimensionComparison(cidTimeline(),rows,'gateway');
-  const accounts=computeCidDimensionComparison(cidTimeline(),rows,'account');
+  // Mẫu CDR trên giao diện có thể bị cắt ở 5.000 dòng. Dùng thêm chỉ mục
+  // CID đã lưu để vẫn xác định đúng Gateway/Tài khoản khi CID không có trong mẫu.
+  const gateways=computeCidDimensionComparison(cidTimeline(),rows,'gateway',gatewayCidIndex,accountNameMap);
+  const accounts=computeCidDimensionComparison(cidTimeline(),rows,'account',gatewayCidIndex,accountNameMap);
   host.innerHTML=cidSampleWarning()+makeTable('Gateway',gateways)+makeTable('Account',accounts);
 }
 
@@ -9325,7 +9334,7 @@ async function loadServerReportBundle(dataUrl, updateBrowserUrl=false){
   setReportActionsBusy(true,syncMode);
   if(readOnly) setReportLoading(false);
   else setReportLoading(true,'Đang đồng bộ MPT và dựng báo cáo…');
-  startReportProgressPolling(jobId,accountIds.length);
+  startReportProgressPolling(jobId,readOnly?accountIds.length:(syncAccountIds.length||accountIds.length));
   try{
     const response=await fetch(bundleUrl.pathname+bundleUrl.search,{cache:'no-store',signal:controller.signal});
     if(!isCurrent()) return false;
@@ -9807,7 +9816,11 @@ const REPORT_SYNC_PARAM={view:'none',update:'update',force:'force'};
 function unifiedReportDataUrl(mode='view'){
   const params=new URLSearchParams();
   const accountIds=getSelectedAccounts();
-  const syncAccountIds=mode==='view'?[]:mptSelectedAccountIds();
+  const configuredSyncAccountIds=mode==='view'?[]:mptSelectedAccountIds();
+  // Phạm vi tải riêng chỉ ghi đè khi người dùng thực sự chọn account tại đó.
+  // Mặc định, nút Cập nhật phải tôn trọng tài khoản đang xem; chỉ khi cả hai
+  // danh sách đều rỗng mới gửi account_id=0 để tải tất cả.
+  const syncAccountIds=mode==='view'?[]:(configuredSyncAccountIds.length?configuredSyncAccountIds:accountIds);
   params.set('profile_id',mptActiveProfileId);
   params.set('account_id',accountIds.length?accountIds.join(','):'0');
   if(mode!=='view') params.set('sync_account_id',syncAccountIds.length?syncAccountIds.join(','):'0');
@@ -12135,7 +12148,7 @@ function renderActiveFilterChips(){
     const remove=document.createElement('button'); remove.type='button'; remove.textContent='×'; remove.setAttribute('aria-label',`Bỏ bộ lọc ${item.label}`);
     remove.addEventListener('click',()=>{
       const control=document.getElementById(item.id); if(control) control.value=item.empty;
-      updateCompactFilterSummary(); document.getElementById('applyFilter')?.click();
+      markFilterDirty(true); updateCompactFilterSummary(); document.getElementById('applyFilter')?.click();
     });
     chip.append(text,remove); host.appendChild(chip);
   });
@@ -12150,10 +12163,17 @@ function initCompactFilters(){
     const [button,popover]=openPair; popover.hidden=true; button.setAttribute('aria-expanded','false'); openPair=null;
     if(restore) button.focus();
   };
+  const closeAccountDropdown=()=>{
+    const accountButton=document.getElementById('accountDropdownBtn');
+    const accountList=document.getElementById('accountDropdownList');
+    if(accountList?.style.display==='block') accountList.style.display='none';
+    accountButton?.setAttribute('aria-expanded','false');
+  };
   pairs.forEach(([buttonId,popoverId])=>{
     const button=document.getElementById(buttonId),popover=document.getElementById(popoverId);
     button?.addEventListener('click',event=>{
       event.stopPropagation();
+      closeAccountDropdown();
       if(openPair?.[1]===popover){ close(); return; }
       close(false); popover.hidden=false; button.setAttribute('aria-expanded','true'); openPair=[button,popover];
       requestAnimationFrame(()=>popover.querySelector('button,input,select')?.focus());
@@ -12171,9 +12191,12 @@ function initCompactFilters(){
   });
   document.getElementById('clearActiveFilters')?.addEventListener('click',()=>{
     COMPACT_FILTERS.forEach(item=>{ const control=document.getElementById(item.id); if(control) control.value=item.empty; });
-    updateCompactFilterSummary(); document.getElementById('applyFilter')?.click();
+    markFilterDirty(true); updateCompactFilterSummary(); document.getElementById('applyFilter')?.click();
   });
-  document.getElementById('applyFilter')?.addEventListener('click',()=>{ close(false); requestAnimationFrame(renderActiveFilterChips); });
+  // Chip mô tả dữ liệu đang hiển thị, vì vậy chỉ render sau khi tải báo cáo
+  // thành công (runUnifiedReport -> markFilterDirty(false)). Nếu request lỗi,
+  // giữ chip cũ và trạng thái dirty để không báo nhầm là bộ lọc đã được áp dụng.
+  document.getElementById('applyFilter')?.addEventListener('click',()=>close(false));
   updateCompactFilterSummary();
 }
 

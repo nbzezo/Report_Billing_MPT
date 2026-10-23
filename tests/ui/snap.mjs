@@ -129,6 +129,31 @@ try {
       await page.locator('#tabsBar .tab-btn[data-tab="overview"]').click();
     }
     await page.evaluate(() => { window.__snapRunUnifiedReport = window.runUnifiedReport; window.runUnifiedReport = () => markFilterDirty(false); });
+    const serializedFilters=await page.evaluate(() => {
+      const values={mainCaller:'0901',mainDestination:'0912',mainDirection:'1',mainTelco:'Mobi',mainHangup:'NO_ANSWER',mainCallType:'3'};
+      Object.entries(values).forEach(([id,value])=>{ document.getElementById(id).value=value; });
+      const firstAccount=document.querySelector('.acc-checkbox');
+      if(firstAccount) firstAccount.checked=true;
+      const params=new URL(unifiedReportDataUrl('view'),location.origin).searchParams;
+      const result=Object.fromEntries(['caller_number','dest_number','outbound','telco','hangupcause','calltype','account_id'].map(key=>[key,params.get(key)]));
+      const defaultUpdateParams=new URL(unifiedReportDataUrl('update'),location.origin).searchParams;
+      result.updateAccountId=defaultUpdateParams.get('account_id');
+      result.updateSyncAccountId=defaultUpdateParams.get('sync_account_id');
+      const explicitSyncAccount=document.querySelectorAll('.mpt-account-check')[1];
+      if(explicitSyncAccount){
+        explicitSyncAccount.checked=true;
+        result.explicitSyncAccountId=new URL(unifiedReportDataUrl('update'),location.origin).searchParams.get('sync_account_id');
+        explicitSyncAccount.checked=false;
+      }
+      Object.keys(values).forEach(id=>{ const item=COMPACT_FILTERS.find(filter=>filter.id===id); document.getElementById(id).value=item?.empty||''; });
+      if(firstAccount) firstAccount.checked=false;
+      return result;
+    });
+    const expectedFilters={caller_number:'0901',dest_number:'0912',outbound:'1',telco:'Mobi',hangupcause:'NO_ANSWER',calltype:'3'};
+    for(const [key,value] of Object.entries(expectedFilters)) if(serializedFilters[key]!==value) throw new Error(`Bộ lọc ${key} không được gửi đúng: ${JSON.stringify(serializedFilters)}`);
+    if(!serializedFilters.account_id||serializedFilters.account_id==='0') throw new Error(`Bộ lọc account không được gửi: ${JSON.stringify(serializedFilters)}`);
+    if(serializedFilters.updateSyncAccountId!==serializedFilters.updateAccountId) throw new Error(`Cập nhật không kế thừa tài khoản đang xem: ${JSON.stringify(serializedFilters)}`);
+    if(!serializedFilters.explicitSyncAccountId||serializedFilters.explicitSyncAccountId===serializedFilters.updateAccountId) throw new Error(`Phạm vi tải riêng không ghi đè tài khoản đang xem: ${JSON.stringify(serializedFilters)}`);
     await page.locator('#dateRangeButton').click();
     await page.locator('#dateRangePopover').waitFor({ state: 'visible' });
     await page.keyboard.press('Escape');
@@ -141,6 +166,35 @@ try {
     await directionChip.waitFor({ state: 'visible' });
     await directionChip.locator('button').click();
     if (!(await directionChip.isHidden())) throw new Error('Nút × không bỏ chip bộ lọc Hướng.');
+    await page.evaluate(() => {
+      const direction=document.getElementById('mainDirection');
+      direction.value='1';
+      markFilterDirty(false);
+      direction.value='2';
+      direction.dispatchEvent(new Event('change',{bubbles:true}));
+      window.__snapSuccessfulRun=window.runUnifiedReport;
+      window.runUnifiedReport=()=>false;
+      document.getElementById('applyFilter').click();
+    });
+    await page.waitForTimeout(50);
+    const appliedDirectionText=await page.locator('.chip-filter', { hasText: 'Hướng:' }).textContent();
+    if (!/Gọi ra/.test(appliedDirectionText||'')) throw new Error(`Request lỗi nhưng chip lại báo bộ lọc mới đã áp dụng: ${appliedDirectionText}`);
+    await page.evaluate(() => {
+      window.runUnifiedReport=window.__snapSuccessfulRun;
+      delete window.__snapSuccessfulRun;
+      document.getElementById('mainDirection').value='';
+      markFilterDirty(false);
+    });
+    await page.locator('#accountDropdownBtn').click();
+    await page.locator('#accountDropdownList').waitFor({ state: 'visible' });
+    await page.locator('#moreFiltersButton').click();
+    if (!(await page.locator('#accountDropdownList').isHidden())) throw new Error('Dropdown Tài khoản chưa đóng khi mở Bộ lọc khác.');
+    if (!(await page.locator('#moreFiltersPopover').isVisible())) throw new Error('Bộ lọc khác không mở sau khi đóng dropdown Tài khoản.');
+    await page.locator('#accountDropdownBtn').click();
+    if (!(await page.locator('#moreFiltersPopover').isHidden())) throw new Error('Bộ lọc khác chưa đóng khi mở dropdown Tài khoản.');
+    await page.keyboard.press('Escape');
+    if (!(await page.locator('#accountDropdownList').isHidden())) throw new Error('Dropdown Tài khoản không đóng bằng Escape.');
+    if ((await page.locator('#accountDropdownBtn').getAttribute('aria-expanded')) !== 'false') throw new Error('Dropdown Tài khoản báo sai trạng thái đóng.');
     await page.evaluate(() => { window.runUnifiedReport = window.__snapRunUnifiedReport; delete window.__snapRunUnifiedReport; });
     const axe = path.join(here, 'vendor', 'axe.min.js');
     await fs.access(axe);

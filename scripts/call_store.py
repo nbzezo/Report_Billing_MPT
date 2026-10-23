@@ -742,6 +742,12 @@ class CallStore:
                         ",".join("?" for _ in direction_values)
                     )
                     values.extend(direction_values)
+                elif param in {"hangupcause", "calltype", "telco"}:
+                    # Các nguồn MPT/CSV dùng hoa-thường không đồng nhất
+                    # (MOBI/Mobi, external/External...). Giá trị nghiệp vụ của
+                    # các cột phân loại này không phân biệt hoa-thường.
+                    clauses.append(f"LOWER(TRIM({column}))=?")
+                    values.append(value.strip().lower())
                 else:
                     clauses.append(f"{column}=?")
                     values.append(value)

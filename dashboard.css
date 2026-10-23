@@ -373,8 +373,8 @@
     .acc-item{display:block;padding:2px 4px}
     .acc-item input{margin-right:8px}
     /* Danh sách account là cột dọc, không dàn ngang — thắng luật `.adw-filterbar label{display:inline-flex}` bằng #id. */
-    #accountDropdownList{width:320px;max-width:88vw;box-sizing:border-box}
-    #accountListCheckboxes{display:block}
+    #accountDropdownList{width:320px;max-width:88vw;max-height:none;overflow:visible;box-sizing:border-box}
+    #accountListCheckboxes{display:block;max-height:220px;overflow-y:auto;overscroll-behavior:contain}
     #accountListCheckboxes .acc-item{display:flex;width:100%;box-sizing:border-box;align-items:center;gap:6px;white-space:normal;font-size:12px;line-height:1.35}
     #accountListCheckboxes .acc-item input{flex:0 0 auto;margin-right:0}
     #accountListCheckboxes .acc-item span{min-width:0;overflow:hidden;text-overflow:ellipsis}
