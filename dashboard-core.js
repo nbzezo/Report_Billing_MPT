@@ -1022,7 +1022,7 @@ function buildCube(enrichedRows, params) {
     gatewayFail: computeGatewayFail(rows),
     gatewayMinutes: computeGatewayMinutes(rows),
     gatewayHangupCause: computeGatewayHangupCause(rows),
-    gatewayFailTimeline: computeGatewayFailTimeline(rows, 30),
+    gatewayFailTimeline: computeGatewayFailTimeline(rows, 15),
     gatewayBlockReconcile: computeGatewayBlockReconcile(rows),
     callbackStats: computeCallbackStats(rows),
     retryPattern: computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account'),
@@ -1853,7 +1853,7 @@ function computeGatewayHangupCause(rows){
  * để đường biểu đồ đứt đoạn thay vì tụt về 0.
  */
 function computeGatewayFailTimeline(rows, bucketMin){
-  bucketMin = bucketMin || 30;
+  bucketMin = bucketMin || 15;
   const bucketMs = bucketMin * 60000;
   const byGw = {};
   (rows||[]).forEach(r=>{

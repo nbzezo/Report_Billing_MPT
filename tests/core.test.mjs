@@ -210,6 +210,7 @@ test('buildCube — phủ đủ các nhóm biểu đồ 5 tab', () => {
   // gateway trên toàn bộ dòng (không có gwIndex -> mọi cuộc vào nhóm '(chưa map)')
   assert.equal(cube.gatewayByAccount.coverage.total, 3);
   assert.equal(cube.gatewayByAccount.coverage.matched, 0);
+  assert.equal(cube.gatewayFailTimeline.bucketMin, 15);
   assert.deepEqual(cube.gatewayFailTimeline.series, []);   // chưa map gateway -> không series
   assert.deepEqual(cube.gatewayBlockReconcile, []);
   assert.equal(cube.timeHeatmap.length, 7);

@@ -8100,7 +8100,7 @@ function plotGatewayFailTimeline(rows, colors){
   const elId = 'chart_gateway_fail_timeline';
   if(!gatewayCidIndex || !Object.keys(gatewayCidIndex).length)
     return showNoData(elId, 'Chưa có mapping Gateway — vào tab Vòng đời CID để gán routing_id');
-  const tl = cubeVal('gatewayFailTimeline', ()=>computeGatewayFailTimeline(rows, 30));
+  const tl = cubeVal('gatewayFailTimeline', ()=>computeGatewayFailTimeline(rows, 15));
   if(!tl || !tl.buckets || !tl.buckets.length) return showNoData(elId, 'Không có cuộc gọi đã map gateway trong khoảng lọc');
   const x = tl.buckets.map(b=> new Date(b));
   const traces = tl.series.map(s=>({
@@ -8110,7 +8110,7 @@ function plotGatewayFailTimeline(rows, colors){
     hovertemplate: s.gateway + '<br>%{x|%d/%m %H:%M}<br>Fail: %{y:.2f}%<br>Cuộc: %{customdata}<extra></extra>'
   }));
   Plotly.react(elId, traces, {
-    title:'Fail % theo Gateway (bucket 30 phút)',
+    title:`Fail % theo Gateway (bucket ${tl.bucketMin || 15} phút)`,
     height: 380,
     xaxis:{ title:'Thời gian' },
     yaxis:{ title:'Fail %', rangemode:'tozero' },
