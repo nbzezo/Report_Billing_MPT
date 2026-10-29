@@ -2521,6 +2521,7 @@ const CHART_CATEGORY_COLORS=[uiColor('--ux-color-c2410c'),uiColor('--ux-color-1d
 const CHART_CATEGORY_COLORS_DARK=[uiColor('--ux-color-fb923c'),uiColor('--ux-color-60a5fa'),uiColor('--ux-color-5eead4'),uiColor('--ux-color-fbbf24'),uiColor('--ux-color-c084fc'),uiColor('--ux-color-f472b6'),uiColor('--ux-color-a3e635'),uiColor('--ux-color-d6d3d1')];
 const CHART_SEMANTIC={
   get Fail(){return currentPlotColors().status.Fail},
+  get NonSystemFailure(){return currentPlotColors().status['Non-System Failure']},
   get NoAnswer(){return currentPlotColors().status['No Answer']},
   get Connected(){return currentPlotColors().status.Connected},
   get Cancelled(){return currentPlotColors().status.Cancelled},
@@ -2537,6 +2538,7 @@ function currentPlotColors(){
     Connected:token('--st-connected',uiColor('--ux-color-2e7d32')),
     'No Answer':token('--st-noanswer',uiColor('--ux-color-d97706')),
     Cancelled:token('--st-cancelled',uiColor('--ux-color-8a877f')),
+    'Non-System Failure':token('--st-nonsystem',uiColor('--ux-color-7e22ce')),
     Fail:token('--st-fail',uiColor('--ux-color-b42318'))
   }};
   return plotColors;
@@ -2905,6 +2907,7 @@ function readJSONFile(file, cb){ const fr=new FileReader(); fr.onload = ()=>{ tr
 function connTypeColor(ct, colors){
   colors = colors || {};
   if(ct==='Fail')      return colors.Fail || CHART_SEMANTIC.Fail;
+  if(ct==='Non-System Failure') return colors.NonSystemFailure || CHART_SEMANTIC.NonSystemFailure;
   if(ct==='No Answer') return colors.NoAnswer || CHART_SEMANTIC.NoAnswer;
   if(ct==='Cancelled') return colors.Cancelled || CHART_SEMANTIC.Cancelled;
   if(ct==='Connected') return colors.Connected || CHART_SEMANTIC.Connected;
@@ -5030,13 +5033,14 @@ function renderCommon(filtered, ov, colors){
   if(kpiConnEl){
     const counts = ov.counts || {};
     const chips = [`<button type="button" class="status-chip fail drilldown-trigger" data-drill-status="Fail" data-drill-title="Chi tiết Lỗi">${statusLabel('Fail')} ${UIFormat.int(counts.Fail||0)} · ${UIFormat.pct(ov.pct.Fail)}</button>`,
+      `<button type="button" class="status-chip nonsystem drilldown-trigger" data-drill-status="Non-System Failure" data-drill-title="Chi tiết Non-System Failure">${statusLabel('Non-System Failure')} ${UIFormat.int(counts['Non-System Failure']||0)} · ${UIFormat.pct(ov.pct.NonSystemFailure)}</button>`,
       `<button type="button" class="status-chip noans drilldown-trigger" data-drill-status="No Answer" data-drill-title="Chi tiết Không nghe">${statusLabel('No Answer')} ${UIFormat.int(counts['No Answer']||0)} · ${UIFormat.pct(ov.pct.NoAnswer)}</button>`,
       `<button type="button" class="status-chip canc drilldown-trigger" data-drill-status="Cancelled" data-drill-title="Chi tiết Hủy">${statusLabel('Cancelled')} ${UIFormat.int(counts.Cancelled||0)} · ${UIFormat.pct(ov.pct.Cancelled)}</button>`,
       `<button type="button" class="status-chip conn drilldown-trigger" data-drill-status="Connected" data-drill-title="Chi tiết Kết nối">${statusLabel('Connected')} ${UIFormat.int(counts.Connected||0)} · ${UIFormat.pct(ov.pct.Connected)}</button>`];
     kpiConnEl.innerHTML = chips.join('');
     const bar = document.getElementById('kpi_conn_bar');
     const total = ov.totalCalls || 0;
-    if(bar) bar.innerHTML = total ? [['fail',counts.Fail],['noans',counts['No Answer']],['canc',counts.Cancelled],['conn',counts.Connected]]
+    if(bar) bar.innerHTML = total ? [['fail',counts.Fail],['nonsystem',counts['Non-System Failure']],['noans',counts['No Answer']],['canc',counts.Cancelled],['conn',counts.Connected]]
       .filter(([,n])=>n>0).map(([cls,n])=>`<span class="${cls}" style="width:${(n/total*100).toFixed(2)}%"></span>`).join('') : '';
   }
 
@@ -6199,18 +6203,20 @@ function renderCidDutyTable(){
   const duty = computeCidDutyCycle(cidTimeline(), cidWindowBounds());
   const td = 'class="u-inline-1fb56c0e"';
   const tl = 'class="u-inline-4d2849d1"';
-  tb.innerHTML = duty.slice(0, 200).map(d=>
-    '<tr><td '+tl+'><code>'+d.cid+'</code></td>'
+  tb.innerHTML = duty.slice(0, 200).map(d=>{
+    const currentlyBlocked = currentCidBlocked(d.cid, d.telco, gatewayCidIndex, d.currentlyBlocked);
+    return '<tr><td '+tl+'><code>'+d.cid+'</code></td>'
     + '<td '+tl+'>'+d.telco+'</td>'
     + '<td '+td+'><b'+(d.uptimePct < 50 ? ' class="text-danger"' : '')+'>'+cidPct(d.uptimePct)+'</b></td>'
     + '<td '+td+'>'+d.blockCount+'</td>'
     + '<td '+td+'>'+d.blockedHours.toFixed(0)+'</td>'
     + '<td '+td+'>'+cidFmtHours(d.mttrMin)+'</td>'
-    + '<td '+tl+'>'+(!d.currentlyBlocked ? 'đang sống'
+    + '<td '+tl+'>'+(!currentlyBlocked ? 'đang sống'
         : d.presumedDead ? '<span class="u-inline-27624734">chết (&gt;48h)</span>'
         : d.atRisk ? '<span class="u-inline-a4f36f6a">đỏ (&gt;24h)</span>'
         : '<span class="u-inline-d033be33">đang khoá</span>')+'</td>'
-    + '<td '+tl+' class="muted">'+d.routings.join(', ')+'</td></tr>').join('')
+    + '<td '+tl+' class="muted">'+d.routings.join(', ')+'</td></tr>';
+  }).join('')
     || '<tr><td colspan="8" class="muted u-inline-492c8f92">Không có dữ liệu.</td></tr>';
 }
 
@@ -8054,6 +8060,7 @@ function renderGatewayHangupCauseTable(rows){
           <td>${item.connected.toLocaleString('vi-VN')}</td>
           <td>${item.noans.toLocaleString('vi-VN')}</td>
           <td>${item.cancelled.toLocaleString('vi-VN')}</td>
+          <td>${(item.nonSystemFailure||0).toLocaleString('vi-VN')}</td>
           <td>${item.fail.toLocaleString('vi-VN')}</td>
           <td class="u-inline-e9710c57"${hot?'':''}>${item.failSharePct.toFixed(2)}%</td>
         </tr>`;
@@ -8065,7 +8072,7 @@ function renderGatewayHangupCauseTable(rows){
           <span class="gateway-cause-meta gateway-cause-fail">Fail ${gatewayFail.toLocaleString('vi-VN')} · ${gatewayFailPct.toFixed(2)}%</span>
         </summary>
         <div class="gateway-cause-table-wrap"><table class="gateway-cause-table">
-          <thead><tr><th>Nguyên nhân kết thúc</th><th>Số cuộc</th><th>Tỷ trọng cuộc gọi</th><th>${statusLabel('Connected')}</th><th>${statusLabel('No Answer')}</th><th>${statusLabel('Cancelled')}</th><th>${statusLabel('Fail')}</th><th>Tỷ trọng lỗi</th></tr></thead>
+          <thead><tr><th>Nguyên nhân kết thúc</th><th>Số cuộc</th><th>Tỷ trọng cuộc gọi</th><th>${statusLabel('Connected')}</th><th>${statusLabel('No Answer')}</th><th>${statusLabel('Cancelled')}</th><th>${statusLabel('Non-System Failure')}</th><th>${statusLabel('Fail')}</th><th>Tỷ trọng lỗi</th></tr></thead>
           <tbody>${bodyRows}</tbody>
         </table></div>`;
       host.appendChild(details);

@@ -323,6 +323,7 @@
     .status-chips{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
     .status-chip{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid transparent;line-height:1}
     .status-chip.fail{color:var(--ux-color-b91c1c);background:var(--ux-color-fee2e2);border-color:var(--ux-color-fecaca)}
+    .status-chip.nonsystem{color:var(--ux-color-5b21b6);background:var(--ux-color-f3f7ff);border-color:var(--ux-color-d6dbe3)}
     .status-chip.noans{color:var(--ux-color-c2410c);background:var(--ux-color-ffedd5);border-color:var(--ux-color-fed7aa)}
     .status-chip.canc{color:var(--ux-color-475569);background:var(--ux-color-e9eef4);border-color:var(--ux-color-cbd5e1)}
     .status-chip.conn{color:var(--ux-color-15803d);background:var(--ux-color-dcfce7);border-color:var(--ux-color-bbf7d0)}
@@ -945,6 +946,7 @@ body.adw .kpi-status-head .muted{font-size:12px}
 body.adw .kpi-status-bar{display:flex;height:6px;border-radius:999px;overflow:hidden;background:var(--divider)}
 body.adw .kpi-status-bar>span{display:block;height:100%}
 body.adw .kpi-status-bar>.fail{background:var(--error)} body.adw .kpi-status-bar>.noans{background:var(--u-orange)}
+body.adw .kpi-status-bar>.nonsystem{background:var(--st-nonsystem)}
 body.adw .kpi-status-bar>.canc{background:var(--dim)} body.adw .kpi-status-bar>.conn{background:var(--success)}
 body.adw .kpi-status .status-chips{flex:0 1 auto;justify-content:flex-end;flex-wrap:wrap;gap:5px}
 body.adw .kpi-status .status-chips button.status-chip{font-size:12px;padding:4px 7px;white-space:nowrap}
@@ -1079,6 +1081,7 @@ body.adw button.drilldown-trigger{font:inherit;color:inherit;background:transpar
 body.adw button.drilldown-trigger:hover{background:var(--hover);text-decoration:underline}
 body.adw .status-chips button.status-chip{font-size:12px;line-height:1;font-weight:800;padding:4px 8px}
 body.adw .status-chip.fail{color:var(--ux-color-b91c1c);background:var(--ux-color-fee2e2);border:1px solid var(--ux-color-fecaca)}
+body.adw .status-chip.nonsystem{color:var(--ux-color-5b21b6);background:var(--ux-color-f3f7ff);border:1px solid var(--ux-color-d6dbe3)}
 body.adw .status-chip.noans{color:var(--ux-color-c2410c);background:var(--ux-color-ffedd5);border:1px solid var(--ux-color-fed7aa)}
 body.adw .status-chip.canc{color:var(--ux-color-475569);background:var(--ux-color-e9eef4);border:1px solid var(--ux-color-cbd5e1)}
 body.adw .status-chip.conn{color:var(--ux-color-15803d);background:var(--ux-color-dcfce7);border:1px solid var(--ux-color-bbf7d0)}
@@ -1552,6 +1555,7 @@ body.adw{
   --st-noanswer:var(--ux-color-d97706);--st-noanswer-bg:var(--ux-color-fef3e2);--st-noanswer-fg:var(--ux-color-b45309);
   --st-cancelled:var(--ux-color-8a877f);--st-cancelled-bg:var(--ux-color-eeece6);--st-cancelled-fg:var(--ux-color-4a4843);
   --st-fail:var(--ux-color-b42318);--st-fail-bg:var(--ux-color-fee4e2);--st-fail-fg:var(--ux-color-b42318);
+  --st-nonsystem:var(--ux-color-7e22ce);--st-nonsystem-bg:var(--ux-color-f3f7ff);--st-nonsystem-fg:var(--ux-color-5b21b6);
   --sev-ok:var(--st-connected);--sev-warn:var(--st-noanswer);--sev-bad:var(--st-fail);
   --fs-xs:12px;--fs-sm:13px;--fs-md:14px;--fs-lg:16px;--fs-xl:20px;--fs-2xl:28px;
   --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
@@ -1572,6 +1576,7 @@ body.adw.dark{
   --st-noanswer:var(--ux-color-fbbf24);--st-noanswer-bg:var(--ux-color-3a2508);--st-noanswer-fg:var(--ux-color-fcd34d);
   --st-cancelled:var(--ux-color-a8a29e);--st-cancelled-bg:var(--ux-color-3a3a3a);--st-cancelled-fg:var(--ux-color-d4d2cc);
   --st-fail:var(--ux-color-f87171);--st-fail-bg:var(--ux-color-3b1d1a);--st-fail-fg:var(--ux-color-fca5a5);
+  --st-nonsystem:var(--ux-color-c084fc);--st-nonsystem-bg:var(--ux-color-241f31);--st-nonsystem-fg:var(--ux-color-c084fc);
   --window-bg:var(--bg);--view-bg:var(--surface);--card-bg:var(--surface);
   --headerbar-bg:var(--surface);--sidebar-bg:var(--surface-2);
   --dim:var(--text-2);--muted:var(--text-2);
@@ -1589,13 +1594,16 @@ body.adw .btn-icon{min-width:32px;min-height:32px;padding:4px}
 body.adw .primary-btn:hover:not(:disabled){background:var(--accent-hover)}
 body.adw #updateReport{border-color:var(--accent);background:var(--accent);color:var(--accent-fg)}
 body.adw .status-chip.fail{background:var(--st-fail-bg);color:var(--st-fail-fg);border-color:var(--st-fail)}
+body.adw .status-chip.nonsystem{background:var(--st-nonsystem-bg);color:var(--st-nonsystem-fg);border-color:var(--st-nonsystem)}
 body.adw .status-chip.noans{background:var(--st-noanswer-bg);color:var(--st-noanswer-fg);border-color:var(--st-noanswer)}
 body.adw .status-chip.canc{background:var(--st-cancelled-bg);color:var(--st-cancelled-fg);border-color:var(--st-cancelled)}
 body.adw .status-chip.conn{background:var(--st-connected-bg);color:var(--st-connected-fg);border-color:var(--st-connected)}
 body.adw .kpi-status-bar>.noans{background:var(--st-noanswer)}
+body.adw .kpi-status-bar>.nonsystem{background:var(--st-nonsystem)}
 body.adw .chip{border-radius:999px;padding:var(--sp-1) var(--sp-2)}
 body.adw .chip-status[data-status="Connected"]{background:var(--st-connected-bg);color:var(--st-connected-fg)}
 body.adw .chip-status[data-status="No Answer"]{background:var(--st-noanswer-bg);color:var(--st-noanswer-fg)}
+body.adw .chip-status[data-status="Non-System Failure"]{background:var(--st-nonsystem-bg);color:var(--st-nonsystem-fg)}
 body.adw .chip-status[data-status="Cancelled"]{background:var(--st-cancelled-bg);color:var(--st-cancelled-fg)}
 body.adw .chip-status[data-status="Fail"]{background:var(--st-fail-bg);color:var(--st-fail-fg)}
 body.adw .card{background:var(--surface);border-color:var(--border)}
@@ -1641,7 +1649,7 @@ body.adw .kpi-label{color:var(--text-2);font-size:var(--fs-sm);line-height:1.25}
 body.adw .overview-kpi-card .kpi-status{display:flex;flex:none;height:auto;min-height:0;flex-direction:column;align-items:stretch;justify-content:flex-start;gap:8px;margin-top:8px;padding:9px 10px;text-align:left}
 body.adw .overview-kpi-card .kpi-status-head{display:grid;flex:none;grid-template-columns:auto 1fr;align-items:center;gap:12px;min-width:0;max-width:none}
 body.adw .overview-kpi-card .kpi-status-bar{height:14px}
-body.adw .overview-kpi-card .status-chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;width:100%}
+body.adw .overview-kpi-card .status-chips{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;width:100%}
 body.adw .overview-kpi-card .status-chip{justify-content:center;min-height:32px}
 body.adw .kpi-secondary-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin-top:8px}
 body.adw .overview-kpi-card .kpi-secondary{min-height:54px;padding:7px 9px}

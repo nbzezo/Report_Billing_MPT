@@ -12,7 +12,7 @@ const core = require(path.join(ROOT, 'dashboard-core.js'));
 
 test('UI_LABELS bao phủ mọi trạng thái cuộc gọi', () => {
   assert.equal(Object.isFrozen(core.UI_LABELS), true);
-  for (const value of ['Connected', 'No Answer', 'Cancelled', 'Fail', 'Unknown']) {
+  for (const value of ['Connected', 'No Answer', 'Cancelled', 'Fail', 'Non-System Failure', 'Unknown']) {
     assert.ok(core.statusLabel(value).trim(), value);
   }
   assert.equal(core.statusLabel('No Answer'), 'Không nghe');
@@ -45,12 +45,29 @@ test('UIFormat thống nhất số, thời lượng, tiền và ngày theo vi-VN
 });
 
 test('classifyCall theo thứ tự ưu tiên nghiệp vụ', () => {
+  assert.equal(core.classifyCall({ hangup_cause: 'UNALLOCATED_NUMBER', billsec: 0 }), 'Non-System Failure');
+  assert.equal(core.classifyCall({ hangup_cause: 'INVALID_NUMBER_FORMAT', billsec: 0 }), 'Non-System Failure');
   assert.equal(core.classifyCall({ hangup_cause: 'NO_ROUTE_DESTINATION', billsec: 5 }), 'Fail'); // Fail cause đè cả billsec
   assert.equal(core.classifyCall({ hangup_cause: 'NORMAL_CLEARING', billsec: 30 }), 'Connected');
   assert.equal(core.classifyCall({ hangup_cause: 'ORIGINATOR_CANCEL', billsec: 0, duration: 0 }), 'Cancelled');
   assert.equal(core.classifyCall({ hangup_cause: 'USER_BUSY', billsec: 0, duration: 0 }), 'No Answer');
   assert.equal(core.classifyCall({ hangup_cause: 'NORMAL_CLEARING', billsec: 0, duration: 4 }), 'No Answer');
   assert.equal(core.classifyCall({ hangup_cause: 'NORMAL_CLEARING', billsec: 0, duration: 0 }), 'Fail');
+});
+
+test('Non-System Failure tách khỏi Fail nhưng vẫn nằm trong tổng cuộc', () => {
+  const overview = core.aggregateOverview([
+    { hangup_cause:'UNALLOCATED_NUMBER', duration:0, billsec:0 },
+    { hangup_cause:'INVALID_NUMBER_FORMAT', duration:0, billsec:0 },
+    { hangup_cause:'NO_ROUTE_DESTINATION', duration:0, billsec:0 },
+    { hangup_cause:'NORMAL_CLEARING', duration:10, billsec:5 }
+  ]);
+  assert.equal(overview.totalCalls, 4);
+  assert.equal(overview.counts['Non-System Failure'], 2);
+  assert.equal(overview.counts.Fail, 1);
+  assert.equal(overview.pct.NonSystemFailure, 50);
+  assert.equal(overview.pct.Fail, 25);
+  assert.equal(overview.connectRateExcludingFail, 33.33);
 });
 
 test('chuỗi ASR theo Account giữ ID ổn định khi gán màu biểu đồ', () => {
@@ -152,7 +169,7 @@ test('buildCube — overview trên dữ liệu mẫu 2 định dạng', () => {
   assert.equal(cube.meta.dateMin, '2026-09-03');
   assert.equal(cube.overview.totalCalls, 3);
   assert.deepEqual(cube.overview.counts,
-    { Fail: 0, 'No Answer': 1, Cancelled: 0, Connected: 2, Unknown: 0 });
+    { Fail: 0, 'Non-System Failure': 0, 'No Answer': 1, Cancelled: 0, Connected: 2, Unknown: 0 });
   assert.equal(cube.overview.answerRate, +(2 / 3 * 100).toFixed(2)); // ASR = Connected/(Connected+NoAnswer)
   assert.equal(cube.overview.connectRateExcludingFail, +(2 / 3 * 100).toFixed(2));
   assert.equal(cube.overview.billsecMetrics.totalBillsec, 120);      // 90 + 0 + 30
@@ -1368,6 +1385,18 @@ test('computeGatewayBlockReconcile — đối chiếu PAUSE/ON với Fail thực
   assert.equal(on.declared, 'ON');
   assert.equal(on.failPct, 100);
   assert.match(on.verdict, /nghi bị chặn/);
+});
+
+test('currentCidBlocked — trạng thái nhà mạng hiện tại ghi đè lịch sử sự kiện', () => {
+  const index = {
+    '0327816379': { telco_status: { viettel:'ON' } },
+    '0327821786': { telco_status: { viettel:'OFF' } },
+    '0327842399': { telco_status: { viettel:'PAUSE' } }
+  };
+  assert.equal(core.currentCidBlocked('0327816379', 'VT', index, true), false);
+  assert.equal(core.currentCidBlocked('0327821786', 'Viettel', index, false), true);
+  assert.equal(core.currentCidBlocked('0327842399', 'VT', index, false), true);
+  assert.equal(core.currentCidBlocked('0900000000', 'VT', index, true), true);
 });
 
 test('buildLlmContext — chỉ giữ trường liên quan tab, cắt top-N mảng lớn', () => {
