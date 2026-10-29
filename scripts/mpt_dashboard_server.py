@@ -1460,9 +1460,14 @@ class DashboardHandler(SimpleHTTPRequestHandler):
             }
             csv_bytes, _cache_state = self._export_calldata_csv(params)
             gateway_index = self._gateway_store(profile_id).read_index().get("index", {})
+            event_end = date.fromisoformat(to_day)
+            event_days = (event_end - date.fromisoformat(from_day)).days + 1
             events, events_meta = routing_events.RoutingEventCache(
                 self.server.root, profile_id
-            ).load_window()
+            ).load_window(
+                days=max(1, min(event_days, routing_events.WINDOW_DAYS)),
+                today=event_end,
+            )
             cache_key = self.risk_analysis_cache_key(
                 cache_scope, self.server.call_store.analytics_revision(profile_id),
                 events, events_meta

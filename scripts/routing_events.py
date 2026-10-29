@@ -307,6 +307,8 @@ def sync(client, cache, days=WINDOW_DAYS, today=None, progress=None):
     except Exception:
         routings = cache.read_routings()   # giu ban cu, khong lam hong ca lan sync
 
-    cache.prune(wanted)
+    # Mot bao cao co the chi dong bo MTD; van giu du cache cua cua so cuon de
+    # khong xoa lich su thang truoc chi vi nguoi dung tai mot pham vi ngan.
+    cache.prune(day_range(WINDOW_DAYS, end))
     return {"fetchedDays": fetched, "truncatedDays": truncated_days,
             "windowDays": days, "routingCount": len(cache.read_routings())}

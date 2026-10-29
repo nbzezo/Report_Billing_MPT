@@ -1037,9 +1037,6 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_fail_streak_timeline" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_gateway_fail_timeline" class="card large" data-tab="advanced" draggable="true"></div>
     <div id="chart_hangup_heatmap" class="card large" data-tab="quality" draggable="true"></div>
-    <div id="chart_mos_histogram" class="card small" data-tab="quality" draggable="true"></div>
-    <div id="chart_quality_by_telco" class="card small" data-tab="quality" draggable="true"></div>
-    <div id="chart_mos_vs_packetloss" class="card large" data-tab="quality" draggable="true"></div>
     <div id="chart_short_call_rate" class="card small" data-tab="time" draggable="true"></div>
     <div id="chart_short_call_by_account" class="card small" data-tab="time" draggable="true"></div>
     <div id="chart_billsec_duration_gap" class="card small" data-tab="time" draggable="true"></div>
@@ -1302,12 +1299,12 @@ function updateRN_CF_KPIs(rows){
     <div id="panel_cid_coverage" class="card full" data-tab="cid" draggable="true">
       <div class="u-inline-fed1cad4">
         <div>
-          <h3 class="u-inline-02aaf7e0">Lịch sử khoá số (Block / Reactive)</h3>
-          <div class="muted" id="cidWindowNote">Chưa tải.</div>
+          <h3 class="u-inline-02aaf7e0">Lịch sử khoá số tháng hiện tại (Block / Reactive)</h3>
+          <div class="muted" id="cidWindowNote">Phạm vi từ ngày 01 đến thời điểm chạy báo cáo.</div>
         </div>
         <div class="u-inline-01ef7fc9">
-          <button id="cidLoadBtn">Tải từ cache</button>
-          <button id="cidSyncBtn">Đồng bộ từ MPT</button>
+          <button id="cidLoadBtn">Đọc cache tháng này</button>
+          <button id="cidSyncBtn">Tải bổ sung từ MPT</button>
         </div>
       </div>
       <div class="u-inline-d2c171b1" id="cidCoverageBody"></div>
@@ -1317,7 +1314,7 @@ function updateRN_CF_KPIs(rows){
       <div class="u-inline-fed1cad4">
         <div>
           <h3 class="u-inline-02aaf7e0">Báo cáo rủi ro CID/Gateway (tự động)</h3>
-          <div class="muted">Chạy engine tính effective number_random, backtest call_fail, typing gateway (A/B/C)… trên CDR + routing + lịch sử Block/Reactive đã có sẵn trong dashboard. Cần đã <b>Đồng bộ Gateway</b> (panel bên dưới) và có lịch sử Block/Reactive trong khoảng ngày đang xem.</div>
+          <div class="muted">Chạy engine trên toàn bộ CDR từ ngày 01 đến thời điểm chạy + routing + lịch sử Block/Reactive cùng kỳ. Kết quả phân loại Gateway và đề xuất giảm khoá không phụ thuộc việc bật AI. Cần đã <b>Đồng bộ Gateway</b> ở panel bên dưới.</div>
         </div>
         <div class="u-inline-06307df0">
           <label class="muted u-inline-b88d1817">Nhà mạng
@@ -4289,8 +4286,7 @@ const REPORT_FINDER_TITLES={
   chart_fail_streak_timeline:'Chuỗi cuộc gọi lỗi theo thời gian',table_top_dest:'Số đích gọi nhiều nhất',
   chart_dest_telco_share:'Tỷ trọng số đích theo nhà mạng',chart_avgdur_prefix:'Thời lượng trung bình theo đầu số',
   chart_dur_share_prefix:'Tỷ trọng thời lượng theo đầu số',chart_avgdur_vs_rate:'Thời lượng và tỷ lệ kết nối',
-  chart_mos_histogram:'Phân bố chất lượng thoại MOS',chart_quality_by_telco:'Chất lượng thoại theo nhà mạng',
-  chart_mos_vs_packetloss:'MOS và mất gói',chart_call_funnel:'Phễu cuộc gọi',
+  chart_call_funnel:'Phễu cuộc gọi',
   chart_line_health_trend:'Sức khỏe đầu số theo thời gian',chart_top_time_slots:'Khung giờ có nhiều cuộc gọi',
   chart_time_heatmap:'Bản đồ nhiệt thời gian gọi',chart_compare_timeline:'So sánh lưu lượng theo thời gian',
   chart_concurrent_by_telco:'Cuộc gọi đồng thời theo nhà mạng',chart_ccu_by_telco:'Kênh thoại sử dụng theo nhà mạng',
@@ -4339,9 +4335,7 @@ const REPORT_LAYOUT={
     // nhắm số đích
     'table_top_dest','chart_dest_telco_share',
     // kinh tế thời lượng gọi
-    'chart_avgdur_prefix','chart_dur_share_prefix','chart_avgdur_vs_rate',
-    // chất lượng thoại
-    'chart_mos_histogram','chart_quality_by_telco','chart_mos_vs_packetloss'
+    'chart_avgdur_prefix','chart_dur_share_prefix','chart_avgdur_vs_rate'
   ]},
   time:{ primary:4,
     primaryIds:['report_chart_asr_time','chart_minutes_day','chart_golden_hours_rate','chart_concurrent_calls'],
@@ -5163,9 +5157,6 @@ function renderQualityTab(filtered, colors){
     ()=> safePlot('chart_fail_streak_dist',     ()=> plotFailStreakDistribution(filtered, colors)),
     ()=> safePlot('chart_fail_streak_timeline', ()=> plotFailStreakTimeline(filtered, colors)),
     ()=> safePlot('chart_hangup_heatmap',       ()=> plotHangupHeatmap(filtered)),
-    ()=> safePlot('chart_mos_histogram',    ()=> plotMosHistogram(filtered, colors)),
-    ()=> safePlot('chart_quality_by_telco', ()=> plotQualityByTelco(filtered, colors)),
-    ()=> safePlot('chart_mos_vs_packetloss',()=> plotMosVsPacketLoss(filtered, colors)),
     ()=> renderTopDestTable(filtered, 10, 5),
   ]);
 }
@@ -5862,10 +5853,10 @@ function updateCidGroupVisibility(){
   renderEmptyState(empty,{
     icon:cidState.loading?'…':cidState.error?'!':'◷',
     title:cidState.loading?'Đang tải lịch sử khoá số':cidState.error?'Không tải được lịch sử khoá số':'Chưa có lịch sử khoá số',
-    description:cidState.error||'Tải dữ liệu đã lưu hoặc đồng bộ thêm các ngày còn thiếu từ MPT.',
+    description:cidState.error||'Đọc dữ liệu từ ngày 01 đến hôm nay; hệ thống sẽ báo nếu cần tải thêm ngày còn thiếu.',
     actions:cidState.loading?[]:[
-      {label:'Tải từ cache',onClick:()=>loadCidEvents(false)},
-      {label:'Đồng bộ từ MPT',variant:'primary',onClick:()=>loadCidEvents(true)},
+      {label:'Đọc cache tháng này',onClick:()=>loadCidEvents(false)},
+      {label:'Tải bổ sung từ MPT',variant:'primary',onClick:()=>loadCidEvents(true)},
     ],
   });
 }
@@ -5996,13 +5987,31 @@ function cidWindowBounds(){
   };
 }
 
+function cidMonthRange(){
+  const toDay=mptLocalDate();
+  return {fromDay:toDay.slice(0,8)+'01',toDay,days:Number(toDay.slice(8,10))};
+}
+
+function applyCidMonthScope(range){
+  const set=(id,value)=>{ const el=mptEl(id); if(el) el.value=value; };
+  set('startDate',range.fromDay); set('endDate',range.toDay);
+  set('startTime','00:00'); set('endTime','23:59');
+  set('mainCaller',''); set('mainDestination',''); set('mainDirection','');
+  set('mainTelco','0'); set('mainHangup','0'); set('mainCallType','');
+}
+
 async function loadCidEvents(sync){
   if(cidState.loading) return;
   const pid = (typeof mptActiveProfileId !== 'undefined') ? mptActiveProfileId : '';
   if(!pid){ cidState.error = 'Hãy chọn kết nối MPT trong thanh lọc hoặc thêm kết nối ở Cài đặt.'; renderCidTab(); return; }
   cidState.loading = true; cidState.error = ''; renderCidTab();
+  let offerSync = '';
   try{
-    const qs = new URLSearchParams({ profile_id: pid });
+    const range=cidMonthRange();
+    applyCidMonthScope(range);
+    const cdrOk=await runUnifiedReport(sync?'update':'view');
+    if(!cdrOk) throw new Error('Không tải được CDR tháng hiện tại.');
+    const qs = new URLSearchParams({ profile_id: pid, days:String(range.days) });
     if(sync) qs.set('sync', '1');
     const res = await fetch('/api/cid-events?' + qs.toString());
     const d = await res.json();
@@ -6012,12 +6021,23 @@ async function loadCidEvents(sync){
     cidState.meta = d.meta || null;
     cidState.timeline = buildCidTimeline(cidState.events);
     cidState.loaded = true;
+    if(!sync){
+      const cdrMissing=(lastReportMeta&&lastReportMeta.missingDays)||[];
+      const eventMissing=(cidState.meta&&cidState.meta.missingDays)||[];
+      const parts=[];
+      if(cdrMissing.length) parts.push('CDR thiếu '+cdrMissing.length+' ngày');
+      if(eventMissing.length) parts.push('Block/Reactive thiếu '+eventMissing.length+' ngày');
+      offerSync=parts.length
+        ? 'Dữ liệu tháng hiện tại chưa đủ ('+parts.join(', ')+'). Tải bổ sung từ MPT ngay?'
+        : 'Cache đã đủ ngày nhưng có thể chưa gồm phát sinh mới nhất hôm nay. Cập nhật từ MPT đến thời điểm chạy báo cáo?';
+    }
   }catch(e){
     cidState.error = String((e && e.message) || e);
   }finally{
     cidState.loading = false;
     renderCidTab();
   }
+  if(offerSync && confirm(offerSync)) return loadCidEvents(true);
 }
 
 /* Mẫu số thật cho tỷ lệ khả dụng: đếm CID riêng biệt theo nhà mạng TỪ CDR đang
@@ -6066,7 +6086,7 @@ function renderCidCoverage(){
   if(cidState.loading){ el.innerHTML = '<div class="muted">Đang tải lịch sử khoá số…</div>'; return; }
   if(cidState.error){ el.innerHTML = '<div class="u-inline-a4f36f6a">'+cidState.error+'</div>'; return; }
   if(!cidState.loaded){
-    el.innerHTML = '<div class="muted">Bấm <b>Tải từ cache</b> để xem lịch sử đã lưu, hoặc <b>Đồng bộ từ MPT</b> để kéo bổ sung các ngày còn thiếu.</div>';
+    el.innerHTML = '<div class="muted">Bấm <b>Đọc cache tháng này</b> để xem dữ liệu từ ngày 01 đến hôm nay; nếu thiếu hệ thống sẽ đề nghị tải bổ sung.</div>';
     return;
   }
   const m = cidState.meta || {};
@@ -6087,7 +6107,7 @@ function renderCidCoverage(){
   }
   const cov = buildCidCoverage({ routings:scope.routings, accounts:scope.accounts, events:scope.events });
   const warn = [];
-  if((m.missingDays||[]).length) warn.push(m.missingDays.length+' ngày chưa tải — bấm Đồng bộ từ MPT.');
+  if((m.missingDays||[]).length) warn.push(m.missingDays.length+' ngày chưa tải — bấm Tải bổ sung từ MPT.');
   if((m.truncatedDays||[]).length) warn.push(m.truncatedDays.length+' ngày chạm trần 2.000 dòng của MPT nên có thể thiếu sự kiện.');
   if(scope.unmappedAccounts.length) warn.push(scope.unmappedAccounts.length+' account đang chọn chưa ánh xạ được sang routing: '+scope.unmappedAccounts.map(a=>a.name||a.id).join(', ')+'.');
   if((cov.stats.eventRoutingsNotListed||[]).length) warn.push(cov.stats.eventRoutingsNotListed.length+' routing có sự kiện nhưng không có trong danh sách routing.');
@@ -8732,7 +8752,7 @@ document.getElementById('exportPNG').addEventListener('click', async ()=>{
     'chart_dest_telco_share',
     'chart_duration_hist','chart_avgdur_prefix','chart_dur_share_prefix','chart_avgdur_vs_rate','chart_rn_histogram',
     'chart_telco_conn_stacked','chart_account_radar','chart_ccu_by_telco',
-    'chart_mos_histogram','chart_quality_by_telco','chart_mos_vs_packetloss','chart_answer_delay_telco',
+    'chart_answer_delay_telco',
     'chart_golden_hours_rate','chart_top_time_slots','chart_call_funnel','chart_line_health_trend',
     'chart_agent_perf','chart_callback_dist',
     'chart_billing_by_period','chart_billing_by_telco','chart_billing_by_prefix'
@@ -10789,77 +10809,6 @@ function plotDirectionSplit(rows, colors){
   Plotly.react(elId, data, {title:'Chiều cuộc gọi (Inbound / Outbound)', height:360}, {responsive:true});
 }
 
-// Phân phối MOS
-function plotMosHistogram(rows, colors){
-  const elId = 'chart_mos_histogram';
-  const vals = (rows||[]).map(r=> Number(r.mos)).filter(v=> Number.isFinite(v));
-  if(!vals.length) return showNoData(elId, 'Không có cột MOS trong dữ liệu');
-  Plotly.react(elId, [{
-    x: vals, type:'histogram', nbinsx: 30,
-    marker:{color: CHART_SEMANTIC.Volume},
-    hovertemplate:'MOS=%{x}<br>Số cuộc: %{y}<extra></extra>'
-  }], {
-    title:'Phân phối MOS (Mean Opinion Score)',
-    height:360,
-    xaxis:{title:'MOS', range:[0,5]},
-    yaxis:{title:'Số cuộc'}
-  }, {responsive:true});
-}
-
-// Chất lượng thoại trung bình theo Telco
-function plotQualityByTelco(rows, colors){
-  const elId = 'chart_quality_by_telco';
-  const map = {};
-  (rows||[]).forEach(r=>{
-    const q = Number(r.quality_pct), mos = Number(r.mos);
-    if(!Number.isFinite(q) && !Number.isFinite(mos)) return;
-    const tel = String(r.telco||'Unknown');
-    if(!map[tel]) map[tel] = {qualities:[], moses:[]};
-    if(Number.isFinite(q)) map[tel].qualities.push(q);
-    if(Number.isFinite(mos)) map[tel].moses.push(mos);
-  });
-  const arr = Object.keys(map).map(t=>{
-    const qs=map[t].qualities, ms=map[t].moses;
-    const avgQ = qs.length ? qs.reduce((a,b)=>a+b,0)/qs.length : null;
-    const avgMos = ms.length ? ms.reduce((a,b)=>a+b,0)/ms.length : null;
-    return {tel:t, avgQ, avgMos};
-  }).filter(x=> x.avgQ!=null || x.avgMos!=null)
-    .sort((a,b)=> ((b.avgQ!=null?b.avgQ:(b.avgMos*20)) - (a.avgQ!=null?a.avgQ:(a.avgMos*20))));
-  if(!arr.length) return showNoData(elId, 'Không có dữ liệu chất lượng thoại');
-  const labels = arr.map(x=>x.tel);
-  const vals = arr.map(x=> x.avgQ!=null ? x.avgQ : +(x.avgMos*20).toFixed(2));
-  Plotly.react(elId, [{
-    x: vals, y: labels, type:'bar', orientation:'h',
-    text: arr.map((x,i)=> x.avgQ!=null ? `${vals[i].toFixed(1)}% (Quality)` : `MOS ${x.avgMos.toFixed(2)}`),
-    textposition:'outside', cliponaxis:false,
-    marker:{color: CHART_SEMANTIC.Volume},
-    hovertemplate:'%{y}<br>Chất lượng TB: %{x:.1f}<extra></extra>'
-  }], {
-    title:'Chất lượng thoại trung bình theo Telco',
-    height: Math.max(360, labels.length*40+120),
-    xaxis:{title:'Chất lượng (%)', range:[0,100]},
-    yaxis:{type:'category', automargin:true, autorange:'reversed'}
-  }, {responsive:true});
-}
-
-// Tương quan MOS vs Jitter Loss Rate
-function plotMosVsPacketLoss(rows, colors){
-  const elId = 'chart_mos_vs_packetloss';
-  const pts = (rows||[]).map(r=>({mos:Number(r.mos), loss:Number(r.jitter_loss_rate)}))
-    .filter(p=> Number.isFinite(p.mos) && Number.isFinite(p.loss));
-  if(!pts.length) return showNoData(elId, 'Không có dữ liệu MOS & Jitter Loss Rate');
-  Plotly.react(elId, [{
-    x: pts.map(p=>p.loss), y: pts.map(p=>p.mos), type:'scatter', mode:'markers',
-    marker:{color: CHART_SEMANTIC.Volume, size:5, opacity:0.6},
-    hovertemplate:'Loss: %{x}%<br>MOS: %{y}<extra></extra>'
-  }], {
-    title:'Tương quan MOS vs Jitter Loss Rate',
-    height:360,
-    xaxis:{title:'Jitter Loss Rate (%)'},
-    yaxis:{title:'MOS', range:[0,5]}
-  }, {responsive:true});
-}
-
 // Thời gian đổ chuông theo phân vị (P50/P90/P95) theo Telco
 function plotAnswerDelayByTelco(rows, colors){
   const elId = 'chart_answer_delay_telco';
@@ -12006,13 +11955,13 @@ function llmRenderRiskEngineResult(data){
   }
   if(gatewayRows.length){
     html += '<section class="risk-section"><div class="risk-section-head"><h4 class="risk-section-title">Xếp hạng rủi ro Gateway</h4><div class="risk-section-note">Sắp xếp theo tỷ lệ CID bị khoá giảm dần</div></div><div class="risk-table-wrap"><table class="risk-table"><thead><tr>' +
-      '<th>Gateway</th><th>Nhóm rủi ro</th><th>Tỷ lệ khoá</th><th>CID</th><th>Đang khoá</th><th>Thành công</th><th>Hard error</th></tr></thead><tbody>' +
+      '<th>Gateway</th><th>Nhóm rủi ro</th><th>Tỷ lệ khoá</th><th>CID</th><th>Đang khoá</th><th>Thành công</th><th>Hard error</th><th>Khuyến nghị giảm khoá</th></tr></thead><tbody>' +
       gatewayRows.map(([g,info])=>{
         const rate = Math.max(0, Math.min(1, Number(info.lock_rate) || 0));
         const meta = llmRiskTypeMeta(info.risk_type);
         return `<tr><td class="risk-gateway-name">${reportTableEscape(g)}</td><td><span class="risk-badge ${meta.level}">${reportTableEscape(meta.label)}</span></td>` +
           `<td><div class="risk-rate"><span class="risk-rate-track"><span class="risk-rate-fill" style="width:${(rate*100).toFixed(1)}%"></span></span><strong>${(rate*100).toFixed(1)}%</strong></div></td>` +
-          `<td>${Number(info.cids) || 0}</td><td>${Number(info.locked) || 0}</td><td>${(100*(Number(info.success_rate)||0)).toFixed(1)}%</td><td>${(100*(Number(info.hard_rate)||0)).toFixed(1)}%</td></tr>`;
+          `<td>${Number(info.cids) || 0}</td><td>${Number(info.locked) || 0}</td><td>${(100*(Number(info.success_rate)||0)).toFixed(1)}%</td><td>${(100*(Number(info.hard_rate)||0)).toFixed(1)}%</td><td>${reportTableEscape(cidRiskRecommendation(info))}</td></tr>`;
       }).join('') + '</tbody></table></div></section>';
   }
   if(data.narrative){
@@ -12032,10 +11981,8 @@ async function llmRunRiskEngine(){
   if(!mptActiveProfileId){ if(statusEl) statusEl.textContent = 'Chưa chọn kết nối MPT trong bộ lọc chính.'; return; }
   const telco = document.getElementById('riskEngineTelco')?.value || 'Viettel';
   const accountIds = getSelectedAccounts();
-  const fromDay = mptEl('startDate')?.value || '';
-  const toDay = mptEl('endDate')?.value || '';
-  if(!fromDay || !toDay){ if(statusEl) statusEl.textContent = 'Chưa chọn khoảng ngày trong bộ lọc chính.'; return; }
-  if(statusEl) statusEl.textContent = 'Đang chạy phân tích (CDR + routing + lịch sử khoá — có thể mất một lúc)…';
+  const {fromDay,toDay}=cidMonthRange();
+  if(statusEl) statusEl.textContent = `Đang phân tích dữ liệu từ ${formatVnDate(fromDay)} đến thời điểm hiện tại…`;
   if(button) button.disabled = true;
   try{
     const response = await fetch('/api/risk-analysis', {

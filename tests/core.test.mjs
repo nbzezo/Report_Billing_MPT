@@ -1637,3 +1637,10 @@ test('computeBillingForecast — thiếu dữ liệu đầu tháng, fallback 7 n
 
   assert.equal(core.computeBillingForecast([], FC_CFG).status, 'no-data');
 });
+
+test('cidRiskRecommendation — mỗi loại rủi ro có hành động giảm khoá phù hợp', () => {
+  assert.match(core.cidRiskRecommendation({ risk_type:'TYPE_A_LOAD_SENSITIVE' }), /Giảm tải đỉnh/);
+  assert.match(core.cidRiskRecommendation({ risk_type:'TYPE_B_ERROR_SENSITIVE' }), /hard error\/SIP/);
+  assert.match(core.cidRiskRecommendation({ risk_type:'TYPE_C_STRUCTURAL' }), /mapping, tuyến/);
+  assert.match(core.cidRiskRecommendation({ risk_type:'MIXED' }), /chưa tự động/);
+});

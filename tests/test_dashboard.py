@@ -523,7 +523,7 @@ class ServerSafetyTests(unittest.TestCase):
         )
         handler.json_response = lambda value, status=200: responses.append(value)
         handler.error_response = lambda exc, status=502: self.fail(str(exc))
-        event_cache = types.SimpleNamespace(load_window=lambda: (
+        event_cache = types.SimpleNamespace(load_window=lambda **_kwargs: (
             [], {"missingDays": ["2026-10-01"], "truncatedDays": [], "eventCount": 0}
         ))
         risk_module = types.SimpleNamespace(run_analysis=run_analysis)
@@ -1987,6 +1987,15 @@ class RoutingSyncTests(unittest.TestCase):
             # lan hai: chi tai lai ngay chua khep so (hom nay + hom qua)
             self.assertEqual(sorted(client2.asked), ["2026-09-06", "2026-09-07"])
 
+    def test_dong_bo_pham_vi_ngan_khong_xoa_cache_con_trong_60_ngay(self):
+        from datetime import date
+        today = date(2026, 9, 7)
+        with tempfile.TemporaryDirectory() as directory:
+            cache = RE.RoutingEventCache(directory, "p")
+            cache.write_day("2026-08-15", [])
+            RE.sync(self._FakeClient({}), cache, days=7, today=today)
+            self.assertIsNotNone(cache.read_day("2026-08-15"))
+
 
 class RoutingOptionsTests(unittest.TestCase):
     def test_parse_routing_options_bo_option_All_va_giu_ten_co_dau_cach(self):
@@ -2046,6 +2055,12 @@ class CidTabTests(unittest.TestCase):
         # neu suy tu su kien dau tien thi mau so duty cycle se co gian theo du lieu
         self.assertIn("function cidWindowBounds()", self.HTML)
         self.assertIn("computeCidDutyCycle(cidTimeline(), cidWindowBounds())", self.HTML)
+
+    def test_bao_cao_cid_luon_dung_pham_vi_tu_dau_thang(self):
+        self.assertIn("function cidMonthRange()", self.HTML)
+        self.assertIn("applyCidMonthScope(range)", self.HTML)
+        self.assertIn("days:String(range.days)", self.HTML)
+        self.assertIn("if(offerSync && confirm(offerSync))", self.HTML)
 
     def test_bang_ty_le_hoat_dong_di_theo_pham_vi_routing_va_duoc_viet_hoa(self):
         self.assertNotIn("computeCidDutyCycle(cidState.timeline, cidWindowBounds())", self.HTML)

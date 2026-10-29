@@ -3773,6 +3773,17 @@ function computeCidActionQueue(timeline, rows){
   }).sort((a,b)=>b.score-a.score||b.ageHours-a.ageHours);
 }
 
+function cidRiskRecommendation(info){
+  const type=String(info&&info.risk_type||'').toUpperCase();
+  if(type.includes('TYPE_A')||type.includes('LOAD'))
+    return 'Giảm tải đỉnh trên mỗi CID: tăng số CID hoạt động, chia đều lưu lượng và cảnh báo theo mật độ 5 phút.';
+  if(type.includes('TYPE_B')||type.includes('ERROR'))
+    return 'Theo dõi hard error/SIP theo Gateway; hạ route khi lỗi tăng liên tiếp và chỉ mở lại sau khi ổn định.';
+  if(type.includes('TYPE_C')||type.includes('STRUCTURAL'))
+    return 'Kiểm tra mapping, tuyến và chính sách nhà mạng; giảm ưu tiên hoặc chuyển Gateway, không chỉ bổ sung CID.';
+  return 'Theo dõi theo Gateway và thử từng thay đổi nhỏ; chưa tự động chuyển route khi mẫu chưa ổn định.';
+}
+
 function computeCidDimensionComparison(timeline, rows, dimension, cidIndex, accountNames){
   const ivs=(timeline&&timeline.intervals)||[], meta=__cidMetaByNumber(rows);
   const index=(cidIndex&&typeof cidIndex==='object')?cidIndex:{};
@@ -3839,7 +3850,7 @@ const __exports = {
   CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
   computeCidRecoverySurvival, computeCidReblockStats, computeCidInventoryTrend,
-  computeCidActionQueue, computeCidDimensionComparison,
+  computeCidActionQueue, computeCidDimensionComparison, cidRiskRecommendation,
   normalizeCidNational, deriveRoutingAccountMap, telcoBlockCode, filterCidScope,
   buildCidCoverage, computeRoutingLeaks,
   computeBlockPressure, computeBlockBursts, computeDeadNumberLoss,
