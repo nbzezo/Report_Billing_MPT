@@ -83,6 +83,16 @@ class RoutingLockTruthTests(unittest.TestCase):
         self.assertEqual(result["eod_lock_truth"]["Viettel"]["ON"], 1)
 
 
+class HangupClassificationTests(unittest.TestCase):
+    def test_call_rejected_is_behavioral_not_hard_error(self):
+        cdr = RE.load_cdr_df(_cdr_df([
+            _cdr_row("0900000001", "2026-09-01 08:00:00", hangup="CALL_REJECTED", billsec=0)
+        ]))
+        result = RE.compute(cdr, RE.routing_df_from_gateway_index({}), None, "Viettel")
+        self.assertEqual(cdr["is_hard"].iloc[0], 0)
+        self.assertEqual(result["hangup_class_pct"]["behavioral"], 100.0)
+
+
 class BacktestStreakTests(unittest.TestCase):
     def test_streak_resets_on_non_matching_flag(self):
         # CALL_REJECTED, CALL_REJECTED, NORMAL_CLEARING, CALL_REJECTED -> streak
