@@ -682,20 +682,18 @@ function downsampleSeriesMin(x, y, maxPoints = 1500) {
 function filterData(rows, startDate, endDate, account, startTime, endTime) {
   const st = (startTime && String(startTime).trim()) ? String(startTime).trim() : '00:00';
   const et = (endTime && String(endTime).trim()) ? String(endTime).trim() : '23:59';
-
-  const sMs = Date.parse(startDate + 'T' + st + ':00');
-  const eMs = Date.parse(endDate + 'T' + et + ':59');
+  const startClock = st + ':00';
+  const endClock = et + ':59';
 
   return rows.filter(r => {
-    let t = (r.start_ts !== undefined) ? r.start_ts : null;
-    if (t === undefined || t === null) {
-      const v = String(r.start_stamp || '');
-      const x = Date.parse(v.replace(' ', 'T'));
-      t = isNaN(x) ? null : x;
-      r.start_ts = t;
-    }
-    if (t === null) return false;
-    if (t < sMs || t > eMs) return false;
+    const stamp = String(r.start_stamp || '');
+    const day = r.date || stamp.slice(0, 10);
+    const clock = stamp.slice(11, 19);
+    if (day < startDate || day > endDate || clock.length !== 8) return false;
+    const outsideHours = startClock <= endClock
+      ? clock < startClock || clock > endClock
+      : clock < startClock && clock > endClock;
+    if (outsideHours) return false;
 
     if (account && account !== 'all') {
       if (Array.isArray(account)) {
@@ -2042,12 +2040,23 @@ function computeCallbackStats(rows){
 
 // ---------- Billing + CCU engine (Milestone 1c-ii-B) ----------
 
-// Do dai khoang thoi gian dang loc (giay) — mirror cua currentFilterWindowSec() trong trang.
+// Tổng thời lượng các khung giờ được chọn trên từng ngày (giây).
 function filterWindowSec(params) {
   if (!params || !params.startDate || !params.endDate) return null;
-  const s = Date.parse(`${params.startDate}T${params.startTime || '00:00'}:00`);
-  const e = Date.parse(`${params.endDate}T${params.endTime || '23:59'}:59`) + 1000;
-  return (isFinite(s) && isFinite(e) && e > s) ? (e - s) / 1000 : null;
+  const startDay = Date.parse(`${params.startDate}T00:00:00Z`);
+  const endDay = Date.parse(`${params.endDate}T00:00:00Z`);
+  const parseClock = value => {
+    const match = /^(\d{2}):(\d{2})$/.exec(value);
+    return match && +match[1] < 24 && +match[2] < 60 ? +match[1] * 3600 + +match[2] * 60 : null;
+  };
+  const startClock = parseClock(params.startTime || '00:00');
+  const endClock = parseClock(params.endTime || '23:59');
+  if (!isFinite(startDay) || !isFinite(endDay) || endDay < startDay || startClock === null || endClock === null) return null;
+  const days = (endDay - startDay) / 86400000 + 1;
+  const secondsPerDay = startClock <= endClock
+    ? endClock - startClock + 60
+    : 86400 - startClock + endClock + 60;
+  return days * secondsPerDay;
 }
 
 // Giải khoảng chọn nhanh từ metadata TOÀN BỘ dữ liệu, không suy từ mẫu dòng

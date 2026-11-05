@@ -193,20 +193,32 @@ function updateRN_CF_KPIs(rows){
         <button type="button" id="dateRangeButton" class="filter-trigger btn-ico" aria-haspopup="dialog" aria-expanded="false" aria-controls="dateRangePopover">Thời gian</button>
         <div id="dateRangePopover" class="filter-popover date-range-popover" role="dialog" aria-label="Chọn khoảng thời gian" hidden>
           <div class="quick-range" role="group" aria-label="Chọn nhanh khoảng ngày">
-            <button id="qr_today" type="button">Hôm nay</button><button id="qr_yesterday" type="button">Hôm qua</button><button id="qr_7" type="button">7 ngày qua</button><button id="qr_this_month" type="button">Tháng này</button><button id="qr_last_month" type="button">Tháng trước</button>
+            <button id="qr_today" type="button">Hôm nay</button><button id="qr_yesterday" type="button">Hôm qua</button><button id="qr_7" type="button">7 ngày qua</button><button id="qr_this_month" type="button">Từ đầu tháng</button><button id="qr_last_month" type="button">Tháng trước</button>
           </div>
-          <div class="date-range-grid">
-            <label>Từ ngày<input id="startDate" type="date"/></label><label>Giờ<input id="startTime" type="time" value="00:00" step="60"/></label>
-            <label>Đến ngày<input id="endDate" type="date"/></label><label>Giờ<input id="endTime" type="time" value="23:59" step="60"/></label>
-          </div>
-          <div class="filter-popover-actions"><button type="button" data-filter-close>Hủy</button><button type="button" id="applyDateRange" class="primary-btn">Áp dụng</button></div>
+          <section class="date-time-section" aria-labelledby="dateRangeTitle">
+            <div id="dateRangeTitle" class="date-time-section-title">Khoảng ngày</div>
+            <div class="date-range-grid">
+              <label>Từ ngày<input id="startDate" type="date"/></label><span class="range-arrow" aria-hidden="true">→</span><label>Đến ngày<input id="endDate" type="date"/></label>
+            </div>
+          </section>
+          <section class="date-time-section" aria-labelledby="dailyTimeTitle">
+            <div class="daily-time-heading"><div id="dailyTimeTitle" class="date-time-section-title">Khung giờ mỗi ngày</div><label class="all-day-toggle"><input id="allDayTime" type="checkbox" checked/> Cả ngày</label></div>
+            <div id="timeRangeFields" class="time-range-fields" hidden>
+              <label>Từ giờ<input id="startTime" class="clock-input" type="text" value="00:00" inputmode="numeric" maxlength="5" pattern="(?:[01]\d|2[0-3]):[0-5]\d" placeholder="HH:mm" aria-describedby="timeFormatHint"/></label><span class="range-arrow" aria-hidden="true">→</span><label>Đến giờ<input id="endTime" class="clock-input" type="text" value="23:59" inputmode="numeric" maxlength="5" pattern="(?:[01]\d|2[0-3]):[0-5]\d" placeholder="HH:mm" aria-describedby="timeFormatHint"/></label>
+            </div>
+            <div id="timeFormatHint" class="time-format-hint">Định dạng 24 giờ. Khung giờ được áp dụng cho từng ngày.</div>
+            <div class="time-presets" role="group" aria-label="Chọn nhanh khung giờ">
+              <button type="button" data-time-preset="08:00,17:00">08:00–17:00</button><button type="button" data-time-preset="06:00,11:59">Buổi sáng</button><button type="button" data-time-preset="18:00,23:59">Buổi tối</button>
+            </div>
+          </section>
+          <div class="filter-popover-actions"><button type="button" id="cancelDateRange" data-filter-close>Hủy</button><button type="button" id="applyDateRange" class="primary-btn">Áp dụng</button></div>
         </div>
       </div>
       <label class="compact-account" title="Tài khoản đang xem"><span class="sr-only">Tài khoản</span>
         <span class="dropdown" id="accountDropdown">
           <button type="button" id="accountDropdownBtn" class="filter-trigger btn-ico" aria-haspopup="dialog" aria-expanded="false" aria-controls="accountDropdownList">Tài khoản: Tất cả</button><span id="accountCount" class="muted"></span>
           <div id="accountDropdownList" class="dropdown-list u-inline-6b99de8b" role="dialog" aria-label="Chọn tài khoản">
-            <div class="controls-row"><button id="selectAllAccounts" type="button">Tất cả</button><button id="clearAllAccounts" type="button">Bỏ chọn</button><input id="accountSearch" type="text" placeholder="Tìm tài khoản…" /></div>
+            <div class="controls-row account-dropdown-toolbar"><input id="accountSearch" type="text" placeholder="Tìm tài khoản…" /><button id="selectAllAccounts" type="button">Tất cả</button><button id="clearAllAccounts" type="button">Bỏ chọn</button></div>
             <div class="u-inline-25d1b69a" id="accountListCheckboxes"></div>
             <div class="controls-row account-dropdown-actions"><button id="applyAccounts" type="button" class="primary-btn">Áp dụng</button></div>
           </div>
@@ -472,7 +484,7 @@ function updateRN_CF_KPIs(rows){
           <button id="loadSample">Dữ liệu mẫu</button>
         </div>
         <div class="control-row">
-          <span class="muted u-inline-6cb285c6">Hỗ trợ cả mẫu cũ (snake_case) và mẫu mới (Title Case) <button type="button" class="info-btn" aria-label="Giải thích: Định dạng file được hỗ trợ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Mẫu cũ: account_id, caller_id_number, destination_number, ani, direction, start_stamp, answer_stamp, end_stamp, duration, billsec, hangup_cause, uuid, telco, calltype. Mẫu mới: Account, Caller, Destination, Ani, Call type, Start time, Answer time, End time, Duration, Billsec, Telco, Hangup Cause, Status Code, MOS, Quality (%), Jitter, Packet Count, RTCP. Hai định dạng có thể trộn lẫn trong cùng một lần tải.">?</button></span>
+          <span class="muted u-inline-6cb285c6">Hỗ trợ cả mẫu cũ (snake_case) và mẫu mới (Title Case) <button type="button" class="info-btn" aria-label="Xem giải thích: Định dạng file được hỗ trợ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Mẫu cũ: account_id, caller_id_number, destination_number, ani, direction, start_stamp, answer_stamp, end_stamp, duration, billsec, hangup_cause, uuid, telco, calltype. Mẫu mới: Account, Caller, Destination, Ani, Call type, Start time, Answer time, End time, Duration, Billsec, Telco, Hangup Cause, Status Code, MOS, Quality (%), Jitter, Packet Count, RTCP. Hai định dạng có thể trộn lẫn trong cùng một lần tải.">i</button></span>
         </div>
         <div class="control-row">
           <progress class="u-inline-54f91ac4" id="uploadProgress" value="0" max="100"></progress>
@@ -595,19 +607,19 @@ function updateRN_CF_KPIs(rows){
       <div class="kpi-group-title">Tổng quan cuộc gọi</div>
       <div class="kpi-primary-grid">
         <button type="button" class="kpi kpi-primary drilldown-trigger" id="kpi_total" data-drill-title="Chi tiết tất cả cuộc gọi"><span class="kpi-value" id="kpi_total_text">—</span><span class="kpi-label">Tổng cuộc</span></button>
-        <div class="kpi kpi-primary" id="kpi_connect_rate"><div class="kpi-value" id="kpi_connect_rate_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Tỷ lệ kết nối <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / Tổng cuộc, bao gồm cả cuộc lỗi và hủy.">?</button></div></div>
-        <div class="kpi kpi-primary" id="kpi_answer"><div class="kpi-value" id="kpi_answer_text">—</div><div class="kpi-label">ASR hợp lệ <button type="button" class="info-btn" aria-label="Giải thích: ASR hợp lệ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Kết nối + Không nghe). Chỉ tính các cuộc hợp lệ để đo khả năng trả lời.">?</button></div></div>
+        <div class="kpi kpi-primary" id="kpi_connect_rate"><div class="kpi-value" id="kpi_connect_rate_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Tỷ lệ kết nối <button type="button" class="info-btn" aria-label="Xem giải thích: Tỷ lệ kết nối" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / Tổng cuộc, bao gồm cả cuộc lỗi và hủy.">i</button></div></div>
+        <div class="kpi kpi-primary" id="kpi_answer"><div class="kpi-value" id="kpi_answer_text">—</div><div class="kpi-label">ASR hợp lệ <button type="button" class="info-btn" aria-label="Xem giải thích: ASR hợp lệ" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Kết nối + Không nghe). Chỉ tính các cuộc hợp lệ để đo khả năng trả lời.">i</button></div></div>
         <div class="kpi kpi-primary" id="kpi_minutes"><div class="kpi-value" id="kpi_minutes_text">—</div><div class="kpi-subvalue" id="kpi_minutes_sub"></div><div class="kpi-label">Tổng phút gọi</div></div>
       </div>
       <div class="kpi kpi-status" id="kpi_conn"><div class="kpi-status-head"><span class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Phân bố trạng thái</span><div class="kpi-status-bar" id="kpi_conn_bar" aria-hidden="true"></div></div><div class="kpi-value status-chips" id="kpi_conn_text">—</div></div>
       <div class="kpi-secondary-grid">
-        <div class="kpi kpi-secondary" id="kpi_peak"><div class="kpi-value" id="kpi_peak_text">—</div><div class="kpi-label">Đồng thời cao nhất <button type="button" class="info-btn" aria-label="Giải thích: Đồng thời cao nhất" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Số cuộc đồng thời lớn nhất trong khoảng thời gian lọc.">?</button></div></div>
-        <div class="kpi kpi-secondary" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="kpi-label">Thời lượng tính cước TB <button type="button" class="info-btn" aria-label="Giải thích: Thời lượng tính cước trung bình" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Tổng billsec của cuộc Kết nối chia cho số cuộc Kết nối.">?</button></div></div>
+        <div class="kpi kpi-secondary" id="kpi_peak"><div class="kpi-value" id="kpi_peak_text">—</div><div class="kpi-label">Đồng thời cao nhất <button type="button" class="info-btn" aria-label="Xem giải thích: Đồng thời cao nhất" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Số cuộc đồng thời lớn nhất trong khoảng thời gian lọc.">i</button></div></div>
+        <div class="kpi kpi-secondary" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="kpi-label">Thời lượng tính cước TB <button type="button" class="info-btn" aria-label="Xem giải thích: Thời lượng tính cước trung bình" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Tổng billsec của cuộc Kết nối chia cho số cuộc Kết nối.">i</button></div></div>
         <div class="kpi kpi-secondary" id="kpi_max_cf"><div class="kpi-value" id="kpi_max_cf_text">—</div><div class="kpi-label">Chuỗi lỗi dài nhất</div></div>
         <div class="kpi kpi-secondary" id="kpi_median_rn"><div class="kpi-value" id="kpi_median_rn_text">—</div><div class="kpi-label">Trung vị số ngẫu nhiên (RN)</div></div>
         <div class="kpi kpi-secondary" id="kpi_dup_dest"><div class="kpi-value" id="kpi_dup_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lặp</div></div>
         <div class="kpi kpi-secondary" id="kpi_invalid_dest"><div class="kpi-value" id="kpi_invalid_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lỗi</div></div>
-        <div class="kpi kpi-secondary" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="kpi-label">Tỷ lệ kết nối (trừ cuộc lỗi) <button type="button" class="info-btn" aria-label="Giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi). Chỉ loại nhóm Lỗi khỏi mẫu số.">?</button></div></div>
+        <div class="kpi kpi-secondary" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="kpi-label">Tỷ lệ kết nối (trừ cuộc lỗi) <button type="button" class="info-btn" aria-label="Xem giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi). Chỉ loại nhóm Lỗi khỏi mẫu số.">i</button></div></div>
       </div>
       <div id="kpiDirectionNote" class="kpi-direction-note" role="status" hidden></div>
     </div>
@@ -2135,7 +2147,8 @@ function initFilterDirtyState(){
     input.addEventListener('keydown',event=>{
       if(event.key!=='Enter') return;
       event.preventDefault();
-      document.getElementById('applyFilter')?.click();
+      const applyId=['startDate','endDate','startTime','endTime'].includes(id)?'applyDateRange':'applyFilter';
+      document.getElementById(applyId)?.click();
     });
   });
 }
@@ -3890,6 +3903,19 @@ function setDateInputs(startISO, endISO){
   const sd = document.getElementById('startDate'), ed = document.getElementById('endDate');
   if(sd) sd.value = startISO;
   if(ed) ed.value = endISO;
+}
+function setTimeInputs(startTime, endTime){
+  const start=document.getElementById('startTime'),end=document.getElementById('endTime');
+  if(start) start.value=startTime;
+  if(end) end.value=endTime;
+  syncAllDayTimeControl();
+}
+function syncAllDayTimeControl(){
+  const start=document.getElementById('startTime'),end=document.getElementById('endTime');
+  const toggle=document.getElementById('allDayTime'),fields=document.getElementById('timeRangeFields');
+  if(!start||!end||!toggle||!fields) return;
+  toggle.checked=start.value==='00:00'&&end.value==='23:59';
+  fields.hidden=toggle.checked;
 }
 function isoDaysAgo(days){ const d = new Date(); d.setDate(d.getDate()-days); return localISODate(d); }
 (function setupQuickRanges(){
@@ -7159,10 +7185,6 @@ function firstDayOfThisMonthISO(){
   const d = new Date(); d.setDate(1);
   return localISODate(d);
 }
-function lastDayOfThisMonthISO(){
-  const d = new Date(); d.setMonth(d.getMonth()+1); d.setDate(0);
-  return localISODate(d);
-}
 function firstDayOfLastMonthISO(){
   const d = new Date(); d.setMonth(d.getMonth()-1); d.setDate(1);
   return localISODate(d);
@@ -7174,7 +7196,7 @@ function lastDayOfLastMonthISO(){
 (function setupMoreRanges(){
   const qm=document.getElementById('qr_this_month');
   const ql=document.getElementById('qr_last_month');
-  if(qm) qm.addEventListener('click', ()=>{ setDateInputs(firstDayOfThisMonthISO(), lastDayOfThisMonthISO()); markFilterDirty(true); });
+  if(qm) qm.addEventListener('click', ()=>{ setDateInputs(firstDayOfThisMonthISO(), localISODate()); markFilterDirty(true); });
   if(ql) ql.addEventListener('click', ()=>{ setDateInputs(firstDayOfLastMonthISO(), lastDayOfLastMonthISO()); markFilterDirty(true); });
 })();
 
@@ -7258,17 +7280,13 @@ function computeConcurrencyByTelco(rows){
 }
 
 /**
- * Độ dài khoảng thời gian người dùng đang lọc (giây).
- * filterData lọc theo MỘT khoảng liên tục [startDate startTime, endDate endTime]
- * nên độ dài đúng bằng hiệu hai mốc. Trả về null nếu không đọc được.
+ * Tổng thời lượng các khung giờ người dùng đang lọc trên từng ngày (giây).
  */
 function currentFilterWindowSec(){
   const v = id=>{ const el=document.getElementById(id); return el ? el.value : ''; };
   const sd = v('startDate'), ed = v('endDate');
   if(!sd || !ed) return null;
-  const s = Date.parse(`${sd}T${v('startTime')||'00:00'}:00`);
-  const e = Date.parse(`${ed}T${v('endTime')||'23:59'}:59`) + 1000;
-  return (isFinite(s) && isFinite(e) && e>s) ? (e-s)/1000 : null;
+  return filterWindowSec({startDate:sd,endDate:ed,startTime:v('startTime'),endTime:v('endTime')});
 }
 
 function plotConcurrentCalls(rows, colors, targetId='chart_concurrent_calls'){
@@ -12091,7 +12109,7 @@ function updateCompactFilterSummary(){
   const dateButton=document.getElementById('dateRangeButton');
   if(dateButton){
     const dates=start&&end ? `${UIFormat.dateShort(start)} – ${UIFormat.dateShort(end)}` : 'Chọn khoảng thời gian';
-    dateButton.textContent=(startTime==='00:00'&&endTime==='23:59') ? `${dates} · cả ngày` : `${dates} · ${startTime}–${endTime}`;
+    dateButton.textContent=(startTime==='00:00'&&endTime==='23:59') ? `${dates} · cả ngày` : `${dates} · ${startTime}–${endTime} mỗi ngày`;
   }
   const count=COMPACT_FILTERS.reduce((sum,item)=>sum+(compactFilterValue(item)?1:0),0);
   const more=document.getElementById('moreFiltersButton');
@@ -12121,6 +12139,7 @@ function renderActiveFilterChips(){
 function initCompactFilters(){
   const pairs=[['dateRangeButton','dateRangePopover'],['moreFiltersButton','moreFiltersPopover'],['updateScopeButton','updateScopePopover']];
   let openPair=null;
+  let dateDraft=null;
   const close=(restore=true)=>{
     if(!openPair) return;
     const [button,popover]=openPair; popover.hidden=true; button.setAttribute('aria-expanded','false'); openPair=null;
@@ -12139,6 +12158,11 @@ function initCompactFilters(){
       closeAccountDropdown();
       if(openPair?.[1]===popover){ close(); return; }
       close(false); popover.hidden=false; button.setAttribute('aria-expanded','true'); openPair=[button,popover];
+      if(popoverId==='dateRangePopover') dateDraft={
+        startDate:document.getElementById('startDate')?.value||'',endDate:document.getElementById('endDate')?.value||'',
+        startTime:document.getElementById('startTime')?.value||'00:00',endTime:document.getElementById('endTime')?.value||'23:59',
+        dirty:document.getElementById('applyFilter')?.classList.contains('dirty')||false
+      };
       requestAnimationFrame(()=>popover.querySelector('button,input,select')?.focus());
     });
     popover?.addEventListener('click',event=>event.stopPropagation());
@@ -12146,7 +12170,39 @@ function initCompactFilters(){
   document.addEventListener('click',()=>close(false));
   document.addEventListener('keydown',event=>{ if(event.key==='Escape'&&openPair){ event.preventDefault(); close(true); } });
   document.querySelectorAll('[data-filter-close]').forEach(button=>button.addEventListener('click',()=>close(true)));
-  document.getElementById('applyDateRange')?.addEventListener('click',()=>{ updateCompactFilterSummary(); close(false); document.getElementById('applyFilter')?.click(); });
+  document.getElementById('cancelDateRange')?.addEventListener('click',()=>{
+    if(!dateDraft) return;
+    setDateInputs(dateDraft.startDate,dateDraft.endDate);
+    setTimeInputs(dateDraft.startTime,dateDraft.endTime);
+    markFilterDirty(dateDraft.dirty);
+    dateDraft=null;
+  });
+  const clockValid=value=>/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value);
+  const clockInputs=['startTime','endTime'].map(id=>document.getElementById(id)).filter(Boolean);
+  clockInputs.forEach(input=>input.addEventListener('input',()=>input.setCustomValidity('')));
+  document.getElementById('allDayTime')?.addEventListener('change',event=>{
+    const toggle=event.currentTarget;
+    if(toggle.checked){
+      const start=document.getElementById('startTime'),end=document.getElementById('endTime');
+      if(start?.value!=='00:00'||end?.value!=='23:59') toggle.dataset.previous=`${start?.value||'08:00'},${end?.value||'17:00'}`;
+      setTimeInputs('00:00','23:59');
+    }else{
+      const [start,end]=(toggle.dataset.previous||'08:00,17:00').split(',');
+      setTimeInputs(start,end);
+      toggle.checked=false;
+      document.getElementById('timeRangeFields').hidden=false;
+    }
+    markFilterDirty(true);
+  });
+  document.querySelectorAll('[data-time-preset]').forEach(button=>button.addEventListener('click',()=>{
+    setTimeInputs(...button.dataset.timePreset.split(','));
+    markFilterDirty(true);
+  }));
+  document.getElementById('applyDateRange')?.addEventListener('click',()=>{
+    const invalid=clockInputs.find(input=>!clockValid(input.value));
+    if(invalid){ invalid.setCustomValidity('Nhập giờ theo định dạng 24 giờ HH:mm.'); invalid.reportValidity(); invalid.focus(); return; }
+    dateDraft=null; updateCompactFilterSummary(); close(false); document.getElementById('applyFilter')?.click();
+  });
   document.getElementById('applyMoreFilters')?.addEventListener('click',()=>{ updateCompactFilterSummary(); close(false); document.getElementById('applyFilter')?.click(); });
   document.getElementById('resetMoreFilters')?.addEventListener('click',()=>{
     COMPACT_FILTERS.forEach(item=>{ const control=document.getElementById(item.id); if(control) control.value=item.empty; });
@@ -12160,6 +12216,7 @@ function initCompactFilters(){
   // thành công (runUnifiedReport -> markFilterDirty(false)). Nếu request lỗi,
   // giữ chip cũ và trạng thái dirty để không báo nhầm là bộ lọc đã được áp dụng.
   document.getElementById('applyFilter')?.addEventListener('click',()=>close(false));
+  syncAllDayTimeControl();
   updateCompactFilterSummary();
 }
 

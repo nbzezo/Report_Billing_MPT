@@ -134,6 +134,7 @@ test('filterData theo ngày/giờ/account', () => {
   assert.equal(core.filterData(rows, '2026-09-03', '2026-09-03', 'all', '00:00', '23:59').length, 2);
   assert.equal(core.filterData(rows, '2026-09-03', '2026-09-03', 'all', '00:00', '12:00').length, 1);
   assert.equal(core.filterData(rows, '2026-09-03', '2026-09-04', ['A'], '00:00', '23:59').length, 2);
+  assert.deepEqual(core.filterData(rows, '2026-09-03', '2026-09-04', 'all', '08:00', '09:00').map(r => r.uuid), ['a', 'c']);
 });
 
 test('dedupByUUID', () => {
@@ -248,6 +249,10 @@ test('buildCube — không có billing config -> billing null', () => {
   ]), {}), { startDate: '2026-09-03', endDate: '2026-09-03', account: 'all', startTime: '00:00', endTime: '23:59' });
   assert.equal(cube.billing, null);
   assert.equal(cube.meta.filterSpanSec, 86400);
+});
+
+test('filterWindowSec cộng khung giờ đã chọn trên từng ngày', () => {
+  assert.equal(core.filterWindowSec({startDate:'2026-09-03',endDate:'2026-09-07',startTime:'15:00',endTime:'23:59'}), 5 * 9 * 3600);
 });
 
 test('buildCube — account filter (mảng id)', () => {

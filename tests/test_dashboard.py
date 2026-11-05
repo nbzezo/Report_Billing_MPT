@@ -1498,6 +1498,10 @@ class FrontendRegressionTests(unittest.TestCase):
         ):
             self.assertIn(token, self.dashboard_html)
         self.assertNotIn("ⓘ", self.dashboard_html)
+        self.assertIn('aria-label="Xem giải thích:', self.dashboard_html)
+        self.assertIn('>i</button>', self.dashboard_html)
+        self.assertNotIn('class="info-btn" aria-label="Giải thích:', self.dashboard_html)
+        self.assertIn("body.adw button.info-btn", self.dashboard_html)
 
     def test_ai_assistant_uses_responsive_side_sheet(self):
         for token in (
@@ -1754,6 +1758,26 @@ class FrontendRegressionTests(unittest.TestCase):
 
     def test_main_filter_shows_unapplied_changes(self):
         for token in ("function markFilterDirty", "#applyDateRange,#applyMoreFilters", ".dirty"):
+            self.assertIn(token, self.dashboard_html)
+
+    def test_date_range_picker_separates_dates_from_daily_hours(self):
+        for token in (
+            "Khoảng ngày", "Khung giờ mỗi ngày", 'id="allDayTime"',
+            'data-time-preset="08:00,17:00"', "function syncAllDayTimeControl",
+            "Nhập giờ theo định dạng 24 giờ HH:mm.", "Từ đầu tháng",
+            "${startTime}–${endTime} mỗi ngày", 'id="cancelDateRange"',
+            "setDateInputs(dateDraft.startDate,dateDraft.endDate)",
+        ):
+            self.assertIn(token, self.dashboard_html)
+
+    def test_topbar_popovers_use_compact_controls(self):
+        for token in (
+            "account-dropdown-toolbar",
+            "body.adw #accountDropdownList #accountSearch",
+            "grid-template-columns:minmax(0,1fr) auto auto",
+            "body.adw .more-filters-popover :is(input,select)",
+            "box-sizing:border-box",
+        ):
             self.assertIn(token, self.dashboard_html)
 
     def test_unified_filter_owns_sync_and_report_update(self):

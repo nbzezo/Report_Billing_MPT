@@ -832,11 +832,24 @@ body.adw #dateRangeButton{min-width:270px}
 body.adw #accountDropdownBtn{min-width:190px;text-align:left}
 body.adw #accountCount{margin-left:4px}
 body.adw .filter-popover-wrap{position:relative}
-body.adw .filter-popover{position:absolute;z-index:120;top:calc(100% + 7px);left:0;width:min(480px,calc(100vw - 28px));box-sizing:border-box;padding:14px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--window-bg);box-shadow:var(--shadow-pop)}
+body.adw .filter-popover{position:absolute;z-index:120;top:calc(100% + 7px);left:0;width:min(520px,calc(100vw - 28px));box-sizing:border-box;padding:14px;border:1px solid var(--border);border-radius:var(--radius-lg);background:var(--window-bg);box-shadow:var(--shadow-pop)}
 body.adw .filter-popover[hidden]{display:none}
 body.adw .filter-popover .quick-range{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-body.adw .date-range-grid{display:grid;grid-template-columns:minmax(155px,1fr) minmax(110px,.65fr);gap:10px}
-body.adw .date-range-grid label,body.adw .more-filter-grid label{display:grid;gap:5px;color:var(--dim)}
+body.adw .date-time-section{display:grid;gap:6px;padding:9px 0;border-top:1px solid var(--divider)}
+body.adw .date-time-section-title{font-size:13px;font-weight:700;color:var(--text)}
+body.adw .date-range-grid,body.adw .time-range-fields{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:end}
+body.adw .date-range-grid label,body.adw .time-range-fields label,body.adw .more-filter-grid label{display:grid;gap:5px;color:var(--dim)}
+body.adw #dateRangePopover input:not([type=checkbox]){width:100%;height:40px;min-height:40px;padding:6px 10px;box-sizing:border-box}
+body.adw .range-arrow{align-self:center;padding-top:20px;color:var(--dim)}
+body.adw .daily-time-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+body.adw .date-time-section label.all-day-toggle{display:inline-flex;align-items:center;gap:7px;color:var(--text);font-weight:600}
+body.adw .all-day-toggle input{width:18px;height:18px;margin:0}
+body.adw .time-range-fields[hidden]{display:none}
+body.adw .clock-input{font-variant-numeric:tabular-nums}
+body.adw .time-format-hint{font-size:12px;color:var(--dim)}
+body.adw .time-presets{display:flex;flex-wrap:wrap;gap:6px}
+body.adw .time-presets button{min-height:30px;padding:4px 10px;border-radius:999px;font-size:12px}
+body.adw .date-range-popover .filter-popover-actions{margin-top:8px;padding-top:10px}
 body.adw .filter-popover-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;padding-top:12px;border-top:1px solid var(--divider)}
 body.adw .more-filters-popover{right:0;left:auto;width:min(620px,calc(100vw - 28px))}
 body.adw .update-split>.update-scope-popover{right:0;left:auto;width:min(460px,calc(100vw - 28px))}
@@ -856,7 +869,8 @@ body.adw[data-active-tab="settings"] .adw-filterbar{display:none}
 @media(max-width:700px){
   body.adw .compact-filter-row>*{flex:1 1 100%}
   body.adw .compact-profile select,body.adw #dateRangeButton,body.adw #accountDropdownBtn,body.adw #moreFiltersButton{width:100%;max-width:none}
-  body.adw .date-range-grid,body.adw .more-filter-grid{grid-template-columns:1fr}
+  body.adw .date-range-grid,body.adw .time-range-fields,body.adw .more-filter-grid{grid-template-columns:1fr}
+  body.adw .range-arrow{display:none}
 }
 body.adw #updateReport{border-color:var(--accent);color:var(--accent-fg);background:var(--accent);font-weight:700}
 body.adw #updateReport:hover:not(:disabled){background:var(--accent-hover)}
@@ -2741,6 +2755,42 @@ body.adw .report-finder-result{
 body.adw .report-finder-result small{flex:none;color:var(--text-2);font-size:12px}
 body.adw .report-finder-empty{padding:12px;grid-column:auto;grid-row:auto}
 body.adw #reportGrid>.card:focus{outline:2px solid var(--focus);outline-offset:3px}
+
+/* Compact top-bar popovers: controls should not inherit the roomy form sizing. */
+body.adw #accountDropdownList{
+  width:min(380px,calc(100vw - 28px));padding:10px
+}
+body.adw #accountDropdownList .account-dropdown-toolbar{
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:6px;margin-bottom:8px
+}
+body.adw #accountDropdownList #accountSearch{
+  width:100%;height:36px;min-height:36px;padding:5px 9px;box-sizing:border-box
+}
+body.adw #accountDropdownList .account-dropdown-toolbar button{
+  min-height:36px;padding:5px 9px;white-space:nowrap
+}
+body.adw #accountListCheckboxes{max-height:240px;padding:2px 0}
+body.adw #accountListCheckboxes .acc-item{min-height:32px;padding:5px 6px}
+body.adw #accountDropdownList .account-dropdown-actions{
+  justify-content:flex-end;margin:8px 0 0;padding-top:8px;border-top:1px solid var(--divider)
+}
+body.adw #accountDropdownList #applyAccounts{
+  min-width:88px;background:var(--accent);border-color:var(--accent);color:var(--accent-fg)
+}
+body.adw .more-filters-popover{width:min(600px,calc(100vw - 28px));padding:12px}
+body.adw .more-filter-grid{column-gap:12px;row-gap:8px}
+body.adw .more-filters-popover :is(input,select){
+  width:100%;height:40px;min-height:40px;padding:6px 10px;box-sizing:border-box
+}
+body.adw .more-filters-popover .filter-popover-actions{margin-top:8px;padding-top:10px}
+body.adw button.info-btn{
+  display:inline-grid;place-items:center;flex:0 0 24px;width:24px;min-width:24px;height:24px;min-height:24px;
+  padding:0;border-radius:50%;border:1px solid var(--border);background:var(--surface-2);color:var(--text-2);
+  font-size:13px;font-weight:700;line-height:1;vertical-align:middle
+}
+body.adw button.info-btn:hover:not(:disabled),body.adw button.info-btn[aria-expanded="true"]{
+  border-color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,var(--surface));color:var(--accent-text)
+}
 @media(max-width:760px){
   body.adw .report-finder{grid-template-columns:1fr;gap:6px;padding:14px}
   body.adw .report-finder p,body.adw .report-finder input{grid-column:1;grid-row:auto}
