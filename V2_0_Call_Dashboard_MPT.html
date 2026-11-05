@@ -5932,13 +5932,17 @@ function renderCidSummaryStrip(){
   }
   const scope = getCidScope();
   const m = computeBlockMttr(scope.timeline);
+  const currentPaused = countCurrentPausedCids(gatewayCidIndex, scope.selectedIds);
+  const blockedNow = currentPaused == null ? m.stillBlocked : currentPaused;
   const cov = buildCidCoverage({ routings:scope.routings, accounts:scope.accounts, events:scope.events });
   const rows = (typeof dashState!=='undefined' && dashState && dashState.filtered) || [];
 
   const boxes = [
-    cidStatBox(m.stillBlocked.toLocaleString('vi-VN'), 'CID đang bị khoá',
-      m.presumedDead.toLocaleString('vi-VN')+' trong đó coi như đã chết (>48h)',
-      m.stillBlocked ? uiColor('--ux-color-c0392b') : uiColor('--ux-color-2e7d32')),
+    cidStatBox(blockedNow.toLocaleString('vi-VN'), 'CID đang bị khoá',
+      currentPaused == null
+        ? m.presumedDead.toLocaleString('vi-VN')+' trong đó coi như đã chết (>48h)'
+        : 'Theo Gateway hiện tại · lịch sử có '+m.presumedDead.toLocaleString('vi-VN')+' ca >48h chưa ReActive',
+      blockedNow ? uiColor('--ux-color-c0392b') : uiColor('--ux-color-2e7d32')),
     cidStatBox(cidFmtHours(m.p50), 'Hồi phục (trung vị)',
       m.lateRecoveryPct.toFixed(1)+'% ca quay lại muộn hơn dự kiến', ''),
     cidStatBox(cov.stats.unobservable, 'Ngoài phạm vi theo dõi',

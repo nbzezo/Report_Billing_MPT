@@ -1399,6 +1399,18 @@ test('currentCidBlocked — trạng thái nhà mạng hiện tại ghi đè lị
   assert.equal(core.currentCidBlocked('0900000000', 'VT', index, true), true);
 });
 
+test('countCurrentPausedCids — đếm snapshot PAUSE hiện tại theo account', () => {
+  const index = {
+    '0327819739': { account_id:'388', telco_status:{ viettel:'PAUSE', mobi:'OFF' } },
+    '0327864539': { account_id:'388', telco_status:{ viettel:'pause', mobi:'PAUSE' } },
+    '0327816379': { account_id:'388', telco_status:{ viettel:'ON', mobi:'OFF' } },
+    '0900000001': { account_id:'999', telco_status:{ viettel:'PAUSE' } }
+  };
+  assert.equal(core.countCurrentPausedCids(index, ['388']), 2);
+  assert.equal(core.countCurrentPausedCids(index, []), 3);
+  assert.equal(core.countCurrentPausedCids({}, ['388']), null);
+});
+
 test('buildLlmContext — chỉ giữ trường liên quan tab, cắt top-N mảng lớn', () => {
   const bigTopDest = Array.from({ length: 50 }, (_, i) => ({ dn: `09${i}`, total: i, con: 0, fail: i }));
   const bigEvents = Array.from({ length: 100 }, (_, i) => ({ id: i }));

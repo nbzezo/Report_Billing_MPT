@@ -1954,6 +1954,20 @@ function currentCidBlocked(cid, telco, cidIndex, fallback){
   if(status === 'OFF' || status === 'PAUSE') return true;
   return Boolean(fallback);
 }
+function countCurrentPausedCids(cidIndex, accountIds){
+  const index = (cidIndex && typeof cidIndex === 'object') ? cidIndex : {};
+  const entries = Object.values(index);
+  if(!entries.length) return null;
+  const accounts = new Set((accountIds || []).map(String));
+  return entries.filter(info=>{
+    if(!info || typeof info !== 'object') return false;
+    const accountId = info.account_id == null ? '' : String(info.account_id);
+    if(accounts.size && !accounts.has(accountId)) return false;
+    const statuses = info.telco_status;
+    return statuses && typeof statuses === 'object'
+      && Object.values(statuses).some(status=>String(status || '').trim().toUpperCase() === 'PAUSE');
+  }).length;
+}
 function computeGatewayBlockReconcile(rows){
   const map = {};
   (rows||[]).forEach(r=>{
@@ -3845,7 +3859,7 @@ const __exports = {
   enrichData, filterData, filterCallDetails, queryCallDetails, dedupByUUID,
   __aggCache, __getAgg, __getAggIfPresent, downsampleSeriesMax, downsampleSeriesMin,
   computeCallCounts, computeASRExcludingFail, computeConnectRate, computeConnectRateExcludingFail, computeBillsecMetrics, computeDestinationQualityMetrics, computeRequiredColumnHealth, computeTimeAnomalyMetrics, computeOperationalAlerts, aggregateOverview, aggByPrefix, minutesPerDay,
-  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, excelCellMatch, rowPassesColFilters, computeGatewayByAccount, computeGatewayFail, computeGatewayMinutes, computeGatewayHangupCause, computeGatewayFailTimeline, computeGatewayBlockReconcile, currentCidBlocked,
+  computeRetryPattern, retryAggregate, computeAccountKPIs, computeTopDest, aggDestTelcoShare, aggTelcoConnBreakdown, weekdayIndex, computeTimeHeatmap, computeAnswerRateByAccountPerDay, computeGoldenHours, computeDailyPrefixStats, computeAgentPerf, computeCallbackStats, excelCellMatch, rowPassesColFilters, computeGatewayByAccount, computeGatewayFail, computeGatewayMinutes, computeGatewayHangupCause, computeGatewayFailTimeline, computeGatewayBlockReconcile, currentCidBlocked, countCurrentPausedCids,
   billedSecondsOf, roundMoney, billingPeriodKey, billingRows, computeBilling, computeBillingForecast, resolveDateRangePreset, __ccuIntervals, __computeConcurrency, computeCcuByTelco, filterWindowSec,
   CID_DEAD_AFTER_MIN, CID_WARN_AFTER_MIN, parseEventTs, cidStateKey, buildCidTimeline, mergeIntervalsMs,
   computeCidDutyCycle, computeCidAvailability, computeBlockMttr,
