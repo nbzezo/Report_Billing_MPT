@@ -675,7 +675,7 @@ function updateRN_CF_KPIs(rows){
     <div id="report_chart_asr_time" class="card chart-report-card full" data-tab="time" draggable="true">
       <div class="asr-time-toolbar">
         <div class="asr-time-title">
-          <div class="report-heading">Xu hướng ASR và tỷ lệ kết nối</div>
+          <div class="report-heading">ASR và kết nối thay đổi thế nào?</div>
           <div id="asrTimeSubtitle" class="asr-time-subtitle">Thang đo tập trung theo phạm vi dữ liệu</div>
         </div>
         <label>Hiển thị
@@ -2645,9 +2645,17 @@ function fitPlotHeader(gd){
         // Curated titles are plain text; a chart's own title may already use Plotly's
         // <br>/<span> markup and must not be escaped (it would show as raw tags).
         const baseTitle=curatedTitle ? escape(curatedTitle) : (title.text || '');
-        title.text=`${baseTitle}${scope?`<br><span style="font-size:12px;font-weight:400">${escape(scope)}</span>`:''}`;
+        // One card-title style everywhere: the first line is bold, sub-lines stay regular.
+        const [headline,...subLines]=baseTitle.split('<br>');
+        const boldTitle=headline ? `<b>${headline}</b>${subLines.length?'<br>'+subLines.join('<br>'):''}` : '';
+        title.text=`${boldTitle}${scope?`<br><span style="font-size:12px;font-weight:400">${escape(scope)}</span>`:''}`;
         next.title=title;
         next.margin={...(next.margin||{}),t:scope?82:(next.margin?.t||60)};
+      }
+      // The ASR trend card already carries its title, scope and controls in HTML.
+      if(target?.id==='chart_asr_time'){
+        next.title={text:''};
+        next.margin={...(next.margin||{}),t:24};
       }
       if(reportCard && ['chart_caller_participation_heatmap','chart_concurrent_by_telco'].includes(target?.id)){
         let heading=reportCard.querySelector(':scope > .report-chart-heading');
@@ -3361,7 +3369,7 @@ function plotASRByTime(rows, colors){
       else{
         const direction=result.delta>0?'up':result.delta<0?'down':'';
         if(direction) deltaEl.classList.add(direction);
-        deltaEl.textContent=`${result.delta>0?'▲':result.delta<0?'▼':'●'} ${Math.abs(result.delta).toFixed(1)} điểm %`;
+        deltaEl.textContent=`${result.delta>0?'▲':result.delta<0?'▼':'●'} ${UIFormat.dec(Math.abs(result.delta),1)} điểm %`;
       }
     }
   };
@@ -4035,17 +4043,20 @@ function plotMinutesByAccount(rows, colors, topN=10){
     type:'bar',
     orientation:'h',
     text: values.map(UIFormat.minutes),
-    textposition:'outside',
-    cliponaxis:false,
-    marker:{color: colors.MinutesBar, line:{width:1.2}}
+    textposition:'none',
+    hovertemplate:'%{y}<br>%{text}<extra></extra>',
+    marker:{color: colors.MinutesBar}
   }];
+  // Giá trị đặt ở cột riêng bên phải (ngoài vùng vẽ) nên không bao giờ bị cắt hay đè lên cột.
   const layout={
     bargap:0.35,
     title:`Tổng số phút gọi theo Account — Top ${_topN>0?_topN:'All'} (cao nhất ở trên)`,
     height: Math.max(220, labels.length*32),
-    margin:{l:170, r:75, t:64, b:56},
-    xaxis:{title:'Phút',range:[0,Math.max(...values)*1.18]},
-    yaxis:{automargin:true, type:'category', tickfont:{size:12}, categoryorder:'array', categoryarray: labels, autorange:'reversed'}
+    margin:{l:170, r:24, t:64, b:56},
+    xaxis:{title:'Phút',domain:[0,0.84],range:[0,Math.max(...values)*1.02]},
+    yaxis:{automargin:true, type:'category', tickfont:{size:12}, categoryorder:'array', categoryarray: labels, autorange:'reversed'},
+    annotations: labels.map((label,i)=>({xref:'paper',yref:'y',x:1,y:label,xanchor:'right',showarrow:false,
+      text:UIFormat.minutes(values[i]),font:{size:12,color:CHART_SEMANTIC.Reference}}))
   };
   Plotly.react('chart_minutes_account', data, layout, {responsive:true});
 }
@@ -8561,7 +8572,7 @@ function renderAdvancedAlerts(rows){
     });
   }
   if(drops.length){
-    const top = drops.slice(0,3).map(d=> `${d.p} (${d.diffPp.toFixed(1)}pp, n=${d.lastTot})`).join(', ');
+    const top = drops.slice(0,3).map(d=> `${d.p} (${UIFormat.dec(d.diffPp,1)}pp, n=${d.lastTot})`).join(', ');
     items.push({
       level: 'red',
       title: 'Đầu số giảm mạnh so với mức nền',

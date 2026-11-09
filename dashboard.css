@@ -4,17 +4,12 @@
   --ux-color-0284c7:#0284c7;
   --ux-color-075985:#075985;
   --ux-color-0891b2:#0891b2;
-  --ux-color-0b1220:#0b1220;
   --ux-color-0d9488:#0d9488;
-  --ux-color-0f0f0e:#0f0f0e;
   --ux-color-0f1720:#0f1720;
-  --ux-color-0f172a:#0f172a;
   --ux-color-0f766e:#0F766E;
-  --ux-color-102d24:#102d24;
   --ux-color-111:#111;
   --ux-color-111827:#111827;
   --ux-color-115e59:#115e59;
-  --ux-color-12301a:#12301A;
   --ux-color-1454c0:#1454c0;
   --ux-color-155e75:#155e75;
   --ux-color-15803d:#15803d;
@@ -22,95 +17,49 @@
   --ux-color-16a34a:#16a34a;
   --ux-color-172033:#172033;
   --ux-color-176b51:#176b51;
-  --ux-color-191817:#191817;
   --ux-color-197347:#197347;
   --ux-color-1a1a1a:#1A1A1A;
   --ux-color-1b5e20:#1B5E20;
   --ux-color-1c1b19:#1C1B19;
-  --ux-color-1d1c1a:#1d1c1a;
   --ux-color-1d4ed8:#1d4ed8;
-  --ux-color-1e1e1e:#1e1e1e;
-  --ux-color-1e293b:#1e293b;
   --ux-color-1e3a64:#1E3A64;
   --ux-color-1e40af:#1e40af;
-  --ux-color-1f1e1c:#1f1e1c;
-  --ux-color-1f2937:#1f2937;
-  --ux-color-211f1c:#211f1c;
   --ux-color-226534:#226534;
-  --ux-color-241f1b:#241f1b;
-  --ux-color-241f31:#241f31;
-  --ux-color-242321:#242321;
-  --ux-color-242424:#242424;
   --ux-color-24713a:#24713a;
   --ux-color-2563eb:#2563eb;
-  --ux-color-262626:#262626;
-  --ux-color-26a269:#26a269;
-  --ux-color-271b16:#271b16;
   --ux-color-27364d:#27364d;
-  --ux-color-285d4b:#285d4b;
-  --ux-color-292622:#292622;
-  --ux-color-292825:#292825;
-  --ux-color-29384d:#29384d;
-  --ux-color-2a2825:#2a2825;
-  --ux-color-2a2a2a:#2a2a2a;
-  --ux-color-2e2a26:#2e2a26;
   --ux-color-2e7d32:#2e7d32;
-  --ux-color-2f2f2f:#2F2F2F;
-  --ux-color-302b26:#302b26;
-  --ux-color-303030:#303030;
   --ux-color-315b96:#315b96;
   --ux-color-315f91:#315f91;
   --ux-color-334155:#334155;
-  --ux-color-35312d:#35312d;
   --ux-color-3584e4:#3584e4;
   --ux-color-3730a3:#3730a3;
-  --ux-color-3a2418:#3A2418;
-  --ux-color-3a2508:#3A2508;
-  --ux-color-3a2a12:#3a2a12;
-  --ux-color-3a332d:#3a332d;
-  --ux-color-3a3733:#3a3733;
-  --ux-color-3a3a3a:#3A3A3A;
-  --ux-color-3b1d1a:#3B1D1A;
   --ux-color-3b4b65:#3b4b65;
   --ux-color-3d3846:#3d3846;
-  --ux-color-403a35:#403a35;
-  --ux-color-423a33:#423a33;
   --ux-color-4338ca:#4338ca;
-  --ux-color-453a31:#453a31;
   --ux-color-45556f:#45556f;
   --ux-color-475569:#475569;
   --ux-color-4779ad:#4779ad;
-  --ux-color-48443f:#48443f;
   --ux-color-48658f:#48658f;
   --ux-color-4a4843:#4A4843;
-  --ux-color-4ade80:#4ADE80;
   --ux-color-4d7c0f:#4D7C0F;
   --ux-color-4e79a7:#4e79a7;
   --ux-color-4e9291:#4e9291;
   --ux-color-506078:#506078;
-  --ux-color-51473e:#51473e;
   --ux-color-52627a:#52627a;
   --ux-color-53627a:#53627a;
   --ux-color-557fc1:#557fc1;
   --ux-color-57534e:#57534E;
-  --ux-color-57e389:#57e389;
   --ux-color-59a14f:#59a14f;
   --ux-color-5b21b6:#5b21b6;
   --ux-color-5c9cb6:#5c9cb6;
-  --ux-color-5eead4:#5EEAD4;
-  --ux-color-60a5fa:#60A5FA;
-  --ux-color-62666d:#62666D;
   --ux-color-64748b:#64748b;
   --ux-color-666:#666;
   --ux-color-6699a5:#6699a5;
   --ux-color-6b6862:#6B6862;
   --ux-color-6b7785:#6b7785;
   --ux-color-6d28d9:#6d28d9;
-  --ux-color-6e5227:#6e5227;
   --ux-color-6f9bc5:#6f9bc5;
-  --ux-color-706a62:#706a62;
-  --ux-color-71675d:#71675d;
-  --ux-color-75d7a5:#75d7a5;
   --ux-color-77216f:#77216F;
   --ux-color-77736e:#77736E;
   --ux-color-7774ad:#7774ad;
@@ -123,15 +72,11 @@
   --ux-color-825318:#825318;
   --ux-color-854d0e:#854d0e;
   --ux-color-86198f:#86198f;
-  --ux-color-86efac:#86efac;
   --ux-color-8971bc:#8971bc;
   --ux-color-8a6200:#8a6200;
   --ux-color-8a877f:#8A877F;
   --ux-color-8a8a8a:#8a8a8a;
   --ux-color-8baecd:#8baecd;
-  --ux-color-8ed2b6:#8ed2b6;
-  --ux-color-8f5d43:#8f5d43;
-  --ux-color-8fb8ff:#8fb8ff;
   --ux-color-92400e:#92400e;
   --ux-color-93c5fd:#93c5fd;
   --ux-color-94a3b8:#94a3b8;
@@ -140,53 +85,32 @@
   --ux-color-9a5b00:#9a5b00;
   --ux-color-9b8373:#9b8373;
   --ux-color-9c4b32:#9C4B32;
-  --ux-color-9c6245:#9c6245;
   --ux-color-9d174d:#9D174D;
   --ux-color-a04444:#a04444;
   --ux-color-a16207:#A16207;
-  --ux-color-a19e97:#A19E97;
   --ux-color-a21caf:#a21caf;
-  --ux-color-a3e635:#A3E635;
   --ux-color-a471a8:#a471a8;
   --ux-color-a5271d:#a5271d;
   --ux-color-a62f23:#a62f23;
-  --ux-color-a66d50:#a66d50;
   --ux-color-a84f35:#A84F35;
-  --ux-color-a8a29e:#A8A29E;
-  --ux-color-a94f37:#a94f37;
   --ux-color-aaa:#aaa;
   --ux-color-ac8552:#ac8552;
   --ux-color-b42318:#b42318;
   --ux-color-b45309:#b45309;
-  --ux-color-b85c3f:#b85c3f;
-  --ux-color-b8b1a8:#b8b1a8;
   --ux-color-b91c1c:#b91c1c;
   --ux-color-b9b1a7:#B9B1A7;
   --ux-color-b9cce0:#b9cce0;
   --ux-color-bbf7d0:#bbf7d0;
-  --ux-color-bd6246:#bd6246;
   --ux-color-bde1cf:#bde1cf;
   --ux-color-be185d:#BE185D;
-  --ux-color-bf6244:#BF6244;
-  --ux-color-c01c28:#c01c28;
   --ux-color-c0392b:#c0392b;
-  --ux-color-c084fc:#C084FC;
-  --ux-color-c0b4a8:#c0b4a8;
   --ux-color-c1121f:#c1121f;
   --ux-color-c2410c:#c2410c;
-  --ux-color-c7451b:#c7451b;
-  --ux-color-c76748:#c76748;
-  --ux-color-c9c6bf:#C9C6BF;
   --ux-color-c9d7ea:#C9D7EA;
   --ux-color-cbd5e1:#cbd5e1;
-  --ux-color-d4d2cc:#D4D2CC;
-  --ux-color-d69a78:#d69a78;
-  --ux-color-d6d3d1:#D6D3D1;
   --ux-color-d6dbe3:#d6dbe3;
   --ux-color-d6deea:#d6deea;
-  --ux-color-d7c9ba:#d7c9ba;
   --ux-color-d7dee8:#d7dee8;
-  --ux-color-d8d2c9:#D8D2C9;
   --ux-color-d8e0ed:#d8e0ed;
   --ux-color-d97706:#d97706;
   --ux-color-d97757:#d97757;
@@ -195,18 +119,12 @@
   --ux-color-dc2626:#dc2626;
   --ux-color-dce4ef:#dce4ef;
   --ux-color-dcfce7:#dcfce7;
-  --ux-color-ded1c2:#ded1c2;
-  --ux-color-e08a69:#e08a69;
   --ux-color-e15759:#e15759;
   --ux-color-e1e8f2:#e1e8f2;
   --ux-color-e2e8f0:#e2e8f0;
   --ux-color-e4e1da:#E4E1DA;
-  --ux-color-e5a50a:#e5a50a;
-  --ux-color-e5d8ca:#e5d8ca;
-  --ux-color-e5e0d8:#e5e0d8;
   --ux-color-e5e7eb:#e5e7eb;
   --ux-color-e5eaf2:#e5eaf2;
-  --ux-color-e6a17e:#e6a17e;
   --ux-color-e6ebf2:#e6ebf2;
   --ux-color-e7e2db:#E7E2DB;
   --ux-color-e7ebf0:#e7ebf0;
@@ -214,82 +132,47 @@
   --ux-color-e8eef6:#e8eef6;
   --ux-color-e95420:#E95420;
   --ux-color-e9eef4:#e9eef4;
-  --ux-color-eadfd2:#eadfd2;
   --ux-color-eaf1fb:#eaf1fb;
-  --ux-color-ebe5de:#ebe5de;
-  --ux-color-ebebe9:#ebebe9;
   --ux-color-ede7df:#EDE7DF;
   --ux-color-ede9e3:#EDE9E3;
   --ux-color-edf2f7:#edf2f7;
-  --ux-color-eea181:#eea181;
   --ux-color-eee:#eee;
-  --ux-color-eee4d8:#eee4d8;
   --ux-color-eeeae4:#eeeae4;
   --ux-color-eeece6:#EEECE6;
   --ux-color-eef2f7:#eef2f7;
   --ux-color-eef4ff:#eef4ff;
-  --ux-color-ef6b3f:#ef6b3f;
   --ux-color-eff6ff:#eff6ff;
   --ux-color-effaf4:#effaf4;
-  --ux-color-f0a17f:#f0a17f;
   --ux-color-f0b3ad:#f0b3ad;
-  --ux-color-f0e8dc:#f0e8dc;
   --ux-color-f0fdf4:#f0fdf4;
   --ux-color-f1d6a5:#f1d6a5;
-  --ux-color-f1e7da:#f1e7da;
-  --ux-color-f1ede8:#f1ede8;
   --ux-color-f1f4f9:#F1F4F9;
-  --ux-color-f1f5f9:#f1f5f9;
   --ux-color-f1f7f2:#F1F7F2;
-  --ux-color-f2b196:#f2b196;
-  --ux-color-f2cf91:#f2cf91;
-  --ux-color-f2f1ee:#F2F1EE;
-  --ux-color-f3f0eb:#f3f0eb;
   --ux-color-f3f1ec:#F3F1EC;
   --ux-color-f3f7ff:#f3f7ff;
-  --ux-color-f472b6:#F472B6;
   --ux-color-f4e2d8:#F4E2D8;
   --ux-color-f4f6f9:#f4f6f9;
   --ux-color-f59e0b:#f59e0b;
-  --ux-color-f5f2ed:#F5F2ED;
-  --ux-color-f7f1e8:#f7f1e8;
-  --ux-color-f7f3ee:#F7F3EE;
-  --ux-color-f87171:#F87171;
-  --ux-color-f8d36a:#f8d36a;
-  --ux-color-f8e45c:#f8e45c;
   --ux-color-f8e9e2:#f8e9e2;
-  --ux-color-f8f1e8:#f8f1e8;
   --ux-color-f8fafc:#f8fafc;
   --ux-color-f97316:#f97316;
   --ux-color-faf9f7:#FAF9F7;
-  --ux-color-faf9f8:#faf9f8;
   --ux-color-fafcff:#fafcff;
-  --ux-color-fb923c:#FB923C;
   --ux-color-fbedeb:#FBEDEB;
   --ux-color-fce7f3:#FCE7F3;
-  --ux-color-fbbf24:#FBBF24;
   --ux-color-fbfcff:#fbfcff;
   --ux-color-fbfdff:#fbfdff;
-  --ux-color-fca5a5:#fca5a5;
   --ux-color-fcd34d:#fcd34d;
-  --ux-color-fdba74:#FDBA74;
-  --ux-color-fdf1ed:#FDF1ED;
   --ux-color-fecaca:#fecaca;
   --ux-color-fed7aa:#fed7aa;
   --ux-color-fee2e2:#fee2e2;
   --ux-color-fee4e2:#FEE4E2;
   --ux-color-fef2f2:#fef2f2;
   --ux-color-fef3e2:#FEF3E2;
-  --ux-color-ff7b63:#ff7b63;
-  --ux-color-ff9388:#ff9388;
   --ux-color-ffedd5:#ffedd5;
   --ux-color-fff:#fff;
   --ux-color-fff8e8:#fff8e8;
-  --ux-color-fff8ee:#fff8ee;
-  --ux-color-fffaf3:#fffaf3;
-  --ux-color-fffaf7:#fffaf7;
   --ux-color-fffbeb:#fffbeb;
-  --ux-color-fffdf9:#fffdf9;
   --ux-color-fffdfa:#FFFDFA;
   --ux-color-ffffff:#ffffff;
 }
@@ -644,9 +527,6 @@
 /* Ubuntu Sans khong co glyph tieng Viet — Noto Sans phu dung dai do, giong cach Ubuntu fallback. */
 @font-face{font-family:'Noto Sans VN';src:url('vendor/NotoSans-vietnamese.woff2') format('woff2');font-weight:100 900;font-style:normal;font-display:swap;unicode-range:U+0102-0103,U+0110-0111,U+0128-0129,U+0168-0169,U+01A0-01A1,U+01AF-01B0,U+0300-0301,U+0303-0304,U+0308-0309,U+0323,U+0329,U+1EA0-1EF9,U+20AB}
 
-body.adw{--u-aubergine:var(--ux-color-77216f);--card:var(--card-bg);--ink:var(--text);--blue:var(--accent);
-  --green:var(--success);--red:var(--error);margin:0;-webkit-font-smoothing:antialiased;
-}
 
 body.adw h1,body.adw h2,body.adw h3{font-weight:700;letter-spacing:-.01em;color:var(--text)}
 body.adw h3{font-size:14px}
@@ -823,7 +703,6 @@ body.adw #reportGrid table thead th{position:sticky;top:0;z-index:2;background:v
 body.adw #reportGrid table tbody tr:hover{background:var(--hover)}
 
 /* ---------- Split view ---------- */
-body.adw{--chrome-h:130px}
 body.adw .adw-body{display:flex;align-items:stretch;min-height:calc(100vh - var(--chrome-h))}
 /* Cột điều hướng cao hết khung nhìn (nền liền mạch, không thành hộp lơ lửng),
    ghi chú tab dính đáy cột. */
@@ -1093,7 +972,6 @@ body.adw .ask-bubble:hover{box-shadow:0 10px 28px rgba(0,0,0,.3);transform:trans
 body.adw .ask-bubble:active,body.adw .ask-bubble.dragging{cursor:grabbing;transform:scale(.97)}
 body.adw .ask-bubble:focus-visible{outline:3px solid color-mix(in srgb,var(--accent) 35%,transparent);outline-offset:3px}
 body.adw .ask-bubble svg{width:25px;height:25px;pointer-events:none}
-body.adw{--ask-sheet-w:clamp(360px,40vw,420px)}
 body.adw .ask-panel{position:fixed;top:var(--header-h,54px);right:0;bottom:0;left:auto;width:var(--ask-sheet-w);height:auto;max-width:calc(100vw - 20px);
   background:var(--window-bg);border:0;border-left:1px solid var(--border);border-radius:var(--radius-lg) 0 0 0;box-shadow:var(--shadow-pop);
   overflow:hidden;z-index:214;display:flex;flex-direction:column}
@@ -1194,9 +1072,6 @@ body.adw .loading-detail{color:var(--dim)}
 /* ---------- Claude-inspired visual layer ----------
    Giữ nguyên cấu trúc và hành vi hiện có, chỉ đổi ngôn ngữ thị giác:
    nền ấm, tương phản dịu, active state nhẹ và bề mặt phẳng thoáng hơn. */
-body.adw{
-  letter-spacing:-.005em;
-}
 
 body.adw .adw-headerbar{
   min-height:60px;padding:8px 18px;background:var(--headerbar-bg);border-bottom:1px solid var(--divider);gap:16px;
@@ -1254,9 +1129,6 @@ body.adw button:focus-visible,body.adw input:focus-visible,body.adw select:focus
 /* ---------- Consistency reference layer ----------
    Reference: editorial cream canvas, serif display type, black/cocoa controls,
    thin rules and a restrained terracotta brand accent. */
-body.adw{
-  --radius-lg:14px;--radius:10px;--radius-sm:7px;
-}
 
 body.adw h1,body.adw h2,body.adw h3,body.adw .settings-title,body.adw .adw-dialog-title,
 body.adw .report-title,body.adw .ai-answer-title{
@@ -1467,6 +1339,12 @@ body.adw #reportGrid>.card:has(>table)>table,body.adw #reportGrid>.card:has(.rep
 /* Design tokens. Legacy aliases below keep existing report styles working. */
 :root{color-scheme:light}
 body.adw{
+  --u-aubergine:var(--ux-color-77216f);--card:var(--card-bg);--ink:var(--text);--blue:var(--accent);
+  --green:var(--success);--red:var(--error);margin:0;-webkit-font-smoothing:antialiased;
+  --chrome-h:130px;
+  --ask-sheet-w:clamp(360px,40vw,420px);
+  letter-spacing:-.005em;
+  --radius-lg:14px;--radius:10px;--radius-sm:7px;
   --st-connected:var(--ux-color-2e7d32);--st-connected-bg:var(--ux-color-e7f4ea);--st-connected-fg:var(--ux-color-1b5e20);
   --st-noanswer:var(--ux-color-d97706);--st-noanswer-bg:var(--ux-color-fef3e2);--st-noanswer-fg:var(--ux-color-b45309);
   --st-cancelled:var(--ux-color-8a877f);--st-cancelled-bg:var(--ux-color-eeece6);--st-cancelled-fg:var(--ux-color-4a4843);
@@ -1478,7 +1356,8 @@ body.adw{
   --sp-1:4px;--sp-2:8px;--sp-3:12px;--sp-4:16px;--sp-5:20px;--sp-6:24px;--sp-8:32px;
   --r-sm:6px;--r-md:8px;--r-lg:12px;--u-orange:var(--brand);
   --u-orange-hover:var(--accent-hover);--u-orange-active:var(--accent-hover);--orange:var(--st-noanswer);
-  --success:var(--st-connected);--warning:var(--st-noanswer);--error:var(--st-fail);}
+  --success:var(--st-connected);--warning:var(--st-noanswer);--error:var(--st-fail);
+}
 
 body.adw :is(button,a,input,select,summary,[tabindex]):focus-visible{outline:2px solid var(--focus);outline-offset:2px}
 body.adw .kpi-value{font-variant-numeric:tabular-nums}
@@ -1677,13 +1556,14 @@ body.adw.report-skeleton-active .overview-kpi-card::after,body.adw.report-skelet
    This layer intentionally changes presentation only; existing controls,
    states and report structure remain untouched. */
 body.adw:not(.dark){
-  --bg:var(--ux-color-f5f2ed);
-  --surface:var(--ux-color-fffdfa);
-  --surface-2:var(--ux-color-ede7df);
-  --border:var(--ux-color-d8d2c9);
-  --text:var(--ux-color-1a1a1a);
-  --text-2:var(--ux-color-62666d);
-  --text-3:var(--ux-color-62666d);
+  /* Neutral ground from the review palette; every alias below points here. */
+  --bg:var(--ux-color-faf9f7);
+  --surface:var(--ux-color-ffffff);
+  --surface-2:var(--ux-color-f3f1ec);
+  --border:var(--ux-color-e4e1da);
+  --text:var(--ux-color-1c1b19);
+  --text-2:var(--ux-color-4a4843);
+  --text-3:var(--ux-color-6b6862);
   /* Action colour: burnt orange with white text (5.2:1); the logo keeps --brand. */
   --accent:var(--ux-color-c2410c);
   --accent-hover:var(--ux-color-9a3412);
@@ -1694,16 +1574,16 @@ body.adw:not(.dark){
   --on-accent-soft:var(--ux-color-7e3e2c);
   --brand:var(--ux-color-d97757);
   --focus:var(--ux-color-9c4b32);
-  --window-bg:var(--ux-color-f5f2ed);
-  --view-bg:var(--ux-color-fffdfa);
-  --card-bg:var(--ux-color-fffdfa);
-  --headerbar-bg:var(--ux-color-fffdfa);
-  --sidebar-bg:var(--ux-color-ede7df);
-  --dim:var(--ux-color-62666d);
-  --muted:var(--ux-color-62666d);
-  --line:var(--ux-color-d8d2c9);
-  --divider:var(--ux-color-d8d2c9);
-  --hover:var(--ux-color-f7f3ee);
+  --window-bg:var(--bg);
+  --view-bg:var(--surface);
+  --card-bg:var(--surface);
+  --headerbar-bg:var(--surface);
+  --sidebar-bg:var(--surface-2);
+  --dim:var(--text-2);
+  --muted:var(--text-2);
+  --line:var(--border);
+  --divider:var(--ux-color-eeeae4);
+  --hover:var(--ux-color-eeeae4);
   --active:var(--ux-color-f4e2d8);
   --shadow-card:0 1px 2px rgba(45,35,26,.06),0 8px 24px rgba(45,35,26,.04);
   --shadow-pop:0 12px 30px rgba(45,35,26,.14);
@@ -2711,3 +2591,7 @@ body.adw .ask-bubble.in-header{position:static;flex:none;width:40px;height:40px;
 body.adw .ask-bubble.in-header:hover{background:var(--hover);border-color:var(--ux-color-b9b1a7);box-shadow:none;transform:none}
 body.adw .ask-bubble.in-header[aria-expanded="true"]{background:var(--accent-soft);border-color:var(--accent)}
 body.adw .ask-bubble.in-header svg{width:20px;height:20px}
+/* One card-title style: HTML headings match the bold 16px Plotly titles. */
+body.adw .asr-time-toolbar .report-heading,
+body.adw .report-chart-heading .report-chart-title{font-size:16px;font-weight:700;line-height:1.35;letter-spacing:0;color:var(--text)}
+body.adw #asrTimeSubtitle{color:var(--text-2);font-size:12px}
