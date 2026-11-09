@@ -1,7 +1,7 @@
 """SQLite store for normalized MPT call data.
 
 CSV payloads are parsed directly from memory and committed transactionally.  No
-temporary CSV is written.  Records are retained for a rolling 31-day window.
+temporary CSV is written. Records are retained for a rolling 60-day window.
 """
 
 from __future__ import annotations
@@ -166,7 +166,7 @@ def normalize_row(raw, account_names, occurrence):
 
 class CallStore:
     def __init__(self, root, retention_days=RETENTION_DAYS,
-                 cache_bytes=QUERY_CACHE_BYTES):
+                 cache_bytes=QUERY_CACHE_BYTES, cleanup_on_start=True):
         self.root = Path(root)
         self.data_dir = self.root / "data"
         self.path = self.data_dir / "calls.sqlite3"
@@ -178,14 +178,17 @@ class CallStore:
         self.cache_bytes = int(cache_bytes)
         self._cache = OrderedDict()
         self._cache_lock = Lock()
+        self._status_cache = {}
         self.data_dir.mkdir(parents=True, exist_ok=True)
         self._initialize()
-        self.cleanup()
+        if cleanup_on_start:
+            self.cleanup()
 
     def _invalidate(self):
         with self._cache_lock:
             self.generation += 1
             self._cache.clear()
+            self._status_cache.clear()
 
     @contextmanager
     def connect(self):
@@ -251,6 +254,10 @@ class CallStore:
                 );
                 CREATE INDEX IF NOT EXISTS idx_calls_profile_time
                     ON call_records(profile_id, start_stamp);
+                CREATE INDEX IF NOT EXISTS idx_calls_time
+                    ON call_records(start_stamp);
+                CREATE INDEX IF NOT EXISTS idx_calls_profile_metrics
+                    ON call_records(profile_id,start_stamp,hangup_cause,duration,billsec);
                 CREATE INDEX IF NOT EXISTS idx_calls_profile_account_time
                     ON call_records(profile_id, account_id, start_stamp);
                 CREATE INDEX IF NOT EXISTS idx_calls_profile_telco_time
@@ -286,6 +293,29 @@ class CallStore:
                     revision INTEGER NOT NULL DEFAULT 0,
                     updated_at TEXT NOT NULL
                 );
+                CREATE TABLE IF NOT EXISTS call_daily_stats (
+                    profile_id TEXT NOT NULL,
+                    day TEXT NOT NULL,
+                    account_id TEXT NOT NULL,
+                    telco TEXT NOT NULL,
+                    direction TEXT NOT NULL,
+                    row_count INTEGER NOT NULL,
+                    total_billsec REAL NOT NULL,
+                    min_stamp TEXT NOT NULL,
+                    max_stamp TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    PRIMARY KEY(profile_id, day, account_id, telco, direction)
+                );
+                CREATE TABLE IF NOT EXISTS daily_stats_state (
+                    profile_id TEXT PRIMARY KEY,
+                    revision INTEGER NOT NULL
+                );
+                CREATE TRIGGER IF NOT EXISTS invalidate_moved_call_stats
+                AFTER UPDATE OF start_stamp ON call_records
+                WHEN substr(OLD.start_stamp,1,10) <> substr(NEW.start_stamp,1,10)
+                BEGIN
+                    DELETE FROM daily_stats_state WHERE profile_id=OLD.profile_id;
+                END;
                 CREATE TABLE IF NOT EXISTS account_name_maps (
                     profile_id TEXT NOT NULL,
                     account_id TEXT NOT NULL,
@@ -354,6 +384,54 @@ class CallStore:
                 "SELECT revision FROM data_revisions WHERE profile_id=?", (profile_id,)
             ).fetchone()
         return int(row["revision"]) if row else 0
+
+    @staticmethod
+    def _daily_stats_ready(db, profile_id):
+        return db.execute(
+            "SELECT 1 FROM daily_stats_state s WHERE s.profile_id=? "
+            "AND s.revision=COALESCE((SELECT revision FROM data_revisions "
+            "WHERE profile_id=s.profile_id),0)", (profile_id,),
+        ).fetchone() is not None
+
+    @staticmethod
+    def _refresh_daily_stats(db, profile_id, from_day=None, to_day=None):
+        clauses, values = "profile_id=?", [profile_id]
+        if from_day is not None:
+            clauses += " AND start_stamp>=? AND start_stamp<?"
+            values += [from_day + " 00:00:00",
+                       (date.fromisoformat(to_day) + timedelta(days=1)).isoformat() + " 00:00:00"]
+            db.execute("DELETE FROM call_daily_stats WHERE profile_id=? AND day>=? AND day<=?",
+                       (profile_id, from_day, to_day))
+        else:
+            db.execute("DELETE FROM call_daily_stats WHERE profile_id=?", (profile_id,))
+        # Rebuild from stored rows, not overlapping sync markers or CSV source counts.
+        db.execute(
+            "INSERT INTO call_daily_stats SELECT profile_id,substr(start_stamp,1,10),"
+            "COALESCE(account_id,''),COALESCE(telco,''),COALESCE(direction,''),"
+            "COUNT(*),SUM(COALESCE(billsec,0)),MIN(start_stamp),MAX(start_stamp),MAX(ingested_at) "
+            f"FROM call_records WHERE {clauses} "
+            "GROUP BY profile_id,substr(start_stamp,1,10),COALESCE(account_id,''),"
+            "COALESCE(telco,''),COALESCE(direction,'')", values,
+        )
+        db.execute(
+            "INSERT INTO daily_stats_state(profile_id,revision) VALUES(?,"
+            "COALESCE((SELECT revision FROM data_revisions WHERE profile_id=?),0)) "
+            "ON CONFLICT(profile_id) DO UPDATE SET revision=excluded.revision",
+            (profile_id, profile_id),
+        )
+
+    def rebuild_daily_stats(self):
+        """One-time maintenance for legacy files; never scan history at app startup."""
+        with self.lock, self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            profiles = [r[0] for r in db.execute("SELECT DISTINCT profile_id FROM call_records")]
+            db.execute("DELETE FROM call_daily_stats")
+            db.execute("DELETE FROM daily_stats_state")
+            for profile_id in profiles:
+                self._refresh_daily_stats(db, profile_id)
+            db.commit()
+            self._invalidate()
+        return len(profiles)
 
     def analytics_revision(self, profile_id):
         """Revision token for raw calls plus enrichment inputs."""
@@ -601,6 +679,10 @@ class CallStore:
         """
         with self.lock, self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
+            new_profile = not db.execute(
+                "SELECT 1 FROM call_records WHERE profile_id=? LIMIT 1", (profile_id,),
+            ).fetchone()
+            stats_ready = new_profile or self._daily_stats_ready(db, profile_id)
             # Một export thành công là snapshot chuẩn của partition được yêu cầu.
             # Xóa partition cũ trước khi chèn để các dòng đã biến mất ở MPT không
             # tồn tại mãi do cơ chế upsert.
@@ -625,6 +707,7 @@ class CallStore:
                 values.extend(row.get(column) for column in COLUMNS)
                 values.extend([row["raw_json"], now])
                 db.execute(sql, values)
+            stats_ready = stats_ready and (new_profile or self._daily_stats_ready(db, profile_id))
             partition_counts = defaultdict(int)
             for row in rows:
                 stamp = row.get("start_stamp") or ""
@@ -665,8 +748,12 @@ class CallStore:
                 (profile_id, started, now, from_day, to_day, ",".join(scopes),
                  len(rows), stored, digest, "ok"),
             )
+            if new_profile:
+                self._refresh_daily_stats(db, profile_id)
+            elif stats_ready:
+                self._refresh_daily_stats(db, profile_id, from_day, to_day)
             db.commit()
-        self._invalidate()
+            self._invalidate()
         return {"sourceRows": len(rows), "storedRows": stored, "sourceHash": digest,
                 "revision": revision}
 
@@ -767,9 +854,29 @@ class CallStore:
     def cleanup(self):
         cutoff = (date.today() - timedelta(days=max(0, self.retention_days - 1))).isoformat()
         with self.lock, self.connect() as db:
+            db.execute("BEGIN IMMEDIATE")
+            affected = [r[0] for r in db.execute(
+                # DISTINCT otherwise makes SQLite scan the profile-first index.
+                "SELECT DISTINCT profile_id FROM call_records INDEXED BY idx_calls_time WHERE start_stamp < ?",
+                (cutoff + " 00:00:00",),
+            )]
+            ready = [p for p in affected if self._daily_stats_ready(db, p)]
             calls = db.execute(
-                "DELETE FROM call_records WHERE substr(start_stamp,1,10) < ?", (cutoff,)
+                "DELETE FROM call_records WHERE start_stamp < ?", (cutoff + " 00:00:00",)
             ).rowcount
+            db.execute("DELETE FROM call_daily_stats WHERE day < ?", (cutoff,))
+            now = datetime.now().astimezone().isoformat(timespec="seconds")
+            for profile_id in affected:
+                db.execute(
+                    "INSERT INTO data_revisions(profile_id,revision,updated_at) VALUES(?,1,?) "
+                    "ON CONFLICT(profile_id) DO UPDATE SET revision=revision+1,updated_at=excluded.updated_at",
+                    (profile_id, now),
+                )
+            for profile_id in ready:
+                db.execute(
+                    "UPDATE daily_stats_state SET revision=(SELECT revision FROM data_revisions "
+                    "WHERE profile_id=?) WHERE profile_id=?", (profile_id, profile_id),
+                )
             db.execute("DELETE FROM sync_days WHERE day < ?", (cutoff,))
             db.execute("DELETE FROM sync_partitions WHERE day < ?", (cutoff,))
             db.execute("DELETE FROM ingestion_runs WHERE finished_at < ?", (
@@ -777,9 +884,11 @@ class CallStore:
             ))
             # Trả trang trống về cho hệ điều hành (chỉ tác dụng khi auto_vacuum
             # đã là INCREMENTAL — DB cũ cần compact() một lần).
-            db.execute("PRAGMA incremental_vacuum")
-        if calls:
-            self._invalidate()
+            if calls:
+                db.execute("PRAGMA incremental_vacuum(1024)")
+            db.commit()
+            if calls:
+                self._invalidate()
         return calls
 
     def _file_bytes(self):
@@ -808,14 +917,38 @@ class CallStore:
                 db.close()
         return {"beforeBytes": before, "afterBytes": self._file_bytes()}
 
-    def status(self, profile_id):
-        with self.connect() as db:
-            row = db.execute(
-                "SELECT COUNT(*) AS rows, MIN(substr(start_stamp,1,10)) AS min_day, "
-                "MAX(substr(start_stamp,1,10)) AS max_day, MAX(ingested_at) AS updated_at "
-                "FROM call_records WHERE profile_id=?", (profile_id,),
-            ).fetchone()
-            total_rows = db.execute("SELECT COUNT(*) FROM call_records").fetchone()[0]
+    def status(self, profile_id, light=False):
+        with self.lock, self.connect() as db:
+            key = (profile_id, bool(light))
+            row = self._status_cache.get(key)
+            if row is None:
+                if self._daily_stats_ready(db, profile_id):
+                    row = dict(db.execute(
+                        "SELECT COALESCE(SUM(row_count),0) AS rows,MIN(day) AS min_day,"
+                        "MAX(day) AS max_day,MAX(updated_at) AS updated_at "
+                        "FROM call_daily_stats WHERE profile_id=?", (profile_id,),
+                    ).fetchone())
+                else:
+                    row = {"rows": db.execute(
+                        "SELECT COUNT(*) FROM call_records WHERE profile_id=?", (profile_id,),
+                    ).fetchone()[0], "updated_at": None}
+                    for order, name in (("ASC", "min_day"), ("DESC", "max_day")):
+                        stamp = db.execute(
+                            f"SELECT start_stamp FROM call_records WHERE profile_id=? ORDER BY start_stamp {order} LIMIT 1",
+                            (profile_id,),
+                        ).fetchone()
+                        row[name] = stamp[0][:10] if stamp else None
+                    if not light:
+                        row["updated_at"] = db.execute(
+                            "SELECT MAX(ingested_at) FROM call_records WHERE profile_id=?", (profile_id,),
+                        ).fetchone()[0]
+                if len(self._status_cache) >= 16:
+                    self._status_cache.clear()
+                self._status_cache[key] = row
+            total_rows = self._status_cache.get("total")
+            if total_rows is None:
+                total_rows = db.execute("SELECT COUNT(*) FROM call_records").fetchone()[0]
+                self._status_cache["total"] = total_rows
             page_size = db.execute("PRAGMA page_size").fetchone()[0]
             free_pages = db.execute("PRAGMA freelist_count").fetchone()[0]
             auto_vacuum = db.execute("PRAGMA auto_vacuum").fetchone()[0]

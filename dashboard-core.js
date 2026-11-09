@@ -15,7 +15,7 @@
 const UI_LABELS = Object.freeze({
   status: Object.freeze({
     connected: 'Kết nối', noAnswer: 'Không nghe', cancelled: 'Hủy',
-    fail: 'Lỗi', nonSystemFailure: 'Non-System Failure', unknown: 'Không rõ'
+    fail: 'Lỗi', cidBlocked: 'CID bị khóa', nonSystemFailure: 'Non-System Failure', unknown: 'Không rõ'
   }),
   kpi: Object.freeze({
     totalCalls: 'Tổng cuộc', connectRate: 'Tỷ lệ kết nối',
@@ -33,6 +33,7 @@ const UI_LABELS = Object.freeze({
 function statusLabel(connType) {
   return ({ Connected: UI_LABELS.status.connected, 'No Answer': UI_LABELS.status.noAnswer,
     Cancelled: UI_LABELS.status.cancelled, Fail: UI_LABELS.status.fail,
+    CID_Blocked: UI_LABELS.status.cidBlocked,
     'Non-System Failure': UI_LABELS.status.nonSystemFailure,
     Unknown: UI_LABELS.status.unknown })[connType] || UI_LABELS.status.unknown;
 }
@@ -187,7 +188,6 @@ const NoAnswer_Hangup_cause = new Set([
   "NO_USER_RESPONSE",
   "NO_ANSWER",
   "USER_BUSY",
-  "CALL_REJECTED",
   "USER_NOT_REGISTERED",
   "SUBSCRIBER_ABSENT",
   "NORMAL_UNSPECIFIED"
@@ -206,9 +206,9 @@ function isConnectedStrict(rec) {
   return Number(rec && rec.billsec || 0) > 0;
 }
 /** Thứ tự hiển thị chuẩn của các nhóm phân loại — dùng chung cho mọi biểu đồ. */
-const CONN_TYPES = ['Fail', 'Non-System Failure', 'No Answer', 'Cancelled', 'Connected'];
+const CONN_TYPES = ['Fail', 'CID_Blocked', 'Non-System Failure', 'No Answer', 'Cancelled', 'Connected'];
 function emptyConnCounts() {
-  return { Fail: 0, 'Non-System Failure': 0, 'No Answer': 0, Cancelled: 0, Connected: 0, Unknown: 0 };
+  return { Fail: 0, CID_Blocked: 0, 'Non-System Failure': 0, 'No Answer': 0, Cancelled: 0, Connected: 0, Unknown: 0 };
 }
 
 /**
@@ -220,6 +220,7 @@ function classifyCall(rec) {
   const billsec = Number(rec.billsec || 0);
   const hangup = (rec.hangup_cause || "").toString().trim().toUpperCase();
 
+  if (hangup === "CALL_REJECTED") return "CID_Blocked";
   if (NonSystemFailure_Hangup_cause.has(hangup)) return "Non-System Failure";
   if (Fail_Hangup_cause.has(hangup)) return "Fail";
   if (billsec > 0) return "Connected";
@@ -230,6 +231,12 @@ function classifyCall(rec) {
   return "Unknown";
 }
 function dateKey(ts) { if (!ts) return 'Unknown'; return String(ts).slice(0, 10); }
+function normalizeCallDirection(row) {
+  const value = String(row && row.direction || '').trim().toLowerCase();
+  if (value.includes('outbound') || value === 'out' || value === 'external' || value === '1') return 'Outbound';
+  if (value.includes('inbound') || value === 'in' || value === 'internal' || value === '2') return 'Inbound';
+  return 'Unknown';
+}
 
 // ---------- Telco ----------
 const TELCO_NAME_MAP = {
@@ -772,18 +779,18 @@ function computeASRExcludingFail(rowsOrCounts){
 
 function computeConnectRate(rowsOrCounts){
   const counts = Array.isArray(rowsOrCounts) ? computeCallCounts(rowsOrCounts) : (rowsOrCounts||{});
-  const total = (counts.Fail||0) + (counts['Non-System Failure']||0) + (counts['No Answer']||0) + (counts.Cancelled||0)
+  const total = (counts.Fail||0) + (counts.CID_Blocked||0) + (counts['Non-System Failure']||0) + (counts['No Answer']||0) + (counts.Cancelled||0)
               + (counts.Connected||0) + (counts.Unknown||0);
   return total ? +((counts.Connected||0)/total*100).toFixed(2) : 0;
 }
 
-// Connected / (Tổng - Fail). Chỉ số này khác ASR hợp lệ bên trên:
-// mẫu số vẫn giữ No Answer, Cancelled và Unknown, chỉ loại đúng Fail.
+// Connected / (Tổng - Fail - CID_Blocked). Chỉ số này khác ASR hợp lệ bên trên:
+// mẫu số vẫn giữ No Answer, Cancelled và Unknown, chỉ loại lỗi hệ thống/CID.
 function computeConnectRateExcludingFail(rowsOrCounts){
   const counts = Array.isArray(rowsOrCounts) ? computeCallCounts(rowsOrCounts) : (rowsOrCounts||{});
-  const total = (counts.Fail||0) + (counts['Non-System Failure']||0) + (counts['No Answer']||0) + (counts.Cancelled||0)
+  const total = (counts.Fail||0) + (counts.CID_Blocked||0) + (counts['Non-System Failure']||0) + (counts['No Answer']||0) + (counts.Cancelled||0)
               + (counts.Connected||0) + (counts.Unknown||0);
-  const denominator = total - (counts.Fail||0);
+  const denominator = total - (counts.Fail||0) - (counts.CID_Blocked||0);
   return denominator ? +((counts.Connected||0)/denominator*100).toFixed(2) : 0;
 }
 
@@ -872,10 +879,11 @@ function computeTimeAnomalyMetrics(rows){
 
 function aggregateOverview(rows){
   return __getAgg(rows, 'aggregateOverview', ()=>{ const counts=computeCallCounts(rows);
-    const total = counts.Fail + counts['Non-System Failure'] + counts['No Answer'] + counts.Cancelled + counts.Connected + counts.Unknown;
-    const pct={Fail:0,NonSystemFailure:0,NoAnswer:0,Cancelled:0,Connected:0};
+    const total = counts.Fail + counts.CID_Blocked + counts['Non-System Failure'] + counts['No Answer'] + counts.Cancelled + counts.Connected + counts.Unknown;
+    const pct={Fail:0,CIDBlocked:0,NonSystemFailure:0,NoAnswer:0,Cancelled:0,Connected:0};
     if(total>0){
       pct.Fail      = +(counts.Fail/total*100).toFixed(2);
+      pct.CIDBlocked = +(counts.CID_Blocked/total*100).toFixed(2);
       pct.NonSystemFailure = +(counts['Non-System Failure']/total*100).toFixed(2);
       pct.NoAnswer  = +(counts['No Answer']/total*100).toFixed(2);
       pct.Cancelled = +(counts.Cancelled/total*100).toFixed(2);
@@ -920,9 +928,9 @@ function computeOperationalAlerts(rows, precomputed){
     const h=r.hour||String(r.start_stamp||'').slice(11,13)||'Unknown';
     if(!hourly[h]) hourly[h]={hour:h,total:0,failNoAnswer:0};
     hourly[h].total++;
-    if(r.connType==='Fail'||r.connType==='No Answer'||r.connType==='Cancelled') hourly[h].failNoAnswer++;
+    if(r.connType==='Fail'||r.connType==='CID_Blocked'||r.connType==='No Answer'||r.connType==='Cancelled') hourly[h].failNoAnswer++;
   });
-  const issueCount=list.reduce((s,r)=>s+((r.connType==='Fail'||r.connType==='No Answer'||r.connType==='Cancelled')?1:0),0);
+  const issueCount=list.reduce((s,r)=>s+((r.connType==='Fail'||r.connType==='CID_Blocked'||r.connType==='No Answer'||r.connType==='Cancelled')?1:0),0);
   const overallIssueRate=total?issueCount/total:0;
   const hourAnomalies=Object.values(hourly).filter(h=>h.total>=50)
     .map(h=>({...h,rate:h.failNoAnswer/h.total,diffPp:(h.failNoAnswer/h.total-overallIssueRate)*100}))
@@ -952,7 +960,7 @@ function aggByPrefix(rows){
 	rows.forEach(r=>{ 
 		const p=r.prefix||'Other'; 
 			if (p === 'Other') return; // bỏ trường hợp Other khỏi kết quả
-		out[p]=out[p]||{Fail:0,'Non-System Failure':0,'No Answer':0,Cancelled:0,Connected:0,total:0};
+		out[p]=out[p]||{Fail:0,CID_Blocked:0,'Non-System Failure':0,'No Answer':0,Cancelled:0,Connected:0,total:0};
 		out[p][r.connType]=(out[p][r.connType]||0)+1; out[p].total++;
 		}); 
 	return out; 
@@ -961,14 +969,30 @@ function aggByPrefix(rows){
 }
 
 function minutesPerDay(rows){
-  return __getAgg(rows, 'minutesPerDay', ()=>{ const map={}; rows.forEach(r=>{ const d=r.date||'Unknown'; map[d]=(map[d]||0)+Number(r.billsec||0); }); const dates=Object.keys(map).sort(); return {dates,minutes:dates.map(d=>+(map[d]/60).toFixed(2))}; 
+  return __getAgg(rows, 'minutesPerDay', ()=>{
+    const map={}, byDirection={
+      Outbound:{key:'Outbound',name:'Gọi ra',seconds:{}},
+      Inbound:{key:'Inbound',name:'Gọi vào',seconds:{}},
+      Unknown:{key:'Unknown',name:'Chưa xác định',seconds:{}}
+    };
+    rows.forEach(r=>{
+      const d=r.date||'Unknown', seconds=Number(r.billsec||0);
+      const direction=byDirection[normalizeCallDirection(r)];
+      map[d]=(map[d]||0)+seconds;
+      direction.seconds[d]=(direction.seconds[d]||0)+seconds;
+    });
+    const dates=Object.keys(map).sort();
+    const series=Object.values(byDirection)
+      .map(item=>({key:item.key,name:item.name,minutes:dates.map(d=>(item.seconds[d]||0)/60)}))
+      .filter(item=>item.minutes.some(Boolean));
+    return {dates,minutes:dates.map(d=>+(map[d]/60).toFixed(2)),series};
   });
 }
 
 // ---------- buildCube: dựng dữ liệu tổng hợp gọn cho dashboard ----------
 // Milestone 1c: mới phủ phần 'overview' + renderCommon. Các tab khác bổ sung sau.
 // params: {startDate,endDate,account,startTime,endTime} (account: 'all' | mảng id)
-function buildCube(enrichedRows, params) {
+function buildCube(enrichedRows, params, aggregates = {}) {
   params = params || {};
   // A report refresh only needs the common KPIs plus the tab the user can see.
   // Keep the historical all-in-one behaviour when `sections` is absent so
@@ -977,12 +1001,20 @@ function buildCube(enrichedRows, params) {
     ? new Set(params.sections.map(value => String(value || '').toLowerCase()))
     : null;
   const wants = section => !requestedSections || requestedSections.has(section);
-  const rows = filterData(
-    enrichedRows,
-    params.startDate, params.endDate,
-    params.account || 'all',
+  // Keep one filtered array so tabs can share aggregates without retaining old scopes.
+  const filterKey = JSON.stringify([
+    params.startDate, params.endDate, params.account || 'all',
     params.startTime, params.endTime
-  );
+  ]);
+  const filtered = __getAgg(enrichedRows, 'cubeFilter', () => ({}));
+  if (filtered.key !== filterKey) {
+    filtered.rows = filterData(
+      enrichedRows, params.startDate, params.endDate,
+      params.account || 'all', params.startTime, params.endTime
+    );
+    filtered.key = filterKey;
+  }
+  const rows = filtered.rows;
   let dateMin = null, dateMax = null;
   const accounts = new Set();
   for (const row of rows) {
@@ -996,6 +1028,15 @@ function buildCube(enrichedRows, params) {
   const ccuScope = params.ccuScope === 'occupied' ? 'occupied' : 'answered';
   const filterSpanSec = filterWindowSec(params);
   const retry = params.retry || {};
+  const shared = __getAgg(rows, 'cubeShared', () => ({}));
+  if (wants('time') || wants('advanced')) {
+    if (!shared.callbackStats) shared.callbackStats = computeCallbackStats(rows);
+    const retryKey = JSON.stringify([retry.windowMinutes || 5, retry.scope || 'account']);
+    if (shared.retryKey !== retryKey) {
+      shared.retryPattern = computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account');
+      shared.retryKey = retryKey;
+    }
+  }
   const overview = aggregateOverview(rows);
   const result = {
     meta: {
@@ -1023,6 +1064,7 @@ function buildCube(enrichedRows, params) {
       }),
       accountKPIs: computeAccountKPIs(rows),
       topDest: computeTopDest(rows),
+      minutesPerDay: aggregates.minutesPerDay || minutesPerDay(rows),
       dailyPrefixStats
     });
   }
@@ -1036,17 +1078,17 @@ function buildCube(enrichedRows, params) {
   // --- Thời gian ---
   if (wants('time')) {
     Object.assign(result, {
-      minutesPerDay: minutesPerDay(rows),
+      minutesPerDay: result.minutesPerDay || aggregates.minutesPerDay || minutesPerDay(rows),
       timeHeatmap: computeTimeHeatmap(rows),
       goldenHours: computeGoldenHours(rows),
       answerRateByAccountPerDay: computeAnswerRateByAccountPerDay(rows),
-      callbackStats: computeCallbackStats(rows),
-      retryPattern: computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account')
+      callbackStats: shared.callbackStats,
+      retryPattern: shared.retryPattern
     });
     result.concurrency = (() => {
-      const byTelco = __computeConcurrency(rows, getTelco, ccuScope);
+      const { all, ...byTelco } = __computeConcurrency(rows, getTelco, ccuScope, true);
       return {
-        all: __computeConcurrency(rows, () => 'Tất cả', ccuScope),
+        all,
         byTelco,
         ccuByTelco: computeCcuByTelco(rows, { scope: ccuScope, filterSpanSec, byTelco })
       };
@@ -1061,8 +1103,8 @@ function buildCube(enrichedRows, params) {
     gatewayHangupCause: computeGatewayHangupCause(rows),
     gatewayFailTimeline: computeGatewayFailTimeline(rows, 15),
     gatewayBlockReconcile: computeGatewayBlockReconcile(rows),
-    callbackStats: result.callbackStats || computeCallbackStats(rows),
-    retryPattern: result.retryPattern || computeRetryPattern(rows, retry.windowMinutes || 5, retry.scope || 'account')
+    callbackStats: shared.callbackStats,
+    retryPattern: shared.retryPattern
   });
   // --- Cước phí (chỉ khi có cấu hình billing) ---
   if (params.billing && wants('billing')) result.billing = computeBilling(rows, params.billing);
@@ -1378,7 +1420,7 @@ function computeRetryPattern(rows,windowMinutes=5,scope='account'){
     const key=scope==='account' ? `${account}\u0000${destination}` : destination;
     if(!grouped.has(key)) grouped.set(key,[]);
     grouped.get(key).push(call);
-    if(call.outcome==='Fail'||call.outcome==='No Answer'||call.outcome==='Cancelled') eligibleFailures++;
+    if(call.outcome==='Fail'||call.outcome==='CID_Blocked'||call.outcome==='No Answer'||call.outcome==='Cancelled') eligibleFailures++;
   });
 
   const events=[];
@@ -1389,7 +1431,7 @@ function computeRetryPattern(rows,windowMinutes=5,scope='account'){
     for(let i=1;i<calls.length;i++){
       const previous=calls[i-1],current=calls[i];
       const gapMs=current.ts-previous.ts;
-      const qualifies=(previous.outcome==='Fail'||previous.outcome==='No Answer'||previous.outcome==='Cancelled')
+      const qualifies=(previous.outcome==='Fail'||previous.outcome==='CID_Blocked'||previous.outcome==='No Answer'||previous.outcome==='Cancelled')
         && gapMs>0 && gapMs<=windowMs;
       if(!qualifies){ retryAttempt=0; continue; }
       if(retryAttempt===0) chainIndex++;
@@ -1465,17 +1507,18 @@ function computeAccountKPIs(rows){
   (rows||[]).forEach(r=>{
     const acc = String(r.account_id||'Unknown');
     if(!map[acc]) map[acc] = {acc, label: (r.account_name && String(r.account_name).trim()) || (typeof accountNameMap!=='undefined' ? accountNameMap[acc] : acc) || acc,
-                              total:0, connected:0, noans:0, fail:0, minutes:0};
+                              total:0, connected:0, noans:0, fail:0, cidBlocked:0, minutes:0};
     const m = map[acc];
     m.total++;
     if(r.connType==='Connected') m.connected++;
     else if(r.connType==='No Answer') m.noans++;
     else if(r.connType==='Fail') m.fail++;
+    else if(r.connType==='CID_Blocked') m.cidBlocked++;
     m.minutes += Number(r.billsec||0)/60;
   });
   const arr = Object.values(map).map(m=>{
     const asr = (m.connected + m.noans) === 0 ? 0 : (m.connected/(m.connected+m.noans)*100);
-    const nonFail = m.total - m.fail;
+    const nonFail = m.total - m.fail - m.cidBlocked;
     const connectRateExcludingFail = nonFail===0 ? 0 : (m.connected/nonFail*100);
     const failPct = m.total===0 ? 0 : (m.fail/m.total*100);
     return {...m, asr, connectRateExcludingFail:+connectRateExcludingFail.toFixed(2), failPct, minutes:+m.minutes.toFixed(2)};
@@ -1488,17 +1531,18 @@ function computeTopDest(rows){
   (rows||[]).forEach(r=>{
     const dn = String(r.destination_number || r.out_number || '').trim();
     if(!dn) return;
-    if(!map[dn]) map[dn] = {dn, total:0, connected:0, noans:0, fail:0};
+    if(!map[dn]) map[dn] = {dn, total:0, connected:0, noans:0, fail:0, cidBlocked:0};
     const m = map[dn];
     m.total++;
     if(r.connType==='Connected') m.connected++;
     else if(r.connType==='No Answer') m.noans++;
     else if(r.connType==='Fail') m.fail++;
+    else if(r.connType==='CID_Blocked') m.cidBlocked++;
   });
   const arr = Object.values(map).map(m=>{
     const failPct = m.total===0 ? 0 : (m.fail/m.total*100);
     // Literal cùng thứ tự khoá như {...m, failPct} nhưng không phải copy động.
-    return {dn:m.dn, total:m.total, connected:m.connected, noans:m.noans, fail:m.fail, failPct:+failPct.toFixed(2)};
+    return {dn:m.dn, total:m.total, connected:m.connected, noans:m.noans, fail:m.fail, cidBlocked:m.cidBlocked, failPct:+failPct.toFixed(2)};
   });
   return arr;
 }
@@ -1516,7 +1560,7 @@ function aggTelcoConnBreakdown(rows){
   (rows||[]).forEach(r=>{
     const tel = String(r.telco||'Unknown');
     const ct = r.connType || 'Unknown';
-    if(!map[tel]) map[tel] = {Connected:0, 'No Answer':0, Cancelled:0, Fail:0, 'Non-System Failure':0, Unknown:0, total:0};
+    if(!map[tel]) map[tel] = {Connected:0, 'No Answer':0, Cancelled:0, Fail:0, CID_Blocked:0, 'Non-System Failure':0, Unknown:0, total:0};
     if(map[tel][ct] === undefined) map[tel][ct] = 0;
     map[tel][ct]++;
     map[tel].total++;
@@ -1527,11 +1571,11 @@ function aggTelcoConnBreakdown(rows){
     const pct = (v)=> total>0 ? +(v/total*100).toFixed(2) : 0;
     return {
       tel: t,
-      con: d.Connected||0, noans: d['No Answer']||0, canc: d.Cancelled||0, fail: d.Fail||0,
+      con: d.Connected||0, noans: d['No Answer']||0, canc: d.Cancelled||0, fail: d.Fail||0, cidBlocked: d.CID_Blocked||0,
       nonSystemFailure: d['Non-System Failure']||0, unk: d.Unknown||0, total,
       counts: d,
       conPct: pct(d.Connected||0), noansPct: pct(d['No Answer']||0), cancPct: pct(d.Cancelled||0),
-      failPct: pct(d.Fail||0), nonSystemFailurePct: pct(d['Non-System Failure']||0), unkPct: pct(d.Unknown||0)
+      failPct: pct(d.Fail||0), cidBlockedPct: pct(d.CID_Blocked||0), nonSystemFailurePct: pct(d['Non-System Failure']||0), unkPct: pct(d.Unknown||0)
     };
   });
   arr.sort((a,b)=> b.conPct - a.conPct);
@@ -1627,13 +1671,14 @@ function computeAgentPerf(rows){
   const out={};
   (rows||[]).forEach(r=>{
     const id=String(r.account_id||'unknown');
-    if(!out[id]) out[id]={id, tot:0, con:0, noans:0, canc:0, fail:0, nonSystemFailure:0, unknown:0, billsec:0, conBillsec:0, conCnt:0, shortCalls:0};
+    if(!out[id]) out[id]={id, tot:0, con:0, noans:0, canc:0, fail:0, cidBlocked:0, nonSystemFailure:0, unknown:0, billsec:0, conBillsec:0, conCnt:0, shortCalls:0};
     out[id].tot+=1;
     const ct = r.connType;
     if(ct==='Connected') out[id].con+=1;
     else if(ct==='No Answer') out[id].noans+=1;
     else if(ct==='Cancelled') out[id].canc+=1;
     else if(ct==='Fail') out[id].fail+=1;
+    else if(ct==='CID_Blocked') out[id].cidBlocked+=1;
     else if(ct==='Non-System Failure') out[id].nonSystemFailure+=1;
     else out[id].unknown+=1;
     const bs=Number(r.billsec)||0;
@@ -1647,7 +1692,7 @@ function computeAgentPerf(rows){
   return Object.values(out).map(a=>{
     const rate = a.tot? a.con/a.tot : 0;
     const asr = (a.con+a.noans) ? a.con/(a.con+a.noans) : 0;
-    const connectExclFailRate = (a.tot-a.fail) ? a.con/(a.tot-a.fail) : 0;
+    const connectExclFailRate = (a.tot-a.fail-a.cidBlocked) ? a.con/(a.tot-a.fail-a.cidBlocked) : 0;
     const avgCon = a.conCnt? a.conBillsec/a.conCnt : 0;
     const shortRate = a.conCnt ? a.shortCalls/a.conCnt : 0;
     return {...a, rate, asr, connectExclFailRate, minutes: a.billsec/60, avgCon, shortRate};
@@ -1711,13 +1756,14 @@ function computeGatewayByAccount(rows){
       let m = map[key];
       if(!m) m = map[key] = { account_id: acc, account_name: String(r.account_name || acc),
         gateway: gw, routing_name: String(r.routing_name || ''), mapped: !!gwRaw,
-        total:0, connected:0, noans:0, cancelled:0, fail:0, nonSystemFailure:0, unknown:0, billsec:0 };
+        total:0, connected:0, noans:0, cancelled:0, fail:0, cidBlocked:0, nonSystemFailure:0, unknown:0, billsec:0 };
       m.total++;
       const ct = r.connType || classifyCall(r);
       if(ct==='Connected'){ m.connected++; m.billsec += Number(r.billsec||0); }
       else if(ct==='No Answer') m.noans++;
       else if(ct==='Cancelled') m.cancelled++;
       else if(ct==='Fail') m.fail++;
+      else if(ct==='CID_Blocked') m.cidBlocked++;
       else if(ct==='Non-System Failure') m.nonSystemFailure++;
       else m.unknown++;
     });
@@ -1726,8 +1772,9 @@ function computeGatewayByAccount(rows){
       minutes: +(m.billsec/60).toFixed(2),
       connectRate: m.total ? +(m.connected/m.total*100).toFixed(2) : 0,
       asr: (m.connected+m.noans) ? +(m.connected/(m.connected+m.noans)*100).toFixed(2) : 0,
-      connectExclFailRate: (m.total-m.fail) ? +(m.connected/(m.total-m.fail)*100).toFixed(2) : 0,
-      failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0
+      connectExclFailRate: (m.total-m.fail-m.cidBlocked) ? +(m.connected/(m.total-m.fail-m.cidBlocked)*100).toFixed(2) : 0,
+      failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0,
+      cidBlockedPct: m.total ? +(m.cidBlocked/m.total*100).toFixed(2) : 0
     })).sort((a,b)=> String(a.account_id).localeCompare(String(b.account_id)) || (b.total - a.total));
     return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
   });
@@ -1749,7 +1796,7 @@ function computeGatewayFail(rows){
       matched++;
       let m = map[gw];
       if(!m) m = map[gw] = { gateway: gw, accounts: new Set(),
-        total:0, connected:0, noans:0, cancelled:0, fail:0, nonSystemFailure:0, unknown:0, billsec:0 };
+        total:0, connected:0, noans:0, cancelled:0, fail:0, cidBlocked:0, nonSystemFailure:0, unknown:0, billsec:0 };
       m.accounts.add(String(r.account_id || 'Unknown'));
       m.total++;
       const ct = r.connType || classifyCall(r);
@@ -1757,6 +1804,7 @@ function computeGatewayFail(rows){
       else if(ct==='No Answer') m.noans++;
       else if(ct==='Cancelled') m.cancelled++;
       else if(ct==='Fail') m.fail++;
+      else if(ct==='CID_Blocked') m.cidBlocked++;
       else if(ct==='Non-System Failure') m.nonSystemFailure++;
       else m.unknown++;
     });
@@ -1764,11 +1812,11 @@ function computeGatewayFail(rows){
       gateway: m.gateway,
       accountCount: m.accounts.size,
       total: m.total, connected: m.connected, noans: m.noans,
-      cancelled: m.cancelled, fail: m.fail, nonSystemFailure: m.nonSystemFailure,
+      cancelled: m.cancelled, fail: m.fail, cidBlocked: m.cidBlocked, nonSystemFailure: m.nonSystemFailure,
       minutes: +(m.billsec/60).toFixed(2),
       connectRate: m.total ? +(m.connected/m.total*100).toFixed(2) : 0,
       asr: (m.connected+m.noans) ? +(m.connected/(m.connected+m.noans)*100).toFixed(2) : 0,
-      connectExclFailRate: (m.total-m.fail) ? +(m.connected/(m.total-m.fail)*100).toFixed(2) : 0,
+      connectExclFailRate: (m.total-m.fail-m.cidBlocked) ? +(m.connected/(m.total-m.fail-m.cidBlocked)*100).toFixed(2) : 0,
       failPct: m.total ? +(m.fail/m.total*100).toFixed(2) : 0
     })).sort((a,b)=> b.failPct - a.failPct || b.total - a.total);
     return { rows: rows_, coverage: { total, matched, pct: total ? +(matched/total*100).toFixed(2) : 0 } };
@@ -1873,13 +1921,14 @@ function computeGatewayHangupCause(rows){
       const key = gw + '\u0000' + cause;
       let m = byCause[key];
       if(!m) m = byCause[key] = { gateway: gw, hangup_cause: cause,
-        total:0, connected:0, noans:0, cancelled:0, fail:0, nonSystemFailure:0, unknown:0 };
+        total:0, connected:0, noans:0, cancelled:0, fail:0, cidBlocked:0, nonSystemFailure:0, unknown:0 };
       m.total++;
       const ct = r.connType || classifyCall(r);
       if(ct==='Connected') m.connected++;
       else if(ct==='No Answer') m.noans++;
       else if(ct==='Cancelled') m.cancelled++;
       else if(ct==='Fail') m.fail++;
+      else if(ct==='CID_Blocked') m.cidBlocked++;
       else if(ct==='Non-System Failure') m.nonSystemFailure++;
       else m.unknown++;
     });
@@ -1977,22 +2026,25 @@ function computeGatewayBlockReconcile(rows){
     if(declared !== 'ON' && declared !== 'PAUSE') return;
     const k = gw + ' ' + tkey + ' ' + declared;
     let m = map[k];
-    if(!m) m = map[k] = { gateway: gw, telco: tkey, declared, total:0, fail:0, connected:0, noans:0 };
+    if(!m) m = map[k] = { gateway: gw, telco: tkey, declared, total:0, fail:0, cidBlocked:0, connected:0, noans:0 };
     m.total++;
     const ct = r.connType || classifyCall(r);
     if(ct === 'Fail') m.fail++;
+    else if(ct === 'CID_Blocked') m.cidBlocked++;
     else if(ct === 'Connected') m.connected++;
     else if(ct === 'No Answer') m.noans++;
   });
   return Object.values(map).map(m=>{
     const failPct = m.total ? +(m.fail/m.total*100).toFixed(2) : 0;
+    const cidBlockedPct = m.total ? +(m.cidBlocked/m.total*100).toFixed(2) : 0;
     const connPct = m.total ? +(m.connected/m.total*100).toFixed(2) : 0;
     let verdict;
     if(m.declared === 'PAUSE' && connPct >= 20) verdict = 'PAUSE nhưng vẫn kết nối nhiều — export có thể cũ';
     else if(m.declared === 'PAUSE') verdict = 'Khớp: đang chặn, gần như không kết nối';
+    else if(m.declared === 'ON' && cidBlockedPct >= 50) verdict = 'ON nhưng CID bị khóa cao — trạng thái có thể chưa cập nhật';
     else if(m.declared === 'ON' && failPct >= 50) verdict = 'ON nhưng Fail cao — nghi bị chặn chưa ghi nhận';
     else verdict = 'Khớp: mở, kết nối bình thường';
-    return { ...m, failPct, connPct, verdict };
+    return { ...m, failPct, cidBlockedPct, connPct, verdict };
   }).sort((a,b)=> String(a.gateway).localeCompare(String(b.gateway))
     || String(a.telco).localeCompare(String(b.telco))
     || a.declared.localeCompare(b.declared));
@@ -2340,16 +2392,19 @@ function __ccuIntervals(rows, scope){
   return {list, derivedEnd};
 }
 
-function __computeConcurrency(rows, keyFn, scope){
+function __computeConcurrency(rows, keyFn, scope, includeAll = false){
   const {list, derivedEnd} = __ccuIntervals(rows, scope);
   const changes = new Map();          // ms -> [{k, d}]
   const keySet = new Set();
   const erlangSec = Object.create(null);
+  // Preserve the old all-call summation order for fractional-second intervals.
+  let allErlangSec = 0;
 
   for(const it of list){
     const k = String(keyFn(it.r));
     keySet.add(k);
     erlangSec[k] = (erlangSec[k]||0) + (it.e - it.s)/1000;
+    allErlangSec += (it.e - it.s)/1000;
     if(!changes.has(it.s)) changes.set(it.s, []);
     if(!changes.has(it.e)) changes.set(it.e, []);
     changes.get(it.s).push({k, d:+1});
@@ -2390,13 +2445,30 @@ function __computeConcurrency(rows, keyFn, scope){
 
   const totalErlangSec = keys.reduce((s,k)=> s + (erlangSec[k]||0), 0);
 
-  return {
+  const result = {
     times, xISO, keys, series, totalY,
     peaks, peakAt, systemPeak, systemPeakAt, atSystemPeak,
     erlangSec, totalErlangSec,
     observedSpanSec: times.length>1 ? (times[times.length-1]-times[0])/1000 : 0,
     derivedEnd, calls: list.length, scope: scope||'answered'
   };
+  if (includeAll) {
+    const all = Object.assign({}, result, {
+      keys: keys.length ? ['Tất cả'] : [],
+      series: Object.create(null), peaks: Object.create(null),
+      peakAt: Object.create(null), atSystemPeak: Object.create(null),
+      erlangSec: Object.create(null), totalErlangSec: allErlangSec
+    });
+    if (keys.length) {
+      all.series['Tất cả'] = { y: totalY };
+      all.peaks['Tất cả'] = systemPeak;
+      all.peakAt['Tất cả'] = systemPeakAt;
+      all.atSystemPeak['Tất cả'] = systemPeak;
+      all.erlangSec['Tất cả'] = allErlangSec;
+    }
+    result.all = all;
+  }
+  return result;
 }
 
 function computeCcuByTelco(rows, opts){
@@ -3390,7 +3462,10 @@ function computeBlockSignalPatterns(timeline, cdrRows, opts){
 
   const feat = w=>{
     const con = w.filter(c=> c.connected);
-    const rejected = w.filter(c=> NoAnswer_Hangup_cause.has(String(c.cause||'').toUpperCase())).length;
+    const rejected = w.filter(c=>{
+      const cause=String(c.cause||'').toUpperCase();
+      return cause==='CALL_REJECTED' || NoAnswer_Hangup_cause.has(cause);
+    }).length;
     return {
       causeShare: 100*rejected/w.length,
       // Không có cuộc nào nối được thì thời lượng coi như 0 — đó là trạng thái
@@ -3860,7 +3935,7 @@ const __exports = {
   mapPrefix,
   Fail_Hangup_cause, NonSystemFailure_Hangup_cause, NoAnswer_Hangup_cause, Cancelled_Hangup_cause,
   isConnectedStrict, CONN_TYPES, emptyConnCounts,
-  classifyCall, dateKey,
+  classifyCall, dateKey, normalizeCallDirection,
   normalizeTelcoName, getTelco, isLikelyPhoneNumber,
   normalizeHeaderKey, CSV_HEADER_ALIASES, NUMERIC_FIELDS, toNumberLoose, pad2,
   normalizeTimestamp, addSecondsToStamp, hash32,

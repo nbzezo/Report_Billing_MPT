@@ -18,6 +18,27 @@ const BUNDLE_CACHE_VERSION = 2;
 const BUNDLE_CACHE_LIMIT = 8;
 const bundleCacheDir = path.join(root, '.cache', 'analytics-bundles');
 
+// Derive SQL's lookup groups from the shared classifier, not a second cause list.
+function classificationSql() {
+  const quote = value => "'" + String(value).replaceAll("'", "''") + "'";
+  const causes = new Set(['CALL_REJECTED', ...core.Fail_Hangup_cause, ...core.NonSystemFailure_Hangup_cause,
+    ...core.NoAnswer_Hangup_cause, ...core.Cancelled_Hangup_cause]);
+  // Evaluate normalization once per row, even when the cause is unknown.
+  const whitespace = 'char(9,10,11,12,13,32,160,5760,8192,8193,8194,8195,8196,8197,8198,8199,8200,8201,8202,8232,8233,8239,8287,12288,65279)';
+  const branches = Array.from(causes, cause => {
+    const zero = core.classifyCall({hangup_cause:cause,duration:0,billsec:0});
+    const answered = core.classifyCall({hangup_cause:cause,duration:0,billsec:1});
+    const result = zero === answered ? quote(zero)
+      : `CASE WHEN COALESCE(billsec,0)>0 THEN ${quote(answered)} ELSE ${quote(zero)} END`;
+    return `WHEN ${quote(cause)} THEN ${result}`;
+  });
+  return `CASE UPPER(TRIM(COALESCE(hangup_cause,''),${whitespace})) ${branches.join(' ')} ELSE CASE ` +
+    `WHEN COALESCE(billsec,0)>0 THEN ${quote(core.classifyCall({billsec:1}))} ` +
+    `WHEN COALESCE(duration,0)>0 THEN ${quote(core.classifyCall({duration:1}))} ` +
+    `WHEN COALESCE(duration,0)=0 THEN ${quote(core.classifyCall({duration:0}))} ELSE ${quote(core.classifyCall({duration:-1}))} END END`;
+}
+const CLASSIFICATION_SQL = classificationSql();
+
 function bundleCachePath(message, cap) {
   const sourceVersion = [__filename, path.join(root, 'dashboard-core.js')]
     .map(file => fs.statSync(file).mtimeMs);
@@ -140,6 +161,73 @@ function datasetMeta(rows) {
   };
 }
 
+function readDailyStats(db, params) {
+  // These dimensions cannot answer number/cause/type filters; use raw rows there.
+  if (['caller_number','dest_number','hangupcause','calltype'].some(k => params[k] && params[k] !== '0')) return null;
+  if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='daily_stats_state'").get()) return null;
+  const ready = db.prepare(
+    "SELECT 1 FROM daily_stats_state s WHERE profile_id=? AND revision=COALESCE((SELECT revision FROM data_revisions WHERE profile_id=s.profile_id),0)"
+  ).get(String(params.profile_id || ''));
+  if (!ready) return null;
+  const clauses = ['profile_id=?','day>=?','day<=?'];
+  const values = [String(params.profile_id || ''), params.from_day || '', params.to_day || ''];
+  const accounts = String(params.account_id || '').split(',').filter(x => x && x !== '0');
+  if (accounts.length) {
+    clauses.push(`account_id IN (${accounts.map(() => '?').join(',')})`);
+    values.push(...accounts);
+  }
+  if (params.telco && params.telco !== '0') {
+    clauses.push('LOWER(TRIM(telco))=?'); values.push(String(params.telco).trim().toLowerCase());
+  }
+  if (params.outbound && params.outbound !== '0') {
+    const directions = DIRECTION_FILTERS[String(params.outbound).trim().toLowerCase()] || [String(params.outbound).trim().toLowerCase()];
+    clauses.push(`LOWER(TRIM(direction)) IN (${directions.map(() => '?').join(',')})`);
+    values.push(...directions);
+  }
+  return db.prepare(`SELECT day AS date,day||' 00:00:00' AS start_stamp,account_id,direction,total_billsec AS billsec FROM call_daily_stats WHERE ${clauses.join(' AND ')}`).all(...values);
+}
+
+function queryDetails(message) {
+  const p = message.detailParams || {};
+  if (p.gatewayKey !== undefined && p.gatewayKey !== null) return null;
+  const db = new DatabaseSync(message.dbPath, { readOnly: true });
+  try {
+    db.exec('BEGIN');
+    const where = whereOf(message.params);
+    for (const [field, op, suffix] of [['startDate','>=',' 00:00:00'],['endDate','<=',' 23:59:59']]) {
+      if (p[field]) { where.sql += ` AND start_stamp${op}?`; where.values.push(String(p[field]) + suffix); }
+    }
+    const start = String(p.startTime || '00:00').trim() + ':00';
+    const end = String(p.endTime || '23:59').trim() + ':59';
+    if (start !== '00:00:00' || end !== '23:59:59') {
+      where.sql += ` AND (substr(start_stamp,12,8)>=? ${start <= end ? 'AND' : 'OR'} substr(start_stamp,12,8)<=?)`;
+      where.values.push(start, end);
+    }
+    const account = p.accountIds || p.account || 'all';
+    const accounts = Array.isArray(account) ? account.map(String) : account && account !== 'all' ? [String(account)] : [];
+    if (accounts.length) {
+      where.sql += ` AND account_id IN (${accounts.map(() => '?').join(',')})`;
+      where.values.push(...accounts);
+    }
+    const statuses = Array.isArray(p.statuses) ? p.statuses.map(String).filter(Boolean) : p.status ? [String(p.status)] : [];
+    if (statuses.length) {
+      where.sql += ` AND (${CLASSIFICATION_SQL}) IN (${statuses.map(() => '?').join(',')})`;
+      where.values.push(...statuses);
+    }
+    const total = db.prepare(`SELECT COUNT(*) AS n FROM call_records WHERE ${where.sql}`).get(...where.values).n;
+    const offset = Math.max(0, Number(message.offset) || 0);
+    const limit = Math.max(1, Number(message.limit) || 50);
+    const raw = db.prepare(`SELECT ${COLUMNS.join(',')} FROM call_records WHERE ${where.sql} ORDER BY start_stamp LIMIT ? OFFSET ?`).all(...where.values, limit, offset);
+    const make = core.makeRowFactory(COLUMNS);
+    const normalized = raw.map(row => {
+      const out = make(COLUMNS.map(c => row[c]));
+      out.telco = core.normalizeTelcoName(out.telco);
+      return out;
+    });
+    return { rows:core.enrichData(normalized, {}, gatewayIndex(db, message.params.profile_id)), total, offset, limit };
+  } finally { db.close(); }
+}
+
 function loadDataset(message) {
   const revisionKey = String(message.datasetKey || '');
   const key = String(message.datasetBaseKey || revisionKey);
@@ -151,6 +239,7 @@ function loadDataset(message) {
   }
   const db = new DatabaseSync(message.dbPath, { readOnly: true });
   try {
+    db.exec('BEGIN');
     const where = whereOf(message.params);
     const previous = datasets.get(key);
     const refreshFrom = String(message.refreshFrom || '');
@@ -161,13 +250,16 @@ function loadDataset(message) {
     const values = canPatch
       ? where.values.concat(`${refreshFrom} 00:00:00`, `${refreshTo} 23:59:59`)
       : where.values;
-    const raw = db.prepare(sql).all(...values);
+    const statement = db.prepare(sql);
+    const returnsArrays = typeof statement.setReturnArrays === 'function';
+    if (returnsArrays) statement.setReturnArrays(true);
+    const raw = statement.all(...values);
     // CallStore already stores canonical columns, numeric values, timestamps and
     // UUIDs. Rebuild a uniform V8 object shape for fast analytics, but skip the
     // general CSV normalization pass. Telco names still use the shared rule.
     const makeRow = core.makeRowFactory(COLUMNS);
     const normalized = raw.map(row => {
-      const out = makeRow(COLUMNS.map(column => row[column]));
+      const out = makeRow(returnsArrays ? row : COLUMNS.map(column => row[column]));
       out.telco = core.normalizeTelcoName(out.telco);
       return out;
     });
@@ -186,7 +278,8 @@ function loadDataset(message) {
       }
       rows = before.concat(freshRows, after);
     }
-    const dataset = { rows, meta: datasetMeta(rows), billing: new Map(), cubes: new Map(), revisionKey };
+    const dailyStats = readDailyStats(db, message.params);
+    const dataset = { rows, dailyStats, meta: datasetMeta(rows), billing: new Map(), cubes: new Map(), revisionKey };
     datasets.set(key, dataset);
     while (datasets.size > DATASET_CACHE_LIMIT) datasets.delete(datasets.keys().next().value);
     return dataset;
@@ -211,7 +304,13 @@ function billingOf(dataset, cfg) {
 function cubeOf(dataset, params) {
   const key = JSON.stringify(params || {});
   if (dataset.cubes.has(key)) return dataset.cubes.get(key);
-  const value = core.slimCubeForTransfer(core.buildCube(dataset.rows, params || {}));
+  const p = params || {};
+  const aggregates = {};
+  if (dataset.dailyStats && (!p.startTime || p.startTime === '00:00') && (!p.endTime || p.endTime === '23:59')) {
+    const daily = core.filterData(dataset.dailyStats, p.startDate, p.endDate, p.account || 'all', '00:00', '23:59');
+    aggregates.minutesPerDay = core.minutesPerDay(daily);
+  }
+  const value = core.slimCubeForTransfer(core.buildCube(dataset.rows, p, aggregates));
   dataset.cubes.set(key, value);
   while (dataset.cubes.size > 4) dataset.cubes.delete(dataset.cubes.keys().next().value);
   return value;
@@ -229,6 +328,10 @@ function previewRows(rows, cap) {
 
 function handle(message) {
   if (message.op === 'invalidate') { datasets.clear(); return { ok: true }; }
+  if (message.op === 'detail') {
+    const result = queryDetails(message);
+    if (result) return result;
+  }
   if (message.op === 'bundle') {
     const cap = Math.max(1, Math.min(Number(message.previewLimit || 50000), 50000));
     const cacheFile = bundleCachePath(message, cap);

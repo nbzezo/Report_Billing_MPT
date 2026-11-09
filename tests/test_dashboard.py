@@ -805,6 +805,57 @@ class CallStoreTests(unittest.TestCase):
 
 class AnalyticsWorkerTests(unittest.TestCase):
     @unittest.skipIf(shutil.which("node") is None, "Node.js is required")
+    def test_array_reads_match_legacy_objects_and_refresh_shared_aggregates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = SERVER.call_store.CallStore(directory)
+            today = date.today().isoformat()
+            payload = (
+                "uuid,account_id,caller_id_number,destination_number,start_stamp,end_stamp,duration,billsec,hangup_cause,telco,mos,jitter_max,rtcp_rtt\n"
+                f"u1,334,0901,0911,{today} 10:00:00,{today} 10:00:00,0,0,NO_ANSWER,MOBI,4.2,1.5,20\n"
+                f"u2,334,0901,0911,{today} 10:02:00,{today} 10:03:00,60,30,NORMAL_CLEARING,MOBI,,,\n"
+            ).encode()
+            legacy_script = Path(directory) / "legacy-worker.js"
+            legacy_script.write_text(
+                "require('node:sqlite').StatementSync.prototype.setReturnArrays = undefined;\n"
+                + (ROOT / "analytics-worker.js").read_text(encoding="utf-8"), encoding="utf-8",
+            )
+            params = {"profile_id": "p", "from_day": today, "to_day": today}
+            cube = {"startDate": today, "endDate": today, "startTime": "00:00",
+                    "endTime": "23:59", "account": "all"}
+            expected = None
+            for legacy in (False, True):
+                store.ingest_csv("p", payload, {"334": "Tài khoản thử"}, ["334"], today, today)
+                worker = SERVER.AnalyticsWorker(ROOT, store.path)
+                if legacy:
+                    worker.script = legacy_script
+                source = dict(params=params, datasetKey="p:1", datasetBaseKey="p")
+                try:
+                    detail = worker.request("detail", **source, detailParams=cube, limit=10)
+                    time = worker.request("cube", **source, cubeParams=dict(cube, sections=["time"]))
+                    advanced = worker.request("cube", **source, cubeParams=dict(cube, sections=["advanced"]))
+                    result = (detail, time, advanced)
+                    if expected is None:
+                        expected = result
+                    else:
+                        self.assertEqual(result, expected)
+                    self.assertEqual(detail["rows"][0]["mos"], 4.2)
+                    self.assertIsNone(detail["rows"][1]["mos"])
+                    self.assertEqual(detail["rows"][0]["account_name"], "Tài khoản thử")
+                    self.assertEqual(time["cube"]["retryPattern"]["totalRetries"], 1)
+                    self.assertEqual(time["cube"]["retryPattern"], advanced["cube"]["retryPattern"])
+                    store.ingest_csv("p", b"\n".join(payload.splitlines()[:2]),
+                                     {"334": "Tài khoản thử"}, ["334"], today, today)
+                    refreshed = worker.request(
+                        "cube", params=params, datasetKey="p:2", datasetBaseKey="p",
+                        refreshFrom=today, refreshTo=today,
+                        cubeParams=dict(cube, sections=["advanced"], retry={"windowMinutes": 1}),
+                    )
+                    self.assertEqual(refreshed["cube"]["retryPattern"]["totalRetries"], 0)
+                    self.assertEqual(refreshed["cube"]["overview"]["totalCalls"], 1)
+                finally:
+                    worker.stop()
+
+    @unittest.skipIf(shutil.which("node") is None, "Node.js is required")
     def test_worker_reads_sqlite_and_serves_compact_operations(self):
         with tempfile.TemporaryDirectory() as directory:
             store = SERVER.call_store.CallStore(directory)
@@ -2238,6 +2289,19 @@ class CidPerAccountAndPerfTests(unittest.TestCase):
         # giu max se che mat chinh cac dot tut — thu duy nhat dang nhin
         self.assertIn("function downsampleSeriesMin", self.CORE)
         self.assertIn("downsampleSeriesMin(series[t].times", self.HTML)
+
+
+class OverviewMinutesByDirectionTests(unittest.TestCase):
+    HTML = (ROOT / "V2_0_Call_Dashboard_MPT.html").read_text(encoding="utf-8")
+
+    def test_bieu_do_phut_theo_cum_nam_o_tab_tong_quan(self):
+        self.assertIn('id="chart_minutes_day" class="card small" data-tab="overview"', self.HTML)
+        self.assertIn("'chart_direction_split','chart_minutes_day','chart_minutes_account'", self.HTML)
+        self.assertIn("barmode:'stack'", self.HTML)
+        self.assertIn("textposition:'inside'", self.HTML)
+        self.assertIn("Chiều gọi:", self.HTML)
+        self.assertIn("reportTableEscape(item.name)", self.HTML)
+        self.assertNotIn("escapeHtml(item.name)", self.HTML)
 
 
 class GatewayHangupCauseChartTests(unittest.TestCase):

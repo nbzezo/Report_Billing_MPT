@@ -1555,7 +1555,8 @@ class DashboardHandler(SimpleHTTPRequestHandler):
         query = urllib.parse.parse_qs(parsed.query)
         profile_id = query.get("profile_id", [""])[-1]
         try:
-            self.json_response(self.server.call_store.status(profile_id))
+            light = query.get("light", [""])[-1] == "1"
+            self.json_response(self.server.call_store.status(profile_id, light=light))
         except Exception as exc:
             self.error_response(exc)
 
