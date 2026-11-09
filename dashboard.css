@@ -1684,11 +1684,12 @@ body.adw:not(.dark){
   --text:var(--ux-color-1a1a1a);
   --text-2:var(--ux-color-62666d);
   --text-3:var(--ux-color-62666d);
-  --accent:var(--ux-color-d97757);
-  --accent-hover:var(--ux-color-bf6244);
-  --accent-active:var(--ux-color-a84f35);
+  /* Action colour: burnt orange with white text (5.2:1); the logo keeps --brand. */
+  --accent:var(--ux-color-c2410c);
+  --accent-hover:var(--ux-color-9a3412);
+  --accent-active:var(--ux-color-9a3412);
   --accent-text:var(--ux-color-a84f35);
-  --accent-fg:var(--ux-color-1a1a1a);
+  --accent-fg:var(--ux-color-ffffff);
   --accent-soft:var(--ux-color-f4e2d8);
   --on-accent-soft:var(--ux-color-7e3e2c);
   --brand:var(--ux-color-d97757);
@@ -1747,14 +1748,14 @@ body.adw:not(.dark) button:active:not(:disabled){background:var(--active)}
 body.adw:not(.dark) button:disabled{opacity:.58;background:var(--ux-color-e7e2db);color:var(--ux-color-77736e)}
 body.adw:not(.dark) .primary-btn,
 body.adw:not(.dark) #updateReport{
-  background:var(--ux-color-d97757);
-  border-color:var(--ux-color-d97757);
-  color:var(--ux-color-1a1a1a);
+  background:var(--accent);
+  border-color:var(--accent);
+  color:var(--accent-fg);
   font-weight:600;
 }
 body.adw:not(.dark) .primary-btn:hover:not(:disabled),
-body.adw:not(.dark) #updateReport:hover:not(:disabled){background:var(--ux-color-bf6244);border-color:var(--ux-color-bf6244)}
-body.adw:not(.dark) .primary-btn:active:not(:disabled){background:var(--ux-color-a84f35)}
+body.adw:not(.dark) #updateReport:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover)}
+body.adw:not(.dark) .primary-btn:active:not(:disabled){background:var(--accent-active)}
 body.adw:not(.dark) .flat-btn{background:transparent;border-color:transparent}
 body.adw:not(.dark) .icon-only{width:40px;padding:0}
 
@@ -1848,7 +1849,7 @@ body.adw:not(.dark) .loading-dialog{border:1px solid var(--border);border-radius
 body.adw:not(.dark) .adw-dialog-header,
 body.adw:not(.dark) .adw-dialog-footer{border-color:var(--border)}
 body.adw:not(.dark) .loading-overlay{background:rgba(26,26,26,.34);backdrop-filter:blur(2px)}
-body.adw:not(.dark) .loading-spinner{border-color:var(--ux-color-ede7df);border-top-color:var(--ux-color-d97757)}
+body.adw:not(.dark) .loading-spinner{border-color:var(--ux-color-ede7df);border-top-color:var(--accent)}
 body.adw:not(.dark) .toast{background:var(--ux-color-1a1a1a);color:var(--ux-color-fffdfa)}
 
 @media(max-width:900px){
@@ -1903,7 +1904,7 @@ body.adw #panel_billing_config .control-title{color:var(--text)}
 body.adw .settings-saved-status{color:var(--text-2)}
 body.adw .mpt-source-status.ready{color:var(--ux-color-166534)}
 body.adw .skip-link{color:var(--accent-fg)}
-body.adw:not(.dark) .primary-btn:hover:not(:disabled){background:var(--ux-color-a84f35);border-color:var(--ux-color-a84f35);color:var(--ux-color-ffffff);transition:none}
+body.adw:not(.dark) .primary-btn:hover:not(:disabled){background:var(--accent-hover);border-color:var(--accent-hover);color:var(--accent-fg);transition:none}
 @media(max-width:760px){
   body.adw #settingsAppearanceContent>.control-row{align-items:stretch;flex-direction:column;gap:8px}
   body.adw #settingsAppearanceContent>.control-row label{justify-content:space-between}
@@ -2704,3 +2705,9 @@ body.adw:not(.dark) .overview-kpi-card .kpi-secondary .kpi-value{font-size:16px;
 }
 /* The alert marker only takes space when a warning is shown (it is a flex item in the label). */
 body.adw .overview-kpi-card .kpi:not([data-severity="warn"]):not([data-severity="bad"]) .kpi-alert{display:none}
+/* AI assistant button lives in the header bar (no longer floats over charts). */
+body.adw .ask-bubble.in-header{position:static;flex:none;width:40px;height:40px;min-height:40px;padding:0;
+  border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--accent);box-shadow:none;transform:none;cursor:pointer}
+body.adw .ask-bubble.in-header:hover{background:var(--hover);border-color:var(--ux-color-b9b1a7);box-shadow:none;transform:none}
+body.adw .ask-bubble.in-header[aria-expanded="true"]{background:var(--accent-soft);border-color:var(--accent)}
+body.adw .ask-bubble.in-header svg{width:20px;height:20px}

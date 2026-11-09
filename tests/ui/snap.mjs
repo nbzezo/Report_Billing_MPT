@@ -328,13 +328,12 @@ try {
       await page.setViewportSize({ width: 1440, height: 900 });
       const bubbleState = await page.locator('#askDashboardToggle').evaluate(element => {
         const rect = element.getBoundingClientRect();
-        const headerBottom = document.querySelector('.adw-headerbar').getBoundingClientRect().bottom;
-        return { left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom, headerBottom, width: innerWidth, height: innerHeight };
+        const header = document.querySelector('.adw-headerbar').getBoundingClientRect();
+        return { inHeader: !!element.closest('.adw-headerbar'), left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, headerTop: header.top, headerBottom: header.bottom, width: innerWidth };
       });
-      if (bubbleState.left < 0 || bubbleState.right > bubbleState.width || bubbleState.bottom > bubbleState.height || bubbleState.top < bubbleState.headerBottom + 8)
-        throw new Error(`Bong bóng AI vượt khung sau resize: ${JSON.stringify(bubbleState)}`);
-      if (bubbleState.width - bubbleState.right > 32 || bubbleState.height - bubbleState.bottom > 32)
-        throw new Error(`Bong bóng AI không trở lại góc dưới phải: ${JSON.stringify(bubbleState)}`);
+      // Nút trợ lý AI nằm trên thanh tiêu đề, không nổi đè lên biểu đồ.
+      if (!bubbleState.inHeader || bubbleState.left < 0 || bubbleState.right > bubbleState.width || bubbleState.top < bubbleState.headerTop || bubbleState.bottom > bubbleState.headerBottom)
+        throw new Error(`Nút trợ lý AI không nằm gọn trên thanh tiêu đề: ${JSON.stringify(bubbleState)}`);
     }
     if (!auditOnly) {
       for (const width of [1024, 600]) {

@@ -438,7 +438,7 @@ function updateRN_CF_KPIs(rows){
       <button type="button" data-close-dialog>Đóng</button>
     </div>
   </dialog>
-  <button id="askDashboardToggle" type="button" class="ask-bubble" title="Trợ lý AI — kéo để di chuyển" aria-label="Mở trợ lý AI; kéo để di chuyển" aria-haspopup="true" aria-expanded="false" aria-controls="askDashboardPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2l1.75 4.55L18.3 8.5l-4.55 1.75L12 14.8l-1.75-4.55L5.7 8.5l4.55-1.75L12 2.2z" fill="currentColor"/><path d="M18.2 13.6l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z" fill="currentColor"/></svg></button>
+  <button id="askDashboardToggle" type="button" class="ask-bubble" title="Trợ lý AI (Ctrl /)" aria-label="Mở trợ lý AI" aria-haspopup="true" aria-expanded="false" aria-controls="askDashboardPanel"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2l1.75 4.55L18.3 8.5l-4.55 1.75L12 14.8l-1.75-4.55L5.7 8.5l4.55-1.75L12 2.2z" fill="currentColor"/><path d="M18.2 13.6l.9 2.3 2.3.9-2.3.9-.9 2.3-.9-2.3-2.3-.9 2.3-.9.9-2.3z" fill="currentColor"/></svg></button>
   <aside id="askDashboardPanel" class="ask-panel" hidden aria-label="Trợ lý AI">
     <div class="ask-panel-header">
       <div class="ask-panel-mark" aria-hidden="true">✦</div>
@@ -2641,9 +2641,11 @@ function fitPlotHeader(gd){
       const curatedTitle=reportCard?.dataset.reportTitle||'';
       if(scope || curatedTitle){
         const title=typeof next.title==='string' ? {text:next.title} : {...(next.title||{})};
-        const baseTitle=curatedTitle || title.text || '';
         const escape=value=>String(value).replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
-        title.text=`${escape(baseTitle)}${scope?`<br><span style="font-size:12px;font-weight:400">${escape(scope)}</span>`:''}`;
+        // Curated titles are plain text; a chart's own title may already use Plotly's
+        // <br>/<span> markup and must not be escaped (it would show as raw tags).
+        const baseTitle=curatedTitle ? escape(curatedTitle) : (title.text || '');
+        title.text=`${baseTitle}${scope?`<br><span style="font-size:12px;font-weight:400">${escape(scope)}</span>`:''}`;
         next.title=title;
         next.margin={...(next.margin||{}),t:scope?82:(next.margin?.t||60)};
       }
@@ -7673,17 +7675,18 @@ function plotCallFunnel(rows, minCompletedBillsec=30){
   const fmt=value=>new Intl.NumberFormat('vi-VN').format(value);
   const previousRates=[100,pct(connected,total),pct(completed,connected)];
   const totalRates=[100,pct(connected,total),pct(completed,total)];
-  const stageText=values.map((value,i)=>`${fmt(value)} cuộc<br>${UIFormat.pct(previousRates[i],1)} ${i===0?'tổng':'từ bước trước'}${i===2?` · ${UIFormat.pct(totalRates[i],1)} tổng`:''}`);
+  // Nhãn ngắn để luôn nằm trong thanh; tỷ lệ trên tổng vẫn có ở hover.
+  const stageText=values.map((value,i)=>`${fmt(value)} cuộc<br>${UIFormat.pct(previousRates[i],1)} ${i===0?'tổng':'bước trước'}`);
   const lossConnect=total-connected,lossCompleted=connected-completed;
   const data=[{
-    type:'funnel',y:stages,x:values,text:stageText,textinfo:'text',
+    type:'funnel',y:stages,x:values,text:stageText,textinfo:'text',textposition:'inside',insidetextanchor:'middle',
     marker:{color:[uiColor('--ux-color-64748b'),CHART_SEMANTIC.Connected,uiColor('--ux-color-166534')]},
     connector:{line:{color:uiColor('--ux-color-cbd5e1'),width:1},fillcolor:'rgba(203,213,225,.48)'},
     customdata:values.map((value,i)=>[fmt(value),previousRates[i],totalRates[i]]),
     hovertemplate:'%{y}<br>Số cuộc: %{customdata[0]}<br>Tỷ lệ từ bước trước: %{customdata[1]:.1f}%<br>Tỷ lệ trên tổng số cuộc: %{customdata[2]:.1f}%<extra></extra>'
   }];
   const layout={
-    title:{text:`Phễu chất lượng cuộc gọi<br><span class="u-inline-2f03bac0">Hoàn tất = ${statusLabel('Connected')} và billsec ≥ ${minCompletedBillsec} giây</span>`,x:.03,xanchor:'left'},
+    title:{text:`Phễu chất lượng cuộc gọi<br><span style="font-size:12px">Hoàn tất = ${statusLabel('Connected')} và billsec ≥ ${minCompletedBillsec} giây</span>`,x:.03,xanchor:'left'},
     margin:{l:105,r:145,t:74,b:22},showlegend:false,plot_bgcolor:uiColor('--ux-color-fff'),paper_bgcolor:uiColor('--ux-color-fff'),
     annotations:[
       {xref:'paper',yref:'paper',x:1.02,y:.66,text:`Rơi ${fmt(lossConnect)} · ${UIFormat.pct(pct(lossConnect,total),1)}`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-64748b')}},
@@ -11165,11 +11168,6 @@ async function llmExplainClicked(button){
 }
 
 const LLM_BUBBLE_POSITION_KEY = 'mpt.askBubblePosition.v1';
-let llmBubbleSuppressClick = false;
-
-function llmClamp(value, min, max){
-  return Math.min(Math.max(value, min), Math.max(min, max));
-}
 
 function llmPositionAskPanel(){
   const panel = document.getElementById('askDashboardPanel');
@@ -11178,93 +11176,14 @@ function llmPositionAskPanel(){
   panel.style.removeProperty('top');
 }
 
-function llmBubbleBounds(){
-  const bubble=document.getElementById('askDashboardToggle');
-  const header=document.querySelector('.adw-headerbar');
-  const margin=8;
-  const minTop=Math.round((header?.getBoundingClientRect().bottom||0)+margin);
-  return {margin,minTop,width:bubble?.offsetWidth||54,height:bubble?.offsetHeight||54};
-}
-
-function llmSetBubblePosition(left, top, persist=false){
-  const bubble = document.getElementById('askDashboardToggle');
-  if(!bubble) return;
-  const {margin,minTop,width,height}=llmBubbleBounds();
-  const maxLeft=window.innerWidth-width-margin;
-  const maxTop=window.innerHeight-height-margin;
-  const x = llmClamp(left, margin, maxLeft);
-  const y = llmClamp(top, minTop, maxTop);
-  bubble.style.left = `${Math.round(x)}px`;
-  bubble.style.top = `${Math.round(y)}px`;
-  bubble.style.right = 'auto';
-  bubble.style.bottom = 'auto';
-  if(persist){
-    const xRatio=(x-margin)/Math.max(1,maxLeft-margin);
-    const yRatio=(y-minTop)/Math.max(1,maxTop-minTop);
-    try{ localStorage.setItem(LLM_BUBBLE_POSITION_KEY, JSON.stringify({xRatio,yRatio})); }catch(_){}
-  }
-  llmPositionAskPanel();
-}
-
-function llmRestoreBubblePosition(){
-  try{
-    const saved = JSON.parse(localStorage.getItem(LLM_BUBBLE_POSITION_KEY) || 'null');
-    if(!saved) return false;
-    const {margin,minTop,width,height}=llmBubbleBounds();
-    const maxLeft=window.innerWidth-width-margin;
-    const maxTop=window.innerHeight-height-margin;
-    if(Number.isFinite(saved.xRatio) && Number.isFinite(saved.yRatio)){
-      llmSetBubblePosition(margin+saved.xRatio*Math.max(1,maxLeft-margin),minTop+saved.yRatio*Math.max(1,maxTop-minTop));
-      return true;
-    }else if(Number.isFinite(saved.left) && Number.isFinite(saved.top)){
-      llmSetBubblePosition(saved.left, saved.top, true);
-      return true;
-    }
-  }catch(_){}
-  return false;
-}
-
-function llmInitDraggableBubble(){
-  const bubble = document.getElementById('askDashboardToggle');
-  if(!bubble) return;
-  llmRestoreBubblePosition();
-  let drag = null;
-  bubble.addEventListener('pointerdown', event=>{
-    if(event.button !== 0 && event.pointerType !== 'touch') return;
-    const rect = bubble.getBoundingClientRect();
-    drag = {pointerId:event.pointerId, startX:event.clientX, startY:event.clientY,
-      left:rect.left, top:rect.top, moved:false};
-    bubble.setPointerCapture?.(event.pointerId);
-  });
-  bubble.addEventListener('pointermove', event=>{
-    if(!drag || event.pointerId !== drag.pointerId) return;
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
-    if(!drag.moved && Math.hypot(dx,dy) < 5) return;
-    drag.moved = true;
-    bubble.classList.add('dragging');
-    llmSetBubblePosition(drag.left + dx, drag.top + dy);
-    event.preventDefault();
-  });
-  const finishDrag = event=>{
-    if(!drag || event.pointerId !== drag.pointerId) return;
-    if(drag.moved){
-      const rect = bubble.getBoundingClientRect();
-      llmSetBubblePosition(rect.left, rect.top, true);
-      llmBubbleSuppressClick = true;
-      setTimeout(()=>{ llmBubbleSuppressClick = false; },0);
-    }
-    bubble.classList.remove('dragging');
-    drag = null;
-  };
-  bubble.addEventListener('pointerup', finishDrag);
-  bubble.addEventListener('pointercancel', finishDrag);
-  window.addEventListener('resize', ()=>{
-    if(llmRestoreBubblePosition()) return;
-    if(!bubble.style.left) return;
-    const rect = bubble.getBoundingClientRect();
-    llmSetBubblePosition(rect.left, rect.top);
-  });
+// Nút trợ lý AI nằm trên thanh tiêu đề thay vì nổi đè lên biểu đồ; vị trí kéo thả cũ bị bỏ.
+function llmPlaceAskButton(){
+  const button=document.getElementById('askDashboardToggle');
+  const headerEnd=document.querySelector('.adw-headerbar .hb-end');
+  if(!button || !headerEnd) return;
+  button.classList.add('in-header');
+  headerEnd.insertBefore(button, headerEnd.querySelector('.adw-menu-wrap'));
+  try{ localStorage.removeItem(LLM_BUBBLE_POSITION_KEY); }catch(_){}
 }
 
 function llmAskPanelOpen(){
@@ -11282,7 +11201,7 @@ function llmAskPanelOpen(){
   llmPositionAskPanel();
   const toggle = document.getElementById('askDashboardToggle');
   toggle?.setAttribute('aria-expanded','true');
-  toggle?.setAttribute('aria-label','Đóng trợ lý AI; kéo để di chuyển');
+  toggle?.setAttribute('aria-label','Đóng trợ lý AI');
   requestAnimationFrame(()=>document.getElementById('askQuestionInput')?.focus());
   scheduleVisiblePlotResize();
 }
@@ -11295,7 +11214,7 @@ function llmAskPanelClose(){
   llmToggleSessionDrawer(false);
   const toggle = document.getElementById('askDashboardToggle');
   toggle?.setAttribute('aria-expanded','false');
-  toggle?.setAttribute('aria-label','Mở trợ lý AI; kéo để di chuyển');
+  toggle?.setAttribute('aria-label','Mở trợ lý AI');
   toggle?.focus();
   scheduleVisiblePlotResize();
 }
@@ -12125,10 +12044,9 @@ function initLlmChrome(){
   });
 
   document.getElementById('askDashboardToggle')?.addEventListener('click', event=>{
-    if(llmBubbleSuppressClick){ event.preventDefault(); return; }
     llmAskPanelToggle();
   });
-  llmInitDraggableBubble();
+  llmPlaceAskButton();
   document.getElementById('askPanelClose')?.addEventListener('click', llmAskPanelClose);
   document.addEventListener('keydown', event=>{
     const panel=document.getElementById('askDashboardPanel');

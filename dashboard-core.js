@@ -15,7 +15,7 @@
 const UI_LABELS = Object.freeze({
   status: Object.freeze({
     connected: 'Kết nối', noAnswer: 'Không nghe', cancelled: 'Hủy',
-    fail: 'Lỗi', cidBlocked: 'CID bị khóa', nonSystemFailure: 'Non-System Failure', unknown: 'Không rõ'
+    fail: 'Lỗi', cidBlocked: 'CID bị khóa', nonSystemFailure: 'Lỗi ngoài hệ thống', unknown: 'Không rõ'
   }),
   kpi: Object.freeze({
     totalCalls: 'Tổng cuộc', connectRate: 'Tỷ lệ kết nối',
