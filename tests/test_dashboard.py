@@ -1738,11 +1738,14 @@ class FrontendRegressionTests(unittest.TestCase):
         handler = SERVER.DashboardHandler.__new__(SERVER.DashboardHandler)
         self.assertEqual(handler.guess_type("/vendor/UbuntuSans-variable.woff2"), "font/woff2")
 
-    def test_dark_mode_follows_the_desktop_theme_until_the_user_chooses(self):
-        self.assertIn("prefers-color-scheme: dark", self.dashboard_html)
+    def test_app_is_light_only(self):
+        # Chế độ tối từng chỉ áp một nửa (khung sáng, chip tối), nên đã bỏ hẳn.
+        for token in ("prefers-color-scheme", "toggleDark", "classList.add('dark')", "CHART_CATEGORY_COLORS_DARK"):
+            self.assertNotIn(token, self.dashboard_html)
+        self.assertIsNone(re.search(r"body(\.adw)?\.dark\b", self.dashboard_html))
 
     def test_charts_follow_the_yaru_theme(self):
-        for token in ("CHART_CATEGORY_COLORS_DARK", "function adwPlotTheme", "function plotLayout", "__adwThemed"):
+        for token in ("function adwPlotTheme", "function plotLayout", "__adwThemed"):
             self.assertIn(token, self.dashboard_html)
 
     def test_plot_render_removes_stale_no_data_message(self):
@@ -2278,7 +2281,7 @@ class GatewayHangupCauseChartTests(unittest.TestCase):
         self.assertIn("details.className = 'gateway-cause-group'", self.HTML)
         self.assertIn("details.open = openGateways.has(gateway)", self.HTML)
         self.assertIn("Tỷ trọng lỗi", self.HTML)
-        self.assertIn("item.failSharePct.toFixed(2)", self.HTML)
+        self.assertIn("UIFormat.pct(item.failSharePct,2)", self.HTML)
         self.assertNotIn('id="gatewayHangupCauseTable"', self.HTML)
 
 

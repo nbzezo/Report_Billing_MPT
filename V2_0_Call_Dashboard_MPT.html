@@ -555,7 +555,7 @@ function updateRN_CF_KPIs(rows){
           <label><input type="checkbox" id="useCustomColors"/> Dùng màu tùy chỉnh</label>
         </div>
       
-<div class="control-group tools-control"><div class="control-title">Màu sắc &amp; giao diện</div><div class="control-row tool-row"><button id="exportPNG" class="icon-btn" title="Xuất từng biểu đồ thành PNG">↓ PNG</button><button id="exportPDF" class="icon-btn primary-btn" title="Xuất toàn bộ báo cáo thành PDF">↓ PDF</button><button id="resetLayout" class="icon-btn" title="Đưa bố cục biểu đồ về mặc định">↺ Reset</button><button id="toggleDark" class="toggle-btn" title="Bật/tắt nền tối">Dark</button></div><div class="control-row color-controls legend-row">
+<div class="control-group tools-control"><div class="control-title">Màu sắc &amp; giao diện</div><div class="control-row tool-row"><button id="exportPNG" class="icon-btn" title="Xuất từng biểu đồ thành PNG">↓ PNG</button><button id="exportPDF" class="icon-btn primary-btn" title="Xuất toàn bộ báo cáo thành PDF">↓ PDF</button><button id="resetLayout" class="icon-btn" title="Đưa bố cục biểu đồ về mặc định">↺ Reset</button></div><div class="control-row color-controls legend-row">
           <label>Fail <input type="color" id="c_fail" value="#c0392b" disabled/></label>
           <label>Không nghe <input type="color" id="c_noans" value="#d97706" disabled/></label>
           <label>Kết nối <input type="color" id="c_conn" value="#238636" disabled/></label>
@@ -1630,7 +1630,7 @@ function plotHangupHeatmap(rows){
   const data = [{
     z, x: telcos, y: causes,
     type: 'heatmap',
-    colorscale: 'Blues',
+    colorscale: CHART_SCALES.fail,
     hovertemplate: 'Telco: %{x}<br>Cause: %{y}<br>Số cuộc: %{z}<extra></extra>'
   }];
   const layout = {
@@ -1927,7 +1927,7 @@ function renderRetryAlerts(analysis,config){
   if(analysis.retryRate>=30) alerts.push(`Tỷ lệ gọi lại cao (${analysis.retryRate.toLocaleString('vi-VN')}%), có dấu hiệu gọi lặp nhiều sau trạng thái ${statusLabel('Fail')}/${statusLabel('No Answer')}.`);
   const repeated=analysis.events.filter(event=>event.attempt>=2).length;
   const repeatedRate=analysis.totalRetries?repeated*100/analysis.totalRetries:0;
-  if(analysis.totalRetries>=20 && repeatedRate>=20) alerts.push(`${repeatedRate.toFixed(1)}% lượt gọi lại là lần thứ 2 trở lên.`);
+  if(analysis.totalRetries>=20 && repeatedRate>=20) alerts.push(`${UIFormat.pct(repeatedRate,1)} lượt gọi lại là lần thứ 2 trở lên.`);
   const weakAccount=analysis.accArr.find(item=>item.retries>=config.minSample&&item.retryASR<15);
   if(weakAccount) alerts.push(`${weakAccount.name}: ${weakAccount.retries} lượt gọi lại nhưng ASR chỉ ${weakAccount.retryASR}%.`);
   if(!alerts.length) el.innerHTML='<div class="retry-alert good">Chưa phát hiện bất thường gọi lại theo các ngưỡng tham chiếu.</div>';
@@ -2023,10 +2023,10 @@ function plotAccountRadar(rows, colors, topN=5){
     line:{width:2, color: categoryColor(m.acc, colors && colors.Palette)},
     hovertemplate:
       `<b>${m.label}</b><br>`+
-      `ASR: ${m.asr.toFixed(2)}%<br>`+
+      `ASR: ${UIFormat.pct(m.asr,2)}<br>`+
       `Tổng phút: ${m.minutes.toFixed(2)}<br>`+
       `Tổng cuộc: ${m.total}<br>`+
-      `Fail: ${m.failPct.toFixed(2)}%<extra></extra>`
+      `Fail: ${UIFormat.pct(m.failPct,2)}<extra></extra>`
   }));
 
   const layout = {
@@ -2062,7 +2062,7 @@ function renderTopDestTable(rows, topN=10, minCallsForFail=5){
 
   merged.forEach(r=>{
     const tr = document.createElement('tr');
-    const cells = [ r.dn, r.total, r.connected, r.noans, r.fail, r.failPct.toFixed(2)+'%' ];
+    const cells = [ r.dn, r.total, r.connected, r.noans, r.fail, UIFormat.pct(r.failPct,2) ];
     cells.forEach((v, idx)=>{
       const td = document.createElement('td');
       td.style.border='1px solid var(--border)';
@@ -2527,24 +2527,31 @@ function adwSyncChromeHeight(){
 function uiColor(name){
   return getComputedStyle(document.body).getPropertyValue(name).trim();
 }
-const CHART_CATEGORY_COLORS=[uiColor('--ux-color-c2410c'),uiColor('--ux-color-1d4ed8'),uiColor('--ux-color-0f766e'),uiColor('--ux-color-a16207'),uiColor('--ux-color-7e22ce'),uiColor('--ux-color-be185d'),uiColor('--ux-color-4d7c0f'),uiColor('--ux-color-57534e')];
-const CHART_CATEGORY_COLORS_DARK=[uiColor('--ux-color-fb923c'),uiColor('--ux-color-60a5fa'),uiColor('--ux-color-5eead4'),uiColor('--ux-color-fbbf24'),uiColor('--ux-color-c084fc'),uiColor('--ux-color-f472b6'),uiColor('--ux-color-a3e635'),uiColor('--ux-color-d6d3d1')];
+// Cam đất nung là màu hành động, tím/cam/xanh lá/đỏ là màu trạng thái: các màu
+// phân loại đứng đầu tránh những tông đó, chỉ dùng tới khi có nhiều nhóm.
+const CHART_CATEGORY_COLORS=[uiColor('--ux-color-315b96'),uiColor('--ux-color-0f766e'),uiColor('--ux-color-be185d'),uiColor('--ux-color-8baecd'),uiColor('--ux-color-57534e'),uiColor('--ux-color-a16207'),uiColor('--ux-color-4d7c0f'),uiColor('--ux-color-7e22ce')];
+// Thang tuần tự: giá trị lớn luôn đậm nhất (thang 'Blues' của Plotly đi ngược chiều).
+const CHART_SCALES={
+  volume:[[0,uiColor('--ux-color-f1f4f9')],[0.35,uiColor('--ux-color-c9d7ea')],[0.7,uiColor('--ux-color-4779ad')],[1,uiColor('--ux-color-1e3a64')]],
+  fail:[[0,uiColor('--ux-color-fbedeb')],[1,uiColor('--ux-color-b42318')]],
+  connect:[[0,uiColor('--ux-color-f1f7f2')],[1,uiColor('--ux-color-1b5e20')]]
+};
 const CHART_SEMANTIC={
   get Fail(){return currentPlotColors().status.Fail},
   get NonSystemFailure(){return currentPlotColors().status['Non-System Failure']},
   get NoAnswer(){return currentPlotColors().status['No Answer']},
   get Connected(){return currentPlotColors().status.Connected},
   get Cancelled(){return currentPlotColors().status.Cancelled},
-  AnswerRate:uiColor('--ux-color-1d4ed8'),Volume:uiColor('--ux-color-c2410c'),Trend:uiColor('--ux-color-0f766e'),
+  AnswerRate:uiColor('--ux-color-1d4ed8'),Volume:uiColor('--ux-color-315b96'),VolumeLight:uiColor('--ux-color-8baecd'),Trend:uiColor('--ux-color-0f766e'),
   get Warning(){return currentPlotColors().status['No Answer']},
   Reference:uiColor('--ux-color-57534e')
 };
 let plotColors=null;
 function currentPlotColors(){
-  if(plotColors && plotColors.dark===document.body.classList.contains('dark')) return plotColors;
+  if(plotColors) return plotColors;
   const styles=getComputedStyle(document.body);
   const token=(name,fallback)=>styles.getPropertyValue(name).trim()||fallback;
-  plotColors={dark:document.body.classList.contains('dark'),status:{
+  plotColors={status:{
     Connected:token('--st-connected',uiColor('--ux-color-2e7d32')),
     'No Answer':token('--st-noanswer',uiColor('--ux-color-d97706')),
     Cancelled:token('--st-cancelled',uiColor('--ux-color-8a877f')),
@@ -2561,7 +2568,7 @@ function adwPlotTheme(){
   return {
     font:{family:"Gilroy, 'Segoe UI', Arial, sans-serif",size:12,color:text},
     paper_bgcolor:'rgba(0,0,0,0)',plot_bgcolor:'rgba(0,0,0,0)',
-    colorway:document.body.classList.contains('dark')?CHART_CATEGORY_COLORS_DARK:CHART_CATEGORY_COLORS,
+    colorway:CHART_CATEGORY_COLORS,
     separators:',.',gridcolor:grid,
     legend:{orientation:'h',x:0,y:1.02,yanchor:'bottom',font:{color:text,size:12}},
     hoverlabel:{bgcolor:surface,bordercolor:grid,font:{color:text,size:12}},
@@ -2577,6 +2584,32 @@ function plotLayout(overrides={}){
     next[axis]={gridcolor:theme.gridcolor,zerolinecolor:theme.gridcolor,linecolor:theme.gridcolor,automargin:true,...overrides[axis]};
   }
   return next;
+}
+// Biểu đồ vẽ khi tab còn ẩn lấy bề rộng mặc định 700px của Plotly và tràn khỏi thẻ;
+// theo dõi bề rộng khung để vẽ lại đúng cỡ mỗi khi khung đổi kích thước.
+function watchPlotWidth(gd){
+  if(gd.__widthObserver || typeof ResizeObserver!=='function') return;
+  gd.__widthObserver=new ResizeObserver(entries=>{
+    if(entries[0].contentRect.width) requestAnimationFrame(()=>fitPlotWidth(gd));
+  });
+  gd.__widthObserver.observe(gd);
+  if(gd.on) gd.on('plotly_afterplot',()=>fitPlotHeader(gd));
+}
+function fitPlotWidth(gd){
+  const width=gd.clientWidth;
+  if(!width || !gd._fullLayout || Math.abs(gd._fullLayout.width-width)<=1) return;
+  try{ gd.layout && gd.layout.width ? Plotly.relayout(gd,{width:null,autosize:true}) : Plotly.Plots.resize(gd); }catch(e){}
+}
+// Chú giải ngang xuống dòng có thể chạm tiêu đề: nới lề trên đúng phần chồng lấn.
+function fitPlotHeader(gd){
+  const legend=gd.querySelector('g.legend'), title=gd.querySelector('.g-gtitle');
+  if(!legend || !title || !gd._fullLayout || (gd.__headerFits||0)>=3) return;
+  const l=legend.getBoundingClientRect(), t=title.getBoundingClientRect();
+  if(!l.height || !t.height) return;
+  const overlap=Math.ceil(t.bottom+6-l.top);
+  if(overlap<=0) return;
+  gd.__headerFits=(gd.__headerFits||0)+1;
+  try{ Plotly.relayout(gd,{'margin.t':gd._fullLayout.margin.t+overlap}); }catch(e){}
 }
 // Bọc Plotly.react/newPlot để mọi biểu đồ dùng chung nền, phông và lưới của theme.
 (function themePlotly(){
@@ -2627,18 +2660,26 @@ function plotLayout(overrides={}){
         next.title={text:''};
         next.margin={...(next.margin||{}),t:target.id==='chart_concurrent_by_telco'?96:48};
       }
-      // Shared chart header contract: the title/scope owns the first row and
-      // horizontal legends sit beneath it, clear of the card drag handle.
+      // Shared chart header contract: the title/scope is pinned to the top of the
+      // chart, horizontal legends sit on top of the plot area beneath it, and
+      // fitPlotHeader() grows the top margin when a wrapped legend would reach the title.
       const legend=next.legend||{};
       const legendY=Number(legend.y);
+      const titled=!!(next.title && typeof next.title==='object' && next.title.text);
       if(legend.orientation==='h' && (Number.isNaN(legendY) || legendY>=0)){
-        next.legend={...legend,y:1.14,yanchor:'bottom'};
-        next.margin={...(next.margin||{}),t:Math.max(Number(next.margin?.t)||0,128)};
+        next.legend={...legend,y:1.02,yanchor:'bottom'};
+        next.margin={...(next.margin||{}),t:Math.max(Number(next.margin?.t)||0,titled?(scope?110:84):48)};
       }
-      if(next.title && typeof next.title==='object' && next.title.text){
-        next.title={...next.title,y:0.93,yanchor:'top'};
+      if(titled){
+        next.title={...next.title,yref:'container',y:1,yanchor:'top',pad:{t:12}};
       }
-      return original.call(this,element,data,plotLayout(next),config);
+      const result=original.call(this,element,data,plotLayout(next),config);
+      if(target){
+        target.__headerFits=0;
+        watchPlotWidth(target);
+        Promise.resolve(result).then(()=>{ fitPlotWidth(target); fitPlotHeader(target); }).catch(()=>{});
+      }
+      return result;
     };
     wrapped.__adwThemed=true;
     Plotly[name]=wrapped;
@@ -3064,7 +3105,7 @@ function renderHangupBreakdownTable(rows, limit=30){
       <td class="u-inline-4d2849d1">${reportTableEscape(x.tel)}</td>
       <td class="u-inline-4d2849d1">${reportTableEscape(x.prefix)}</td>
       <td class="u-inline-12972e58">${x.count}</td>
-      <td class="u-inline-12972e58">${(x.count/total*100).toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${UIFormat.pct((x.count/total*100),2)}</td>
     `;
     tb.appendChild(tr);
   });
@@ -3110,9 +3151,9 @@ function renderFailReasonTable(rows, limit=40){
   if(sum){
     const pv = n => n.toLocaleString('vi-VN');
     sum.textContent =
-      `Tổng Fail: ${pv(totalFail)} / ${pv(totalCalls)} lượt gọi (${(totalFail/totalCalls*100).toFixed(2)}%). `
-      + `Nguyên nhân mạng / định tuyến: ${pv(networkFail)} (${(networkFail/totalFail*100).toFixed(2)}% số Fail) • `
-      + `Suy đoán duration = 0: ${pv(guessFail)} (${(guessFail/totalFail*100).toFixed(2)}% số Fail).`;
+      `Tổng Fail: ${pv(totalFail)} / ${pv(totalCalls)} lượt gọi (${UIFormat.pct((totalFail/totalCalls*100),2)}). `
+      + `Nguyên nhân mạng / định tuyến: ${pv(networkFail)} (${UIFormat.pct((networkFail/totalFail*100),2)} số Fail) • `
+      + `Suy đoán duration = 0: ${pv(guessFail)} (${UIFormat.pct((guessFail/totalFail*100),2)} số Fail).`;
   }
 
   Array.from(map.values())
@@ -3124,8 +3165,8 @@ function renderFailReasonTable(rows, limit=40){
         <td class="u-inline-4d2849d1">${reportTableEscape(e.label)}</td>
         <td class="u-inline-4d2849d1">${e.network ? 'Nguyên nhân mạng / định tuyến' : 'Suy đoán: duration = 0'}</td>
         <td class="u-inline-12972e58">${e.count.toLocaleString('vi-VN')}</td>
-        <td class="u-inline-12972e58">${(e.count/totalFail*100).toFixed(2)}%</td>
-        <td class="u-inline-12972e58">${(e.count/totalCalls*100).toFixed(2)}%</td>
+        <td class="u-inline-12972e58">${UIFormat.pct((e.count/totalFail*100),2)}</td>
+        <td class="u-inline-12972e58">${UIFormat.pct((e.count/totalCalls*100),2)}</td>
         <td class="u-inline-12972e58">${e.accs.size.toLocaleString('vi-VN')}</td>
         <td class="u-inline-12972e58">${e.dests.size.toLocaleString('vi-VN')}</td>
       `;
@@ -3143,7 +3184,7 @@ function plotConnDonut(counts, colors){
   const shown = CONN_TYPES.filter(ct=> (counts[ct]||0) > 0);
   const total = shown.reduce((s,ct)=> s + (counts[ct]||0), 0);
   if(!total) return showNoData('chart_conn_donut','Không có dữ liệu');
-  const data=[{type:'pie', labels:shown, values:shown.map(ct=> counts[ct]||0),
+  const data=[{type:'pie', labels:shown.map(statusLabel), values:shown.map(ct=> counts[ct]||0),
     hole:0.45, textinfo:'label+percent', insidetextorientation:'radial',
     marker:{colors: shown.map(ct=> connTypeColor(ct, colors))}, textposition:'inside',
     hovertemplate:'%{label}<br>%{value} cuộc (%{percent})<extra></extra>'}];
@@ -3169,13 +3210,13 @@ function plotStackPrefixPct(prefixAgg, colors){
       const tot = prefixAgg[p].total||1;
       return +(v/tot*100).toFixed(2);
     }),
-    name: t,
+    name: statusLabel(t),
     type: 'bar',
     marker:{ color: connTypeColor(t, colors)},
     text: prefixes.map(p=>{
       const v   = prefixAgg[p][t]||0;
       const tot = prefixAgg[p].total||1;
-      return (v/tot*100).toFixed(1)+'%';
+      return UIFormat.pct((v/tot*100),1);
     }),
     textposition:'inside',
     insidetextanchor:'middle'
@@ -3213,10 +3254,21 @@ function plotAnswerGauge(pct, colors){
   const target=Number(document.getElementById('alertThreshold')?.value)||40;
   const status=currentPlotColors().status;
   const bar=pct<target?status.Fail:pct<target+10?status['No Answer']:status.Connected;
-  const data=[{type:'indicator',mode:'gauge+number',value:pct,
-    gauge:{axis:{range:[0,100]},bar:{color:bar},threshold:{line:{color:status.Fail,width:3},value:target}},
-    title:{text:'ASR hợp lệ (%)'}}];
-  Plotly.react('chart_answer_gauge',data,{height:360},{responsive:true});
+  // Số lớn + thanh ngang có vạch mục tiêu: gọn hơn gauge tròn và co theo bề rộng thẻ.
+  // Số lớn đặt phía trên thanh (Plotly vẽ số của bullet sát nền thanh và bị che),
+  // chú thích mục tiêu đặt dưới thanh.
+  const data=[{type:'indicator',mode:'gauge',value:pct,
+    domain:{x:[0.02,0.98],y:[0.32,0.52]},
+    gauge:{shape:'bullet',axis:{range:[0,100],ticksuffix:'%'},bar:{color:bar,thickness:0.55},
+      bgcolor:uiColor('--ux-color-f1f4f9'),borderwidth:0,
+      threshold:{line:{color:CHART_SEMANTIC.Reference,width:3},thickness:0.9,value:target}}}];
+  const layout={height:360,margin:{l:24,r:24},
+    annotations:[
+      {xref:'paper',yref:'paper',x:0.02,y:0.62,xanchor:'left',yanchor:'bottom',showarrow:false,
+        text:UIFormat.pct(pct,1),font:{size:44,color:bar}},
+      {xref:'paper',yref:'paper',x:0.02,y:0.12,xanchor:'left',showarrow:false,
+        text:`Vạch xám: mục tiêu ${target}% · dưới mục tiêu tô đỏ, sát mục tiêu tô cam`,font:{size:12,color:CHART_SEMANTIC.Reference}}]};
+  Plotly.react('chart_answer_gauge',data,layout,{responsive:true});
 }
 
 function plotMinutesDay(obj, colors){ if(!obj || !obj.dates || obj.dates.length===0) return showNoData('chart_minutes_day','Không có dữ liệu'); const data=[{x:obj.dates.map(UIFormat.dateShort),y:obj.minutes,type:'bar',name:'Phút gọi',marker:{color:colors.MinutesBar}}, {x:obj.dates.map(UIFormat.dateShort),y:obj.minutes,type:'scatter',mode:'lines+markers',name:'Xu hướng',line:{color:colors.MinutesLine}}]; const layout={title:'Tổng phút gọi theo ngày',height:360,xaxis:{title:'Ngày',type:'category',automargin:true},yaxis:{title:'Phút'}}; Plotly.react('chart_minutes_day',data,layout,{responsive:true}); }
@@ -3280,7 +3332,7 @@ function plotASRByTime(rows, colors){
   };
   const setKpi=(valueId,deltaId,result)=>{
     const valueEl=document.getElementById(valueId),deltaEl=document.getElementById(deltaId);
-    if(valueEl) valueEl.textContent=result.latest===null ? '—' : `${result.latest.toFixed(1)}%`;
+    if(valueEl) valueEl.textContent=result.latest===null ? '—' : `${UIFormat.pct(result.latest,1)}`;
     if(deltaEl){
       deltaEl.className='asr-time-kpi-delta';
       if(result.delta===null) deltaEl.textContent='Chưa có kỳ trước';
@@ -3305,19 +3357,19 @@ function plotASRByTime(rows, colors){
   const asrColor=(colors&&colors.AnswerRate)||CHART_SEMANTIC.AnswerRate;
   const connectColor=(colors&&colors.Connected)||CHART_SEMANTIC.Connected;
   const onePeriod=mode==='day' && labels.length===1;
-  const darkMode=document.body.classList.contains('dark');
-  const chartText=darkMode?uiColor('--ux-color-e5e7eb'):uiColor('--ux-color-334155');
-  const chartGrid=darkMode?'rgba(148,163,184,.20)':uiColor('--ux-color-e7ebf0');
-  const annotationBg=darkMode?'rgba(17,24,39,.88)':'rgba(255,255,255,.86)';
+  const xLabels=mode==='day' ? labels.map(label=>UIFormat.dateShort(label)) : labels;
+  const chartText=uiColor('--ux-color-334155');
+  const chartGrid=uiColor('--ux-color-e7ebf0');
+  const annotationBg='rgba(255,255,255,.86)';
   const asrTrace={
-    x:labels,y:rates,type:'scatter',mode:onePeriod?'markers':'lines+markers',name:'ASR hợp lệ',connectgaps:false,
+    x:xLabels,y:rates,type:'scatter',mode:onePeriod?'markers':'lines+markers',name:'ASR hợp lệ',connectgaps:false,
     line:{width:3,color:asrColor},
     marker:{size:7,color:asrColor},
     customdata:asrExtra,
     hovertemplate:'%{x}<br>ASR: %{y:.2f}%<br>%{customdata}<extra></extra>'
   };
   const connectTrace={
-    x:labels,y:connectRates,type:'scatter',mode:onePeriod?'markers':'lines+markers',name:'Tỷ lệ kết nối',connectgaps:false,
+    x:xLabels,y:connectRates,type:'scatter',mode:onePeriod?'markers':'lines+markers',name:'Tỷ lệ kết nối',connectgaps:false,
     line:{width:3,dash:'dash',color:connectColor},
     marker:{size:7,symbol:'diamond',color:connectColor},
     customdata:connectExtra,
@@ -3325,7 +3377,7 @@ function plotASRByTime(rows, colors){
   };
   const subtitle=document.getElementById('asrTimeSubtitle');
   if(subtitle){
-    const scope=mode==='hour' ? `${dateInput&&dateInput.value ? dateInput.value : 'Ngày đã chọn'} • Theo giờ` : `${labels[0]}–${labels[labels.length-1]} • Theo ngày`;
+    const scope=mode==='hour' ? `${dateInput&&dateInput.value ? dateInput.value : 'Ngày đã chọn'} • Theo giờ` : `${xLabels[0]} – ${xLabels[xLabels.length-1]} • Theo ngày`;
     subtitle.textContent=`${scope} • Thang đo tập trung ${yRange[0]}–${yRange[1]}%${onePeriod?' • Chưa đủ 2 kỳ để tính xu hướng':''}`;
   }
   const shapes=[];
@@ -3336,8 +3388,8 @@ function plotASRByTime(rows, colors){
   if(Number.isFinite(asrTarget)) shapes.push({type:'line',xref:'paper',x0:0,x1:1,y0:asrTarget,y1:asrTarget,line:{color:CHART_SEMANTIC.Reference,width:1.5,dash:'dash'},opacity:.65});
   const lastIndex=Math.max(rates.length-1,0);
   const annotations=[];
-  if(Number.isFinite(rates[lastIndex])) annotations.push({x:labels[lastIndex],y:rates[lastIndex],text:`ASR ${rates[lastIndex].toFixed(1)}%`,showarrow:false,xanchor:'left',xshift:10,yshift:10,font:{size:11,color:asrColor},bgcolor:annotationBg});
-  if(Number.isFinite(connectRates[lastIndex])) annotations.push({x:labels[lastIndex],y:connectRates[lastIndex],text:`Kết nối ${connectRates[lastIndex].toFixed(1)}%`,showarrow:false,xanchor:'left',xshift:10,yshift:-11,font:{size:11,color:connectColor},bgcolor:annotationBg});
+  if(Number.isFinite(rates[lastIndex])) annotations.push({x:xLabels[lastIndex],y:rates[lastIndex],text:`ASR ${UIFormat.pct(rates[lastIndex],1)}`,showarrow:false,xanchor:'left',xshift:10,yshift:10,font:{size:11,color:asrColor},bgcolor:annotationBg});
+  if(Number.isFinite(connectRates[lastIndex])) annotations.push({x:xLabels[lastIndex],y:connectRates[lastIndex],text:`Kết nối ${UIFormat.pct(connectRates[lastIndex],1)}`,showarrow:false,xanchor:'left',xshift:10,yshift:-11,font:{size:11,color:connectColor},bgcolor:annotationBg});
   if(Number.isFinite(asrTarget)) annotations.push({xref:'paper',yref:'y',x:1,y:asrTarget,text:`Mục tiêu ${asrTarget}%`,showarrow:false,xanchor:'right',xshift:-4,yshift:2,font:{size:10,color:CHART_SEMANTIC.Reference},bgcolor:annotationBg});
   const layout={
     height:390,margin:{l:62,r:115,t:34,b:58},
@@ -3427,7 +3479,7 @@ function plotCallerParticipationHeatmap(rows, colors){
   const z = agg.telcos.map(telco=>agg.series[telco]);
   const maxValue = Math.max(0, ...z.flat());
   const heatColor = CHART_SEMANTIC.Volume;
-  const emptyColor = document.body.classList.contains('dark') ? 'rgba(148,163,184,.18)' : uiColor('--ux-color-f8fafc');
+  const emptyColor = uiColor('--ux-color-f8fafc');
   const text = z.map(row=>row.map(value=>String(value)));
   const showText = agg.labels.length <= 48;
   const trace = {
@@ -3871,32 +3923,10 @@ document.getElementById('importMapFile').addEventListener('change', e=>{ const f
 
 document.getElementById('clearMap').addEventListener('click', ()=>{ if(confirm('Xoá toàn bộ mapping?')){ clearMapAll(); toast('Đã xoá và áp dụng.'); }});
 
-// ---------- Enhancements (Dark mode, Quick Ranges, Debounce, Time Heatmap, KPI Alerts) ----------
+// ---------- Enhancements (Quick Ranges, Debounce, Time Heatmap, KPI Alerts) ----------
 function debounce(fn, delay){ let t; return function(...args){ clearTimeout(t); t=setTimeout(()=>fn.apply(this,args), delay); }; }
-
-// Dark Mode toggle with localStorage
-const DARK_KEY = 'dashboard-dark-mode';
-function applyDarkMode(flag){
-  if(flag){ document.body.classList.add('dark'); }
-  else{ document.body.classList.remove('dark'); }
-  const btn = document.getElementById('toggleDark');
-  if(btn){
-    btn.classList.toggle('active', !!flag);
-    btn.setAttribute('aria-pressed', flag ? 'true' : 'false');
-    btn.innerText = flag ? 'Dark on' : 'Dark';
-  }
-  try{ localStorage.setItem(DARK_KEY, flag ? '1' : '0'); }catch(e){}
-}
-(function initDark(){
-  // Như app GNOME: chưa chọn gì thì theo tông sáng/tối của hệ thống.
-  const stored = localStorage.getItem(DARK_KEY);
-  const saved = stored===null ? window.matchMedia('(prefers-color-scheme: dark)').matches : stored==='1';
-  applyDarkMode(saved);
-  const btn = document.getElementById('toggleDark');
-  if(btn){ btn.addEventListener('click', ()=>{ const on = !document.body.classList.contains('dark'); applyDarkMode(on); setTimeout(()=>{ // re-render charts to adapt palette
-    updateDashboardWithFilters();
-  }, 0); }); }
-})();
+// Ứng dụng chỉ có giao diện sáng; xoá lựa chọn chế độ tối cũ còn lưu trong trình duyệt.
+try{ localStorage.removeItem('dashboard-dark-mode'); }catch(e){}
 
 // Quick Date Ranges
 function setDateInputs(startISO, endISO){
@@ -3934,7 +3964,7 @@ function plotTimeHeatmap(rows){
   if(!rows || !rows.length) return showNoData('chart_time_heatmap','Không có dữ liệu');
   const z = cubeVal('timeHeatmap', ()=>computeTimeHeatmap(rows));
   const data=[{
-    z, type:'heatmap', colorscale:'Blues', x:Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')),
+    z, type:'heatmap', colorscale:CHART_SCALES.volume, x:Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')),
     y:['CN','T2','T3','T4','T5','T6','T7'],
     hoverongaps:false
   }];
@@ -4067,7 +4097,7 @@ function collectPlotStatistics(chart){
     if(type==='pie'){
       const labels=trace.labels || [], values=trace.values || [];
       const total=values.reduce((sum,v)=>sum+(Number(v)||0),0);
-      labels.forEach((label,i)=>rows.push([series,label,values[i],total?`${((Number(values[i])||0)*100/total).toFixed(2)}%`:'']));
+      labels.forEach((label,i)=>rows.push([series,label,values[i],total?`${UIFormat.pct(((Number(values[i])||0)*100/total),2)}`:'']));
       return;
     }
     if(type==='scatterpolar'){
@@ -4420,6 +4450,14 @@ function initReportFinder(){
   const input=document.getElementById('reportFinderInput');
   const results=document.getElementById('reportFinderResults');
   if(!input || !results) return;
+  // Ô tìm nằm trên thanh tiêu đề (luôn thấy) thay vì cuối trang; Ctrl/⌘+K để nhảy tới.
+  const finder=document.getElementById('reportFinder');
+  const headerEnd=document.querySelector('.adw-headerbar .hb-end');
+  if(finder && headerEnd && finder.parentElement!==headerEnd){ finder.classList.add('in-header'); headerEnd.prepend(finder); }
+  input.placeholder='Tìm báo cáo (Ctrl K)';
+  document.addEventListener('keydown',event=>{
+    if((event.ctrlKey||event.metaKey) && !event.altKey && event.key.toLowerCase()==='k'){ event.preventDefault(); input.focus(); input.select(); }
+  });
   const fold=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toLowerCase();
   const reports=Array.from(document.querySelectorAll('#reportGrid > .card[data-tab]'))
     .filter(card=>card.id && REPORT_FINDER_GROUPS[card.dataset.tab]
@@ -4815,9 +4853,23 @@ function showTab(tabName){
   resizeVisibleTabPlots(tabName);
 }
 
+// Thẻ nửa rộng không có thẻ ghép cùng hàng thì kéo đủ hàng, tránh để trống nửa hàng.
+function markOrphanReportCards(tabName){
+  const cards=Array.from(document.querySelectorAll(`#reportGrid > .card[data-tab="${tabName}"]`));
+  cards.forEach(card=>card.classList.remove('layout-orphan'));
+  let pending=null;
+  cards.filter(card=>!card.hidden && card.style.display!=='none' && getComputedStyle(card).display!=='none').forEach(card=>{
+    if(getComputedStyle(card).gridColumnStart!=='span 6'){ pending?.classList.add('layout-orphan'); pending=null; return; }
+    pending=pending ? null : card;
+  });
+  pending?.classList.add('layout-orphan');
+}
+
 function resizeVisibleTabPlots(tabName){
+  markOrphanReportCards(tabName);
   if(!window.Plotly || !Plotly.Plots) return;
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    markOrphanReportCards(tabName);
     document.querySelectorAll(`#reportGrid > .card[data-tab="${tabName}"]`).forEach(card=>{
       if(card.style.display==='none') return;
       const plot=card.querySelector('.js-plotly-plot');
@@ -4874,7 +4926,9 @@ function normalizeChartHeight(plot){
   const target=card && card.classList.contains('layout-full') ? 420 : 380;
   plot.style.height=`${target}px`;
   if(plot.layout && Math.round(Number(plot.layout.height)||0)!==target){
-    try{ Plotly.relayout(plot,{height:target}); }catch(e){}
+    // relayout(height) tự khoá luôn width hiện tại (700px nếu tab đang ẩn);
+    // giữ width tự động để biểu đồ còn co theo thẻ.
+    try{ Plotly.relayout(plot,{height:target,width:null,autosize:true}); }catch(e){}
   }
 }
 
@@ -5936,7 +5990,7 @@ function cidFmtHours(min){
   const h = min/60;
   return h >= 48 ? (h/24).toFixed(1)+' ngày' : h.toFixed(1)+'h';
 }
-function cidPct(v){ return (v==null || isNaN(v)) ? '—' : v.toFixed(1)+'%'; }
+function cidPct(v){ return (v==null || isNaN(v)) ? '—' : UIFormat.pct(v,1); }
 
 /* Khung "the so lieu" dung chung cho tom tat, phu song va ton that — thay vi
    moi cho tu dinh nghia rieng mot ban giong het nhau. */
@@ -6516,7 +6570,7 @@ function renderCidSignals(){
                             cidWindowBounds()));
   if(!r.cases || !r.controls) return clear('Không đủ cửa sổ để so sánh.');
 
-  const pct = v => v.toFixed(1)+'%';
+  const pct = v => UIFormat.pct(v,1);
   const liftCell = l => l == null ? '—'
     : '<span style="color:'+(l>=1.3?uiColor('--ux-color-c0392b'):l<=0.77?uiColor('--ux-color-2e7d32'):'inherit')
       +';font-weight:'+(l>=1.3||l<=0.77?'700':'400')+'">×'+l.toFixed(2)+'</span>';
@@ -6651,7 +6705,7 @@ function renderCidReblockTable(){
   if(!tb) return;
   if(!cidState.loaded||!cidState.timeline){ tb.innerHTML='<tr><td colspan="6" class="muted u-inline-e2c960fb">Chưa tải lịch sử khoá số.</td></tr>'; return; }
   const result=computeCidReblockStats(cidTimeline(),[1,6,24,168]);
-  const fmt=w=>w&&w.ratePct!=null?`${w.ratePct.toFixed(1)}% (${w.reblocked}/${w.eligible})`:'—';
+  const fmt=w=>w&&w.ratePct!=null?`${UIFormat.pct(w.ratePct,1)} (${w.reblocked}/${w.eligible})`:'—';
   tb.innerHTML=result.rows.map(r=>`<tr>
     <td class="u-inline-4d2849d1">${reportTableEscape(r.name)}</td>
     <td class="u-inline-12972e58">${r.recovered.toLocaleString('vi-VN')}</td>
@@ -6700,7 +6754,7 @@ function renderCidComparison(){
   const rows=(dashState&&dashState.filtered)||[];
   const makeTable=(title,data)=>`<h4 class="u-inline-eabef57d">${title}</h4><table class="u-inline-6b266149"><thead><tr>
     <th class="u-inline-30130854">${title}</th><th class="u-inline-1fb56c0e">CID</th><th class="u-inline-1fb56c0e">Block</th><th class="u-inline-1fb56c0e">Còn khóa</th><th class="u-inline-1fb56c0e">Uptime TB</th><th class="u-inline-1fb56c0e">Hồi phục P50</th><th class="u-inline-1fb56c0e">Tái khóa</th></tr></thead><tbody>`+
-    data.map(r=>`<tr><td class="u-inline-4d2849d1">${reportTableEscape(r.name)}</td><td class="u-inline-12972e58">${r.cids}</td><td class="u-inline-12972e58">${r.blocks}</td><td class="u-inline-12972e58">${r.stillBlockedPct.toFixed(1)}%</td><td class="u-inline-12972e58">${r.avgUptimePct==null?'—':r.avgUptimePct.toFixed(1)+'%'}</td><td class="u-inline-12972e58">${cidFmtHours(r.medianRecoveryMin)}</td><td class="u-inline-12972e58">${r.reblockPct.toFixed(1)}%</td></tr>`).join('')+
+    data.map(r=>`<tr><td class="u-inline-4d2849d1">${reportTableEscape(r.name)}</td><td class="u-inline-12972e58">${r.cids}</td><td class="u-inline-12972e58">${r.blocks}</td><td class="u-inline-12972e58">${UIFormat.pct(r.stillBlockedPct,1)}</td><td class="u-inline-12972e58">${r.avgUptimePct==null?'—':UIFormat.pct(r.avgUptimePct,1)}</td><td class="u-inline-12972e58">${cidFmtHours(r.medianRecoveryMin)}</td><td class="u-inline-12972e58">${UIFormat.pct(r.reblockPct,1)}</td></tr>`).join('')+
     '</tbody></table>';
   // Mẫu CDR trên giao diện có thể bị cắt ở 5.000 dòng. Dùng thêm chỉ mục
   // CID đã lưu để vẫn xác định đúng Gateway/Tài khoản khi CID không có trong mẫu.
@@ -7366,7 +7420,7 @@ function plotConcurrentByTelco(rows, colors, mode='absolute'){
     const n = x.length;
     const textArr = new Array(n).fill('');
     if(showLabels && n>0){
-      textArr[n-1] = `${absY[n-1]} (${pctY[n-1].toFixed(1)}%)`;
+      textArr[n-1] = `${absY[n-1]} (${UIFormat.pct(pctY[n-1],1)})`;
     }
     return {
       x, y: absY,
@@ -7483,8 +7537,8 @@ function renderCcuByTelcoTable(rows){
       <td class="u-inline-12972e58">${n2(s.avgFilter)}</td>
       <td class="u-inline-12972e58">${n2(s.avgObserved)}</td>
       <td class="u-inline-12972e58">${s.atSystemPeak}</td>
-      <td class="u-inline-12972e58">${s.atSystemPeakPct.toFixed(1)}%</td>
-      <td class="u-inline-12972e58">${s.loadPct.toFixed(1)}%</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(s.atSystemPeakPct,1)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(s.loadPct,1)}</td>
     `;
     tb.appendChild(tr);
   });
@@ -7525,7 +7579,7 @@ function plotGoldenHoursRate(rows){
   const {zRate, zTot, zCon} = cubeVal('goldenHours', ()=>computeGoldenHours(rows));
   const data=[{
     z: zRate,
-    type:'heatmap', colorscale:'YlGn', zmin:0, zmax:100,
+    type:'heatmap', colorscale:CHART_SCALES.connect, zmin:0, zmax:100,
     x: Array.from({length:24}, (_,i)=>String(i).padStart(2,'0')),
     y: ['CN','T2','T3','T4','T5','T6','T7'],
     hoverongaps:false,
@@ -7552,7 +7606,7 @@ function plotTopTimeSlots(rows, colors, topN=10, minAttempts=30){
   const wdLabel=['CN','Thứ 2','Thứ 3','Thứ 4','Thứ 5','Thứ 6','Thứ 7'];
   const y = top.map(s=> `${wdLabel[s.wd]} • ${String(s.h).padStart(2,'0')}:00`);
   const x = top.map(s=> +(100*s.rate).toFixed(2));
-  const text = top.map(s=> `${(100*s.rate).toFixed(1)}% · ${s.con}/${s.tot}${s.tot<100?' · mẫu thấp':''}`);
+  const text = top.map(s=> `${UIFormat.pct((100*s.rate),1)} · ${s.con}/${s.tot}${s.tot<100?' · mẫu thấp':''}`);
   const eligibleCon=slots.reduce((sum,s)=>sum+s.con,0);
   const eligibleTotal=slots.reduce((sum,s)=>sum+s.tot,0);
   const avgRate=eligibleTotal ? 100*eligibleCon/eligibleTotal : 0;
@@ -7574,7 +7628,7 @@ function plotTopTimeSlots(rows, colors, topN=10, minAttempts=30){
     margin:{l:135,r:165,t:78,b:55},
     bargap:0.22,showlegend:false,plot_bgcolor:uiColor('--ux-color-fff'),paper_bgcolor:uiColor('--ux-color-fff'),
     shapes:[{type:'line',xref:'x',yref:'paper',x0:avgRate,x1:avgRate,y0:0,y1:1,line:{color:uiColor('--ux-color-475569'),width:1.5,dash:'dot'}}],
-    annotations:[{xref:'x',yref:'paper',x:avgRate,y:1.04,text:`TB ${avgRate.toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-475569')},bgcolor:'rgba(255,255,255,.86)'}]
+    annotations:[{xref:'x',yref:'paper',x:avgRate,y:1.04,text:`TB ${UIFormat.pct(avgRate,1)}`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-475569')},bgcolor:'rgba(255,255,255,.86)'}]
   }, {
     responsive:true,displaylogo:false,scrollZoom:false,
     modeBarButtonsToRemove:['lasso2d','select2d','toggleSpikelines','hoverClosestCartesian','hoverCompareCartesian','autoScale2d']
@@ -7593,7 +7647,7 @@ function plotCallFunnel(rows, minCompletedBillsec=30){
   const fmt=value=>new Intl.NumberFormat('vi-VN').format(value);
   const previousRates=[100,pct(connected,total),pct(completed,connected)];
   const totalRates=[100,pct(connected,total),pct(completed,total)];
-  const stageText=values.map((value,i)=>`${fmt(value)} cuộc<br>${previousRates[i].toFixed(1)}% ${i===0?'tổng':'từ bước trước'}${i===2?` · ${totalRates[i].toFixed(1)}% tổng`:''}`);
+  const stageText=values.map((value,i)=>`${fmt(value)} cuộc<br>${UIFormat.pct(previousRates[i],1)} ${i===0?'tổng':'từ bước trước'}${i===2?` · ${UIFormat.pct(totalRates[i],1)} tổng`:''}`);
   const lossConnect=total-connected,lossCompleted=connected-completed;
   const data=[{
     type:'funnel',y:stages,x:values,text:stageText,textinfo:'text',
@@ -7606,8 +7660,8 @@ function plotCallFunnel(rows, minCompletedBillsec=30){
     title:{text:`Phễu chất lượng cuộc gọi<br><span class="u-inline-2f03bac0">Hoàn tất = ${statusLabel('Connected')} và billsec ≥ ${minCompletedBillsec} giây</span>`,x:.03,xanchor:'left'},
     margin:{l:105,r:145,t:74,b:22},showlegend:false,plot_bgcolor:uiColor('--ux-color-fff'),paper_bgcolor:uiColor('--ux-color-fff'),
     annotations:[
-      {xref:'paper',yref:'paper',x:1.02,y:.66,text:`Rơi ${fmt(lossConnect)} · ${pct(lossConnect,total).toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-64748b')}},
-      {xref:'paper',yref:'paper',x:1.02,y:.26,text:`Rơi ${fmt(lossCompleted)} · ${pct(lossCompleted,connected).toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-64748b')}}
+      {xref:'paper',yref:'paper',x:1.02,y:.66,text:`Rơi ${fmt(lossConnect)} · ${UIFormat.pct(pct(lossConnect,total),1)}`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-64748b')}},
+      {xref:'paper',yref:'paper',x:1.02,y:.26,text:`Rơi ${fmt(lossCompleted)} · ${UIFormat.pct(pct(lossCompleted,connected),1)}`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-64748b')}}
     ]
   };
   Plotly.react('chart_call_funnel',data,layout,{
@@ -7684,7 +7738,7 @@ function renderLineAnomalyTable(rows, minAttemptsDay=50, dropThresholdPp=10){
 
   rowsOut.slice(0,30).forEach(o=>{
     const tr=document.createElement('tr');
-    const fmt = v => (100*v).toFixed(2)+'%';
+    const fmt = v => UIFormat.pct((100*v),2);
     const diff = (o.diffPp>=0?'+':'') + o.diffPp.toFixed(2) + 'pp';
     const explainPayload = {
       loai: 'Bất thường đầu số (tỷ lệ kết nối giảm so với mức nền 7 ngày)',
@@ -7730,7 +7784,7 @@ function plotAgentPerformance(rows, colors, topN=10){
     marker:{color:barColors,line:{color:uiColor('--ux-color-fff'),width:.5}},cliponaxis:false,
     customdata:data.map(a=>[a.tot,a.con,a.noans,a.fail,a.minutes,a.avgCon]),
     hovertemplate:`%{y}<br>Tỷ lệ kết nối: %{x:.2f}%<br>Số cuộc: %{customdata[0]:,.0f}<br>${statusLabel('Connected')}: %{customdata[1]:,.0f}<br>${statusLabel('No Answer')}: %{customdata[2]:,.0f}<br>${statusLabel('Fail')}: %{customdata[3]:,.0f}<br>Phút gọi: %{customdata[4]:.1f}<br>Billsec trung bình khi kết nối: %{customdata[5]:.1f} giây<extra></extra>`,
-    text:data.map(a=>`${(100*a.rate).toFixed(1)}% · ${new Intl.NumberFormat('vi-VN').format(a.tot)} cuộc`),
+    text:data.map(a=>`${UIFormat.pct((100*a.rate),1)} · ${new Intl.NumberFormat('vi-VN').format(a.tot)} cuộc`),
     textposition:'outside'
   }, {
     x: xAsr, y, type:'scatter', mode:'markers', name:'ASR hợp lệ',
@@ -7746,7 +7800,7 @@ function plotAgentPerformance(rows, colors, topN=10){
     height: Math.max(400, y.length*34+130),
     margin:{l:190,r:170,t:78,b:48},bargap:.22,showlegend:false,plot_bgcolor:uiColor('--ux-color-fff'),paper_bgcolor:uiColor('--ux-color-fff'),
     shapes:[{type:'line',xref:'x',yref:'paper',x0:avgRate,x1:avgRate,y0:0,y1:1,line:{color:uiColor('--ux-color-475569'),width:1.5,dash:'dot'}}],
-    annotations:[{xref:'x',yref:'paper',x:avgRate,y:1.04,text:`TB ${avgRate.toFixed(1)}%`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-475569')},bgcolor:'rgba(255,255,255,.86)'}]
+    annotations:[{xref:'x',yref:'paper',x:avgRate,y:1.04,text:`TB ${UIFormat.pct(avgRate,1)}`,showarrow:false,xanchor:'left',font:{size:10,color:uiColor('--ux-color-475569')},bgcolor:'rgba(255,255,255,.86)'}]
   }, {
     responsive:true,displaylogo:false,scrollZoom:false,
     modeBarButtonsToRemove:['lasso2d','select2d','toggleSpikelines','hoverClosestCartesian','hoverCompareCartesian','autoScale2d']
@@ -7771,12 +7825,12 @@ function renderAgentPerfTable(rows){
       <td class="u-inline-4d2849d1"><button type="button" class="drilldown-trigger" data-drill-account="${reportTableEscape(String(a.id))}" data-drill-title="Chi tiết tài khoản ${reportTableEscape(String(name))}">${reportTableEscape(name)}</button><div class="muted u-inline-11a50812">ID: ${reportTableEscape(String(a.id))}</div></td>
       <td class="u-inline-12972e58">${a.tot}</td>
       <td class="u-inline-12972e58">${a.con}</td>
-      <td class="u-inline-12972e58">${(100*a.rate).toFixed(2)}%</td>
-      <td class="u-inline-12972e58">${(100*a.asr).toFixed(2)}%</td>
-      <td class="u-inline-12972e58">${(100*a.connectExclFailRate).toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${UIFormat.pct((100*a.rate),2)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct((100*a.asr),2)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct((100*a.connectExclFailRate),2)}</td>
       <td class="u-inline-12972e58">${a.minutes.toFixed(1)}</td>
       <td class="u-inline-12972e58">${a.avgCon.toFixed(1)}</td>
-      <td class="u-inline-12972e58">${(100*a.shortRate).toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${UIFormat.pct((100*a.shortRate),2)}</td>
       <td class="u-inline-12972e58">${retryMap[String(a.id)]||0}</td>
     `;
     tb.appendChild(tr);
@@ -7818,10 +7872,10 @@ function renderGwByAccountBody(){
       <td class="muted u-inline-4d2849d1">${reportTableEscape(m.routing_name||'')}</td>
       <td class="u-inline-12972e58">${m.total.toLocaleString('vi-VN')}</td>
       <td class="u-inline-12972e58">${m.connected.toLocaleString('vi-VN')}</td>
-      <td class="u-inline-12972e58">${m.connectRate.toFixed(2)}%</td>
-      <td class="u-inline-12972e58">${m.asr.toFixed(2)}%</td>
-      <td class="u-inline-12972e58">${m.connectExclFailRate.toFixed(2)}%</td>
-      <td class="u-inline-12972e58">${m.failPct.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.connectRate,2)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.asr,2)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.connectExclFailRate,2)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.failPct,2)}</td>
       <td class="u-inline-12972e58">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
     `;
     tb.appendChild(tr);
@@ -7848,7 +7902,7 @@ function renderGatewayByAccountTable(rows){
   });
   if(cov){
     const c = res.coverage || {};
-    cov.innerHTML = `Độ phủ: <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc join được gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`
+    cov.innerHTML = `Độ phủ: <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc join được gateway (<b>${UIFormat.pct((c.pct||0),2)}</b>).`
       + ((c.pct||0) < 100 ? ` Phần còn lại là CID chưa nằm trong routing đã gán.` : '');
   }
   if(table && !table._colFilterBound){
@@ -7876,7 +7930,7 @@ function renderGatewayFailTable(rows){
     b.connectRate - a.connectRate || b.total - a.total || b.failPct - a.failPct);
   if(cov){
     const c = res.coverage || {};
-    cov.innerHTML = `${data.length} gateway · <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc đã map gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`;
+    cov.innerHTML = `${data.length} gateway · <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc đã map gateway (<b>${UIFormat.pct((c.pct||0),2)}</b>).`;
   }
   if(!data.length){
     tb.innerHTML = '<tr><td colspan="9" class="muted u-inline-bee7c325">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</td></tr>';
@@ -7890,11 +7944,11 @@ function renderGatewayFailTable(rows){
       <td class="u-inline-12972e58">${m.accountCount.toLocaleString('vi-VN')}</td>
       <td class="u-inline-12972e58">${m.total.toLocaleString('vi-VN')}</td>
       <td class="u-inline-12972e58">${m.connected.toLocaleString('vi-VN')}</td>
-      <td class="u-inline-12972e58">${m.connectRate.toFixed(2)}%</td>
-      <td class="u-inline-12972e58">${m.asr.toFixed(2)}%</td>
-      <td class="u-inline-12972e58">${m.connectExclFailRate.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.connectRate,2)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.asr,2)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.connectExclFailRate,2)}</td>
       <td class="u-inline-12972e58">${m.fail.toLocaleString('vi-VN')}</td>
-      <td style="border:1px solid var(--border);padding:6px;text-align:right${hot?';color:var(--error);font-weight:700':''}">${m.failPct.toFixed(2)}%</td>
+      <td style="border:1px solid var(--border);padding:6px;text-align:right${hot?';color:var(--error);font-weight:700':''}">${UIFormat.pct(m.failPct,2)}</td>
       <td class="u-inline-12972e58">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
     `;
     tb.appendChild(tr);
@@ -7935,7 +7989,7 @@ function plotGatewayCallDistribution(rows, colors){
     x:data.map(item=>item.failPct || 0),
     customdata:data.map(item=>[item.fail || 0,item.total || 0]),
     marker:{color:uiColor('--ux-color-e15759'),size:10,symbol:'diamond',line:{color:'rgba(255,255,255,.8)',width:1}},
-    text:data.map(item=>`${(item.failPct||0).toFixed(2)}%`),
+    text:data.map(item=>`${UIFormat.pct((item.failPct||0),2)}`),
     textposition:'middle right',
     cliponaxis:false,
     hovertemplate:`Gateway: %{y}<br>Tỷ lệ fail: %{x:.2f}%<br>${statusLabel('Fail')}: %{customdata[0]:,} / %{customdata[1]:,} cuộc<extra></extra>`,
@@ -8070,7 +8124,7 @@ function renderGatewayHangupCauseTable(rows){
   if(cov){
     const c = res.coverage || {};
     const gatewayCount = new Set(data.map(item=>item.gateway)).size;
-    cov.innerHTML = `${gatewayCount} gateway · ${data.length} dòng nguyên nhân · <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc đã map gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`;
+    cov.innerHTML = `${gatewayCount} gateway · ${data.length} dòng nguyên nhân · <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc đã map gateway (<b>${UIFormat.pct((c.pct||0),2)}</b>).`;
   }
   if(!data.length){
     host.innerHTML = '<div class="muted u-inline-01f63f3b">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</div>';
@@ -8098,20 +8152,20 @@ function renderGatewayHangupCauseTable(rows){
         return `<tr>
           <td>${reportTableEscape(item.hangup_cause)}</td>
           <td>${item.total.toLocaleString('vi-VN')}</td>
-          <td>${item.sharePct.toFixed(2)}%</td>
+          <td>${UIFormat.pct(item.sharePct,2)}</td>
           <td>${item.connected.toLocaleString('vi-VN')}</td>
           <td>${item.noans.toLocaleString('vi-VN')}</td>
           <td>${item.cancelled.toLocaleString('vi-VN')}</td>
           <td>${(item.nonSystemFailure||0).toLocaleString('vi-VN')}</td>
           <td>${item.fail.toLocaleString('vi-VN')}</td>
-          <td class="u-inline-e9710c57"${hot?'':''}>${item.failSharePct.toFixed(2)}%</td>
+          <td class="u-inline-e9710c57"${hot?'':''}>${UIFormat.pct(item.failSharePct,2)}</td>
         </tr>`;
       }).join('');
       details.innerHTML = `
         <summary>
           <span class="gateway-cause-name">${reportTableEscape(gateway)}</span>
           <span class="gateway-cause-meta">${gatewayTotal.toLocaleString('vi-VN')} cuộc · ${items.length} nguyên nhân</span>
-          <span class="gateway-cause-meta gateway-cause-fail">Fail ${gatewayFail.toLocaleString('vi-VN')} · ${gatewayFailPct.toFixed(2)}%</span>
+          <span class="gateway-cause-meta gateway-cause-fail">Fail ${gatewayFail.toLocaleString('vi-VN')} · ${UIFormat.pct(gatewayFailPct,2)}</span>
         </summary>
         <div class="gateway-cause-table-wrap"><table class="gateway-cause-table">
           <thead><tr><th>Nguyên nhân kết thúc</th><th>Số cuộc</th><th>Tỷ trọng cuộc gọi</th><th>${statusLabel('Connected')}</th><th>${statusLabel('No Answer')}</th><th>${statusLabel('Cancelled')}</th><th>${statusLabel('Non-System Failure')}</th><th>${statusLabel('Fail')}</th><th>Tỷ trọng lỗi</th></tr></thead>
@@ -8157,7 +8211,7 @@ function plotGatewayHangupCausePie(rows, colors){
     hovertemplate:'Gateway: %{y}<br>Nguyên nhân kết thúc: '+reportTableEscape(cause)+'<br>Số cuộc: %{customdata[0]:,}<br>Tỷ trọng trong Gateway: %{customdata[1]:.2f}%<extra></extra>',
     text:gateways.map(gateway=>{
       const cell=lookup.get(gateway+'\u0000'+cause);
-      return cell && cell.sharePct >= 8 ? `${cell.sharePct.toFixed(1)}%` : '';
+      return cell && cell.sharePct >= 8 ? `${UIFormat.pct(cell.sharePct,1)}` : '';
     }),
     textposition:'inside', insidetextanchor:'middle',
     textfont:{size:11},
@@ -8224,8 +8278,8 @@ function renderGatewayBlockReconcileTable(rows){
       <td class="u-inline-4d2849d1">${reportTableEscape(TLABEL[m.telco]||m.telco)}</td>
       <td class="u-inline-4d2849d1">${m.declared === 'PAUSE' ? '<b class="u-inline-a4f36f6a">PAUSE</b>' : 'ON'}</td>
       <td class="u-inline-12972e58">${m.total.toLocaleString('vi-VN')}</td>
-      <td class="u-inline-12972e58">${m.failPct.toFixed(2)}%</td>
-      <td class="u-inline-12972e58">${m.connPct.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.failPct,2)}</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(m.connPct,2)}</td>
       <td style="border:1px solid var(--border);padding:6px${warn?';color:var(--error)':';color:var(--text-2)'}">${reportTableEscape(m.verdict)}</td>
     `;
     tb.appendChild(tr);
@@ -8279,7 +8333,7 @@ function renderCallbackTopTable(rows, topN=30, minAttempts=3){
       <td class="u-inline-4d2849d1">${reportTableEscape(maskDn(s.dn))}</td>
       <td class="u-inline-12972e58">${s.tot}</td>
       <td class="u-inline-12972e58">${s.con}</td>
-      <td class="u-inline-12972e58">${rate.toFixed(2)}%</td>
+      <td class="u-inline-12972e58">${UIFormat.pct(rate,2)}</td>
       <td class="u-inline-12972e58">${s.firstConnectAttempt==null ? '-' : s.firstConnectAttempt}</td>
     `;
     tb.appendChild(tr);
@@ -8367,7 +8421,7 @@ function renderDataQuality(rows){
         <td class="u-inline-4d2849d1">${reportTableEscape(maskDn(s.dn))}</td>
         <td class="u-inline-12972e58">${s.tot}</td>
         <td class="u-inline-12972e58">${s.con}</td>
-        <td class="u-inline-12972e58">${rate.toFixed(2)}%</td>
+        <td class="u-inline-12972e58">${UIFormat.pct(rate,2)}</td>
       `;
       tb.appendChild(tr);
     });
@@ -8458,19 +8512,19 @@ function renderAdvancedAlerts(rows){
   items.push({
     level: lowOverall ? 'red' : (overallRate<0.35 ? 'yellow' : 'green'),
     title: 'Tỷ lệ kết nối tổng',
-    desc: `Tỷ lệ kết nối: ${(100*overallRate).toFixed(2)}% (${connected}/${total})`
+    desc: `Tỷ lệ kết nối: ${UIFormat.pct((100*overallRate),2)} (${connected}/${total})`
   });
   if(invalidRatio>0.05){
     items.push({
       level: invalidRatio>0.12 ? 'red' : 'yellow',
       title: 'Dữ liệu có dấu hiệu kém',
-      desc: `Tỷ lệ số đích không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`
+      desc: `Tỷ lệ số đích không hợp lệ: ${UIFormat.pct((100*invalidRatio),2)}`
     });
   } else {
     items.push({
       level: 'green',
       title: 'Chất lượng định dạng số đích',
-      desc: `Tỷ lệ số không hợp lệ: ${(100*invalidRatio).toFixed(2)}%`
+      desc: `Tỷ lệ số không hợp lệ: ${UIFormat.pct((100*invalidRatio),2)}`
     });
   }
   if(drops.length){
@@ -8488,7 +8542,7 @@ function renderAdvancedAlerts(rows){
     });
   }
   if(hourAnomalies.length){
-    const topHour = hourAnomalies.slice(0,3).map(h=> `${h.hour}h (${(100*h.rate).toFixed(1)}%, n=${h.total})`).join(', ');
+    const topHour = hourAnomalies.slice(0,3).map(h=> `${h.hour}h (${UIFormat.pct((100*h.rate),1)}, n=${h.total})`).join(', ');
     items.push({
       level: 'yellow',
       title: `${statusLabel('Fail')}/${statusLabel('No Answer')} tăng bất thường theo giờ`,
@@ -10824,11 +10878,13 @@ function plotDirectionSplit(rows, colors){
   }
   if(card) card.hidden=false;
   if(note) note.hidden=true;
-  const directionColors = {Inbound:uiColor('--ux-color-2563eb'),Outbound:uiColor('--ux-color-7c3aed'),Unknown:CHART_SEMANTIC.Cancelled};
-  const data=[{type:'pie', labels, values, hole:0.45, textinfo:'label+percent',
+  // Màu dữ liệu trung tính (xanh đậm/nhạt), không trùng màu trạng thái.
+  const directionColors = {Inbound:CHART_SEMANTIC.VolumeLight,Outbound:CHART_SEMANTIC.Volume,Unknown:CHART_SEMANTIC.Cancelled};
+  const directionNames = {Inbound:'Gọi vào',Outbound:'Gọi ra',Unknown:'Không xác định'};
+  const data=[{type:'pie', labels:labels.map(label=>directionNames[label]), values, hole:0.45, textinfo:'label+percent',
     marker:{colors: labels.map(label=>directionColors[label])},
     hovertemplate:'%{label}<br>%{value} cuộc (%{percent})<extra></extra>'}];
-  Plotly.react(elId, data, {title:'Chiều cuộc gọi (Inbound / Outbound)', height:360}, {responsive:true});
+  Plotly.react(elId, data, {title:'Chiều cuộc gọi (gọi vào / gọi ra)', height:360}, {responsive:true});
 }
 
 // Thời gian đổ chuông theo phân vị (P50/P90/P95) theo Telco
@@ -11982,8 +12038,8 @@ function llmRenderRiskEngineResult(data){
         const rate = Math.max(0, Math.min(1, Number(info.lock_rate) || 0));
         const meta = llmRiskTypeMeta(info.risk_type);
         return `<tr><td class="risk-gateway-name">${reportTableEscape(g)}</td><td><span class="risk-badge ${meta.level}">${reportTableEscape(meta.label)}</span></td>` +
-          `<td><div class="risk-rate"><span class="risk-rate-track"><span class="risk-rate-fill" style="width:${(rate*100).toFixed(1)}%"></span></span><strong>${(rate*100).toFixed(1)}%</strong></div></td>` +
-          `<td>${Number(info.cids) || 0}</td><td>${Number(info.locked) || 0}</td><td>${(100*(Number(info.success_rate)||0)).toFixed(1)}%</td><td>${(100*(Number(info.hard_rate)||0)).toFixed(1)}%</td><td>${reportTableEscape(cidRiskRecommendation(info))}</td></tr>`;
+          `<td><div class="risk-rate"><span class="risk-rate-track"><span class="risk-rate-fill" style="width:${(rate*100).toFixed(1)}%"></span></span><strong>${UIFormat.pct((rate*100),1)}</strong></div></td>` +
+          `<td>${Number(info.cids) || 0}</td><td>${Number(info.locked) || 0}</td><td>${UIFormat.pct((100*(Number(info.success_rate)||0)),1)}</td><td>${UIFormat.pct((100*(Number(info.hard_rate)||0)),1)}</td><td>${reportTableEscape(cidRiskRecommendation(info))}</td></tr>`;
       }).join('') + '</tbody></table></div></section>';
   }
   if(data.narrative){

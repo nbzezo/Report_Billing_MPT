@@ -16,7 +16,7 @@ const { chromium } = loadPlaywright();
 const tabs = ['overview', 'quality', 'time', 'advanced', 'billing', 'cid', 'settings'];
 const auditOnly = process.argv.includes('--audit-only');
 const themeArg = process.argv.find(value => value.startsWith('--theme='));
-const themes = themeArg ? [themeArg.split('=')[1]] : ['light', 'dark'];
+const themes = themeArg ? [themeArg.split('=')[1]] : ['light'];
 const out = path.join(here, process.argv.includes('--baseline') ? 'baseline' : 'out');
 const kpiBaseline = JSON.parse(await fs.readFile(path.join(here, 'baseline', 'kpi.json'), 'utf8'));
 await fs.mkdir(out, { recursive: true });
