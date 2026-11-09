@@ -614,12 +614,12 @@ function updateRN_CF_KPIs(rows){
       <div class="kpi kpi-status" id="kpi_conn"><div class="kpi-status-head"><span class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Phân bố trạng thái</span><div class="kpi-status-bar" id="kpi_conn_bar" aria-hidden="true"></div></div><div class="kpi-value status-chips" id="kpi_conn_text">—</div></div>
       <div class="kpi-secondary-grid">
         <div class="kpi kpi-secondary" id="kpi_peak"><div class="kpi-value" id="kpi_peak_text">—</div><div class="kpi-label">Đồng thời cao nhất <button type="button" class="info-btn" aria-label="Xem giải thích: Đồng thời cao nhất" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Số cuộc đồng thời lớn nhất trong khoảng thời gian lọc.">i</button></div></div>
-        <div class="kpi kpi-secondary" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="kpi-label">Thời lượng tính cước TB <button type="button" class="info-btn" aria-label="Xem giải thích: Thời lượng tính cước trung bình" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Tổng billsec của cuộc Kết nối chia cho số cuộc Kết nối.">i</button></div></div>
+        <div class="kpi kpi-secondary" id="kpi_avg_billsec"><div class="kpi-value" id="kpi_avg_billsec_text">—</div><div class="kpi-label" title="Thời lượng tính cước trung bình">Tính cước TB <button type="button" class="info-btn" aria-label="Xem giải thích: Thời lượng tính cước trung bình" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Tổng billsec của cuộc Kết nối chia cho số cuộc Kết nối.">i</button></div></div>
         <div class="kpi kpi-secondary" id="kpi_max_cf"><div class="kpi-value" id="kpi_max_cf_text">—</div><div class="kpi-label">Chuỗi lỗi dài nhất</div></div>
-        <div class="kpi kpi-secondary" id="kpi_median_rn"><div class="kpi-value" id="kpi_median_rn_text">—</div><div class="kpi-label">Trung vị số ngẫu nhiên (RN)</div></div>
+        <div class="kpi kpi-secondary" id="kpi_median_rn"><div class="kpi-value" id="kpi_median_rn_text">—</div><div class="kpi-label" title="Trung vị số ngẫu nhiên (RN)">Trung vị RN</div></div>
         <div class="kpi kpi-secondary" id="kpi_dup_dest"><div class="kpi-value" id="kpi_dup_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lặp</div></div>
         <div class="kpi kpi-secondary" id="kpi_invalid_dest"><div class="kpi-value" id="kpi_invalid_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lỗi</div></div>
-        <div class="kpi kpi-secondary" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="kpi-label">Tỷ lệ kết nối (trừ cuộc lỗi) <button type="button" class="info-btn" aria-label="Xem giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi − CID bị khóa).">i</button></div></div>
+        <div class="kpi kpi-secondary" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="kpi-label" title="Tỷ lệ kết nối (trừ cuộc lỗi)">Kết nối trừ lỗi <button type="button" class="info-btn" aria-label="Xem giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi − CID bị khóa).">i</button></div></div>
       </div>
       <div id="kpiDirectionNote" class="kpi-direction-note" role="status" hidden></div>
     </div>
@@ -5126,17 +5126,22 @@ function renderCommon(filtered, ov, colors){
   const kpiConnEl = document.getElementById('kpi_conn_text');
   if(kpiConnEl){
     const counts = ov.counts || {};
-    const chips = [`<button type="button" class="status-chip fail drilldown-trigger" data-drill-status="Fail" data-drill-title="Chi tiết Lỗi">${statusLabel('Fail')} ${UIFormat.int(counts.Fail||0)} · ${UIFormat.pct(ov.pct.Fail)}</button>`,
-      `<button type="button" class="status-chip cidblocked drilldown-trigger" data-drill-status="CID_Blocked" data-drill-title="Chi tiết CID bị khóa">${statusLabel('CID_Blocked')} ${UIFormat.int(counts.CID_Blocked||0)} · ${UIFormat.pct(ov.pct.CIDBlocked)}</button>`,
-      `<button type="button" class="status-chip nonsystem drilldown-trigger" data-drill-status="Non-System Failure" data-drill-title="Chi tiết Non-System Failure">${statusLabel('Non-System Failure')} ${UIFormat.int(counts['Non-System Failure']||0)} · ${UIFormat.pct(ov.pct.NonSystemFailure)}</button>`,
-      `<button type="button" class="status-chip noans drilldown-trigger" data-drill-status="No Answer" data-drill-title="Chi tiết Không nghe">${statusLabel('No Answer')} ${UIFormat.int(counts['No Answer']||0)} · ${UIFormat.pct(ov.pct.NoAnswer)}</button>`,
-      `<button type="button" class="status-chip canc drilldown-trigger" data-drill-status="Cancelled" data-drill-title="Chi tiết Hủy">${statusLabel('Cancelled')} ${UIFormat.int(counts.Cancelled||0)} · ${UIFormat.pct(ov.pct.Cancelled)}</button>`,
-      `<button type="button" class="status-chip conn drilldown-trigger" data-drill-status="Connected" data-drill-title="Chi tiết Kết nối">${statusLabel('Connected')} ${UIFormat.int(counts.Connected||0)} · ${UIFormat.pct(ov.pct.Connected)}</button>`];
-    kpiConnEl.innerHTML = chips.join('');
+    // Chú giải dưới thanh trạng thái: cùng thứ tự với thanh (kết nối trước), tên in đậm,
+    // mỗi mục vẫn là nút mở drilldown.
+    const statuses=[
+      ['conn','Connected',counts.Connected,ov.pct.Connected],
+      ['noans','No Answer',counts['No Answer'],ov.pct.NoAnswer],
+      ['canc','Cancelled',counts.Cancelled,ov.pct.Cancelled],
+      ['cidblocked','CID_Blocked',counts.CID_Blocked,ov.pct.CIDBlocked],
+      ['nonsystem','Non-System Failure',counts['Non-System Failure'],ov.pct.NonSystemFailure],
+      ['fail','Fail',counts.Fail,ov.pct.Fail]
+    ];
+    kpiConnEl.innerHTML = statuses.map(([cls,status,n,pct])=>
+      `<button type="button" class="status-chip ${cls} drilldown-trigger" data-drill-status="${status}" data-drill-title="Chi tiết ${statusLabel(status)}"><b>${statusLabel(status)}</b> ${UIFormat.int(n||0)} · ${UIFormat.pct(pct)}</button>`).join('');
     const bar = document.getElementById('kpi_conn_bar');
     const total = ov.totalCalls || 0;
-    if(bar) bar.innerHTML = total ? [['fail',counts.Fail],['cidblocked',counts.CID_Blocked],['nonsystem',counts['Non-System Failure']],['noans',counts['No Answer']],['canc',counts.Cancelled],['conn',counts.Connected]]
-      .filter(([,n])=>n>0).map(([cls,n])=>`<span class="${cls}" style="width:${(n/total*100).toFixed(2)}%"></span>`).join('') : '';
+    if(bar) bar.innerHTML = total ? statuses
+      .filter(([,,n])=>n>0).map(([cls,,n])=>`<span class="${cls}" style="width:${(n/total*100).toFixed(2)}%"></span>`).join('') : '';
   }
 
   const kpiConnectRateEl = document.getElementById('kpi_connect_rate_text');

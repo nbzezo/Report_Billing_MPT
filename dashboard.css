@@ -2650,18 +2650,57 @@ body.adw button.info-btn:hover:not(:disabled),body.adw button.info-btn[aria-expa
   body.adw:not(.dark) .adw-sidebar{flex-basis:auto;width:auto;padding:12px}
 }
 
-/* Overview KPI: every tile shares one frame (the total tile is a <button> and
-   used to lose its border), label sits above a left-aligned value, and the
-   info button stays on the label's line. */
+/* Overview KPI (review mockup): one card with thin dividers instead of a box per
+   number, label above a left-aligned value, a status legend under the bar, and
+   one compact row of secondary metrics. */
+body.adw:not(.dark) .overview-kpi-card{padding:18px 22px}
+body.adw:not(.dark) .overview-kpi-card .kpi-primary-grid{gap:14px 0}
 body.adw:not(.dark) .overview-kpi-card .kpi-primary,
 body.adw:not(.dark) .overview-kpi-card .kpi-secondary{
-  display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;gap:4px;
-  padding:12px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);text-align:left;
+  display:flex;flex-direction:row;flex-wrap:wrap;justify-content:flex-start;align-items:baseline;align-content:flex-start;column-gap:8px;row-gap:4px;
+  min-height:0;margin:0;padding:2px 20px;border:0;border-left:1px solid var(--divider);border-radius:0;
+  background:transparent;box-shadow:none;text-align:left;
 }
-body.adw:not(.dark) .overview-kpi-card button.kpi-primary{min-height:78px;font:inherit;color:var(--text)}
-body.adw:not(.dark) .overview-kpi-card button.kpi-primary:hover{background:var(--hover)}
-body.adw .overview-kpi-card .kpi-label{order:-1;display:block;text-align:left}
-body.adw .overview-kpi-card .kpi-label .info-btn{display:inline-grid;margin-left:4px;vertical-align:-4px}
-body.adw .overview-kpi-card .kpi-subvalue{order:1}
-/* Status chips wrap their text on narrow cards instead of clipping it. */
-body.adw .overview-kpi-card .kpi-status .status-chips button.status-chip{white-space:normal;line-height:1.25;text-align:center;padding-block:5px}
+body.adw:not(.dark) .overview-kpi-card .kpi-primary:first-child,
+body.adw:not(.dark) .overview-kpi-card .kpi-secondary:first-child{border-left:0;padding-left:0}
+body.adw:not(.dark) .overview-kpi-card button.kpi-primary{width:auto;font:inherit;color:var(--text);cursor:pointer}
+body.adw:not(.dark) .overview-kpi-card button.kpi-primary:hover{background:transparent}
+body.adw:not(.dark) .overview-kpi-card button.kpi-primary:hover .kpi-value{text-decoration:underline}
+body.adw .overview-kpi-card .kpi-label{order:-1;flex-basis:100%;display:flex;align-items:center;gap:6px;color:var(--text-2);font-size:13px;line-height:1.3;text-align:left}
+body.adw .overview-kpi-card .kpi-label .info-btn{width:18px;min-width:18px;height:18px;min-height:18px;font-size:11px}
+body.adw:not(.dark) .overview-kpi-card .kpi-primary .kpi-value{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+body.adw .overview-kpi-card .kpi-subvalue{color:var(--text-2);font-size:15px;line-height:1}
+/* Status: bar on top, legend underneath; each legend entry is still a drilldown button. */
+body.adw:not(.dark) .overview-kpi-card .kpi-status{margin:18px 0 0;padding:0;border:0;background:transparent;gap:10px}
+body.adw .overview-kpi-card .kpi-status-head{display:block}
+body.adw .overview-kpi-card .kpi-status-head>.kpi-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+body.adw:not(.dark) .overview-kpi-card .kpi-status-bar{height:10px;gap:2px;background:transparent}
+body.adw .overview-kpi-card .kpi-status-bar>span{border-radius:2px}
+body.adw:not(.dark) .overview-kpi-card .status-chips{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:4px 20px}
+body.adw:not(.dark) .overview-kpi-card .kpi-status .status-chips button.status-chip{
+  display:inline-flex;align-items:center;gap:6px;min-height:28px;padding:2px 0;border:0;border-radius:4px;
+  background:transparent;color:var(--text-2);font-size:13px;font-weight:400;line-height:1.3;white-space:nowrap;
+}
+body.adw:not(.dark) .overview-kpi-card .kpi-status .status-chips button.status-chip b{color:var(--text);font-weight:600}
+body.adw:not(.dark) .overview-kpi-card .kpi-status .status-chips button.status-chip:hover b{text-decoration:underline}
+body.adw .overview-kpi-card .status-chip::before{content:"";flex:none;width:10px;height:10px;border-radius:3px;background:currentColor}
+body.adw .overview-kpi-card .status-chip.conn::before{background:var(--st-connected)}
+body.adw .overview-kpi-card .status-chip.noans::before{background:var(--st-noanswer)}
+body.adw .overview-kpi-card .status-chip.canc::before{background:var(--st-cancelled)}
+body.adw .overview-kpi-card .status-chip.cidblocked::before{background:var(--st-cidblocked)}
+body.adw .overview-kpi-card .status-chip.nonsystem::before{background:var(--st-nonsystem)}
+body.adw .overview-kpi-card .status-chip.fail::before{background:var(--st-fail)}
+/* Secondary metrics: one row with dividers under a hairline. */
+body.adw:not(.dark) .overview-kpi-card .kpi-secondary-grid{gap:12px 0;margin-top:16px;padding-top:14px;border-top:1px solid var(--divider)}
+body.adw:not(.dark) .overview-kpi-card .kpi-secondary{padding:0 14px}
+body.adw:not(.dark) .overview-kpi-card .kpi-secondary .kpi-label{font-size:12px}
+body.adw:not(.dark) .overview-kpi-card .kpi-secondary .kpi-value{font-size:16px;font-weight:600}
+@media(max-width:1250px){
+  body.adw:not(.dark) .overview-kpi-card .kpi-secondary:nth-child(4n+1){border-left:0;padding-left:0}
+}
+@media(max-width:900px){
+  body.adw:not(.dark) .overview-kpi-card .kpi-primary:nth-child(2n+1),
+  body.adw:not(.dark) .overview-kpi-card .kpi-secondary:nth-child(2n+1){border-left:0;padding-left:0}
+}
+/* The alert marker only takes space when a warning is shown (it is a flex item in the label). */
+body.adw .overview-kpi-card .kpi:not([data-severity="warn"]):not([data-severity="bad"]) .kpi-alert{display:none}
