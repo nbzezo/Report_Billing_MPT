@@ -19,12 +19,15 @@ if (!profile) throw new Error('No matching calls');
 const columns = ['uuid','account_id','account_name','caller_id_number','destination_number','ani','direction','calltype','start_stamp','answer_stamp','end_stamp','duration','billsec','hangup_cause','status_code','telco','mos','quality_pct','jitter_min','jitter_max','jitter_loss_rate','packet_count','skip_packet_count','rtcp_packet_count','rtcp_rtt','gateway'];
 const timings = {};
 let t = performance.now();
-const raw = db.prepare(`SELECT ${columns.join(',')} FROM call_records WHERE profile_id=? AND start_stamp>=? AND start_stamp<? ORDER BY start_stamp`).all(profile.profile_id, fromDay, toDay);
+const statement = db.prepare(`SELECT ${columns.join(',')} FROM call_records WHERE profile_id=? AND start_stamp>=? AND start_stamp<? ORDER BY start_stamp`);
+const returnsArrays = typeof statement.setReturnArrays === 'function';
+if (returnsArrays) statement.setReturnArrays(true);
+const raw = statement.all(profile.profile_id, fromDay, toDay);
 timings.sqliteMs = performance.now() - t;
 t = performance.now();
 const make = core.makeRowFactory(columns);
 const normalized = raw.map(row => {
-  const out = make(columns.map(column => row[column]));
+  const out = make(returnsArrays ? row : columns.map(column => row[column]));
   out.telco = core.normalizeTelcoName(out.telco);
   return out;
 });

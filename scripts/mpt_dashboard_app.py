@@ -114,18 +114,20 @@ def _kill_stale_windows(marker):
     if not sys.platform.startswith("win"):
         return
     ps = (
-        "Get-CimInstance Win32_Process -Filter \"name='msedge.exe' or name='chrome.exe'\" "
+        "$stale=@(Get-CimInstance Win32_Process -Filter \"name='msedge.exe' or name='chrome.exe'\" "
         "-ErrorAction SilentlyContinue | "
-        "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($env:MPT_EDGE_MARKER) } | "
-        "ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
+        "Where-Object { $_.CommandLine -and $_.CommandLine.Contains($env:MPT_EDGE_MARKER) }); "
+        "$stale | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; "
+        "$stale.Count"
     )
     try:
-        _run_hidden(
+        result = _run_hidden(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", ps],
-            capture_output=True, timeout=15,
+            capture_output=True, text=True, timeout=15,
             env=dict(os.environ, MPT_EDGE_MARKER=marker),
         )
-        time.sleep(1.0)
+        if (result.stdout or "").strip().isdigit() and int(result.stdout.strip()) > 0:
+            time.sleep(1.0)
     except Exception:
         pass
 

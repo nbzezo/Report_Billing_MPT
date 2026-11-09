@@ -619,7 +619,7 @@ function updateRN_CF_KPIs(rows){
         <div class="kpi kpi-secondary" id="kpi_median_rn"><div class="kpi-value" id="kpi_median_rn_text">—</div><div class="kpi-label">Trung vị số ngẫu nhiên (RN)</div></div>
         <div class="kpi kpi-secondary" id="kpi_dup_dest"><div class="kpi-value" id="kpi_dup_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lặp</div></div>
         <div class="kpi kpi-secondary" id="kpi_invalid_dest"><div class="kpi-value" id="kpi_invalid_dest_text">—</div><div class="kpi-label"><span class="kpi-alert" aria-hidden="true"></span>Số đích lỗi</div></div>
-        <div class="kpi kpi-secondary" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="kpi-label">Tỷ lệ kết nối (trừ cuộc lỗi) <button type="button" class="info-btn" aria-label="Xem giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi). Chỉ loại nhóm Lỗi khỏi mẫu số.">i</button></div></div>
+        <div class="kpi kpi-secondary" id="kpi_connect_excl_fail"><div class="kpi-value" id="kpi_connect_excl_fail_text">—</div><div class="kpi-label">Tỷ lệ kết nối (trừ cuộc lỗi) <button type="button" class="info-btn" aria-label="Xem giải thích: Tỷ lệ kết nối trừ cuộc lỗi" aria-expanded="false" aria-controls="uiInfoPopover" data-tooltip="Kết nối / (Tổng cuộc − Lỗi − CID bị khóa).">i</button></div></div>
       </div>
       <div id="kpiDirectionNote" class="kpi-direction-note" role="status" hidden></div>
     </div>
@@ -671,7 +671,7 @@ function updateRN_CF_KPIs(rows){
     <div id="chart_stack_prefix_pct" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_answer_gauge" class="card small" data-tab="overview" draggable="true"></div>
     <div id="chart_direction_split" class="card small" data-tab="overview" draggable="true"></div>
-    <div id="chart_minutes_day" class="card small" data-tab="time" draggable="true"></div>
+    <div id="chart_minutes_day" class="card small" data-tab="overview" draggable="true"></div>
     <div id="report_chart_asr_time" class="card chart-report-card full" data-tab="time" draggable="true">
       <div class="asr-time-toolbar">
         <div class="asr-time-title">
@@ -822,7 +822,7 @@ function updateRN_CF_KPIs(rows){
 
     <div id="table_agent_perf" class="card full" data-tab="advanced" draggable="true">
       <h3 class="u-inline-02aaf7e0">Tổng hợp theo tài khoản</h3>
-      <div class="muted">Tổng hợp theo <code>account_id</code>: tỷ lệ kết nối, ASR hợp lệ <code>Kết nối/(Kết nối + Không nghe)</code> và tỷ lệ kết nối trừ cuộc lỗi <code>Kết nối/(Tổng − Lỗi)</code>.</div>
+      <div class="muted">Tổng hợp theo <code>account_id</code>: tỷ lệ kết nối, ASR hợp lệ <code>Kết nối/(Kết nối + Không nghe)</code> và tỷ lệ kết nối trừ cuộc lỗi <code>Kết nối/(Tổng − Lỗi − CID bị khóa)</code>.</div>
       <table class="u-inline-0e3249a7" id="agentPerfTable">
         <thead>
           <tr>
@@ -858,6 +858,7 @@ function updateRN_CF_KPIs(rows){
           <th class="u-inline-1fb56c0e">ASR hợp lệ</th>
           <th class="u-inline-1fb56c0e">Tỷ lệ kết nối (trừ cuộc lỗi)</th>
           <th class="u-inline-1fb56c0e">Lỗi</th>
+          <th class="u-inline-1fb56c0e">CID bị khóa</th>
           <th class="u-inline-1fb56c0e">Tỷ lệ lỗi</th>
           <th class="u-inline-1fb56c0e">Phút gọi</th>
         </tr></thead>
@@ -2531,6 +2532,7 @@ const CHART_CATEGORY_COLORS=[uiColor('--ux-color-c2410c'),uiColor('--ux-color-1d
 const CHART_CATEGORY_COLORS_DARK=[uiColor('--ux-color-fb923c'),uiColor('--ux-color-60a5fa'),uiColor('--ux-color-5eead4'),uiColor('--ux-color-fbbf24'),uiColor('--ux-color-c084fc'),uiColor('--ux-color-f472b6'),uiColor('--ux-color-a3e635'),uiColor('--ux-color-d6d3d1')];
 const CHART_SEMANTIC={
   get Fail(){return currentPlotColors().status.Fail},
+  get CIDBlocked(){return currentPlotColors().status.CID_Blocked},
   get NonSystemFailure(){return currentPlotColors().status['Non-System Failure']},
   get NoAnswer(){return currentPlotColors().status['No Answer']},
   get Connected(){return currentPlotColors().status.Connected},
@@ -2548,6 +2550,7 @@ function currentPlotColors(){
     Connected:token('--st-connected',uiColor('--ux-color-2e7d32')),
     'No Answer':token('--st-noanswer',uiColor('--ux-color-d97706')),
     Cancelled:token('--st-cancelled',uiColor('--ux-color-8a877f')),
+    CID_Blocked:token('--st-cidblocked',uiColor('--ux-color-2563eb')),
     'Non-System Failure':token('--st-nonsystem',uiColor('--ux-color-7e22ce')),
     Fail:token('--st-fail',uiColor('--ux-color-b42318'))
   }};
@@ -2692,6 +2695,7 @@ function getSeriesColors(){
   const color = (id, fallback)=> useCustom ? ((document.getElementById(id)||{}).value || fallback) : fallback;
   return {
     Fail:color('c_fail',currentPlotColors().status.Fail), NoAnswer:color('c_noans',currentPlotColors().status['No Answer']),
+    CIDBlocked:currentPlotColors().status.CID_Blocked,
     Connected:color('c_conn',currentPlotColors().status.Connected), Cancelled:currentPlotColors().status.Cancelled,
     MinutesBar:color('c_minbar',CHART_SEMANTIC.Volume), MinutesLine:color('c_minline',CHART_SEMANTIC.Trend),
     AnswerRate:color('c_ansrate',CHART_SEMANTIC.AnswerRate), Palette:getColorScheme()
@@ -2917,6 +2921,7 @@ function readJSONFile(file, cb){ const fr=new FileReader(); fr.onload = ()=>{ tr
 function connTypeColor(ct, colors){
   colors = colors || {};
   if(ct==='Fail')      return colors.Fail || CHART_SEMANTIC.Fail;
+  if(ct==='CID_Blocked') return colors.CIDBlocked || CHART_SEMANTIC.CIDBlocked;
   if(ct==='Non-System Failure') return colors.NonSystemFailure || CHART_SEMANTIC.NonSystemFailure;
   if(ct==='No Answer') return colors.NoAnswer || CHART_SEMANTIC.NoAnswer;
   if(ct==='Cancelled') return colors.Cancelled || CHART_SEMANTIC.Cancelled;
@@ -3219,7 +3224,21 @@ function plotAnswerGauge(pct, colors){
   Plotly.react('chart_answer_gauge',data,{height:360},{responsive:true});
 }
 
-function plotMinutesDay(obj, colors){ if(!obj || !obj.dates || obj.dates.length===0) return showNoData('chart_minutes_day','Không có dữ liệu'); const data=[{x:obj.dates.map(UIFormat.dateShort),y:obj.minutes,type:'bar',name:'Phút gọi',marker:{color:colors.MinutesBar}}, {x:obj.dates.map(UIFormat.dateShort),y:obj.minutes,type:'scatter',mode:'lines+markers',name:'Xu hướng',line:{color:colors.MinutesLine}}]; const layout={title:'Tổng phút gọi theo ngày',height:360,xaxis:{title:'Ngày',type:'category',automargin:true},yaxis:{title:'Phút'}}; Plotly.react('chart_minutes_day',data,layout,{responsive:true}); }
+function plotMinutesDay(obj, colors){
+  if(!obj || !obj.dates || obj.dates.length===0) return showNoData('chart_minutes_day','Không có dữ liệu');
+  const x=obj.dates.map(UIFormat.dateShort);
+  const palette=(colors&&colors.Palette)?colors.Palette:CHART_CATEGORY_COLORS;
+  const data=(obj.series||[]).map(item=>({
+    x,y:item.minutes,type:'bar',name:item.name,
+    marker:{color:categoryColor(item.key||item.acc||item.name,palette)},
+    text:item.minutes.map(value=>value?UIFormat.dec(value):''),textposition:'inside',
+    hovertemplate:`%{x}<br>Chiều gọi: ${reportTableEscape(item.name)}<br>Phút: %{y:,.2f}<extra></extra>`
+  }));
+  if(!data.length) data.push({x,y:obj.minutes,type:'bar',name:'Phút gọi',marker:{color:colors.MinutesBar}});
+  data.push({x,y:obj.minutes,type:'scatter',mode:'lines+markers',name:'Tổng phút',line:{color:colors.MinutesLine},hovertemplate:'%{x}<br>Tổng phút: %{y:,.2f}<extra></extra>'});
+  const layout={title:'Phút gọi theo ngày và chiều gọi',height:360,barmode:'stack',xaxis:{title:'Ngày',type:'category',automargin:true},yaxis:{title:'Phút'},legend:{orientation:'h'}};
+  Plotly.react('chart_minutes_day',data,layout,{responsive:true});
+}
 
 function plotASRByTime(rows, colors){
   const elId='chart_asr_time';
@@ -4351,7 +4370,7 @@ const REPORT_FINDER_TITLES={
    ========================================================================== */
 const REPORT_LAYOUT={
   overview:{ primary:99, order:[
-    'chart_conn_donut','chart_answer_gauge','chart_direction_split','chart_minutes_account'
+    'chart_conn_donut','chart_answer_gauge','chart_direction_split','chart_minutes_day','chart_minutes_account'
   ]},
   quality:{ primary:4, order:[
     // xem nhanh: kết nối + tại sao hỏng
@@ -4364,10 +4383,10 @@ const REPORT_LAYOUT={
     'chart_avgdur_prefix','chart_dur_share_prefix','chart_avgdur_vs_rate'
   ]},
   time:{ primary:4,
-    primaryIds:['report_chart_asr_time','chart_minutes_day','chart_golden_hours_rate','chart_concurrent_calls'],
+    primaryIds:['report_chart_asr_time','chart_golden_hours_rate','chart_concurrent_calls','chart_call_funnel'],
     order:[
     // xem nhanh vận hành
-    'report_chart_asr_time','chart_minutes_day','chart_golden_hours_rate',
+    'report_chart_asr_time','chart_golden_hours_rate',
     'chart_call_funnel','chart_concurrent_calls','chart_line_health_trend',
     // thời điểm & tham gia
     'chart_top_time_slots','chart_time_heatmap','chart_compare_timeline',
@@ -5053,6 +5072,7 @@ function renderCommon(filtered, ov, colors){
   if(kpiConnEl){
     const counts = ov.counts || {};
     const chips = [`<button type="button" class="status-chip fail drilldown-trigger" data-drill-status="Fail" data-drill-title="Chi tiết Lỗi">${statusLabel('Fail')} ${UIFormat.int(counts.Fail||0)} · ${UIFormat.pct(ov.pct.Fail)}</button>`,
+      `<button type="button" class="status-chip cidblocked drilldown-trigger" data-drill-status="CID_Blocked" data-drill-title="Chi tiết CID bị khóa">${statusLabel('CID_Blocked')} ${UIFormat.int(counts.CID_Blocked||0)} · ${UIFormat.pct(ov.pct.CIDBlocked)}</button>`,
       `<button type="button" class="status-chip nonsystem drilldown-trigger" data-drill-status="Non-System Failure" data-drill-title="Chi tiết Non-System Failure">${statusLabel('Non-System Failure')} ${UIFormat.int(counts['Non-System Failure']||0)} · ${UIFormat.pct(ov.pct.NonSystemFailure)}</button>`,
       `<button type="button" class="status-chip noans drilldown-trigger" data-drill-status="No Answer" data-drill-title="Chi tiết Không nghe">${statusLabel('No Answer')} ${UIFormat.int(counts['No Answer']||0)} · ${UIFormat.pct(ov.pct.NoAnswer)}</button>`,
       `<button type="button" class="status-chip canc drilldown-trigger" data-drill-status="Cancelled" data-drill-title="Chi tiết Hủy">${statusLabel('Cancelled')} ${UIFormat.int(counts.Cancelled||0)} · ${UIFormat.pct(ov.pct.Cancelled)}</button>`,
@@ -5060,7 +5080,7 @@ function renderCommon(filtered, ov, colors){
     kpiConnEl.innerHTML = chips.join('');
     const bar = document.getElementById('kpi_conn_bar');
     const total = ov.totalCalls || 0;
-    if(bar) bar.innerHTML = total ? [['fail',counts.Fail],['nonsystem',counts['Non-System Failure']],['noans',counts['No Answer']],['canc',counts.Cancelled],['conn',counts.Connected]]
+    if(bar) bar.innerHTML = total ? [['fail',counts.Fail],['cidblocked',counts.CID_Blocked],['nonsystem',counts['Non-System Failure']],['noans',counts['No Answer']],['canc',counts.Cancelled],['conn',counts.Connected]]
       .filter(([,n])=>n>0).map(([cls,n])=>`<span class="${cls}" style="width:${(n/total*100).toFixed(2)}%"></span>`).join('') : '';
   }
 
@@ -5160,10 +5180,12 @@ async function renderSteps(steps){
 }
 
 function renderOverviewTab(filtered, ov, colors){
+  const mDay = cubeVal('minutesPerDay', ()=>minutesPerDay(filtered));
   return renderSteps([
     ()=> plotConnDonut(ov.counts, colors),
     ()=> plotAnswerGauge(ov.answerRate, colors),
     ()=> plotDirectionSplit(filtered, colors),
+    ()=> plotMinutesDay(mDay, colors),
     ()=> plotMinutesByAccount(filtered, colors, parseInt((document.getElementById('topNSelectMinutes')||{}).value||'10',10)),
   ]);
 }
@@ -5189,9 +5211,7 @@ function renderQualityTab(filtered, colors){
 
 
 function renderTimeTab(filtered, colors){
-  const mDay = cubeVal('minutesPerDay', ()=>minutesPerDay(filtered));
   return renderSteps([
-    ()=> plotMinutesDay(mDay, colors),
     ()=> plotASRByTime(filtered, colors),
     ()=> safePlot('chart_caller_participation_heatmap', ()=> plotCallerParticipationHeatmap(filtered, colors)),
     ()=> plotCompareTimeline(filtered, colors),
@@ -7879,7 +7899,7 @@ function renderGatewayFailTable(rows){
     cov.innerHTML = `${data.length} gateway · <b>${(c.matched||0).toLocaleString('vi-VN')}</b> / ${(c.total||0).toLocaleString('vi-VN')} cuộc đã map gateway (<b>${(c.pct||0).toFixed(2)}%</b>).`;
   }
   if(!data.length){
-    tb.innerHTML = '<tr><td colspan="9" class="muted u-inline-bee7c325">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</td></tr>';
+    tb.innerHTML = '<tr><td colspan="11" class="muted u-inline-bee7c325">Không có cuộc gọi nào đã map gateway trong khoảng lọc.</td></tr>';
     return;
   }
   data.forEach(m=>{
@@ -7894,6 +7914,7 @@ function renderGatewayFailTable(rows){
       <td class="u-inline-12972e58">${m.asr.toFixed(2)}%</td>
       <td class="u-inline-12972e58">${m.connectExclFailRate.toFixed(2)}%</td>
       <td class="u-inline-12972e58">${m.fail.toLocaleString('vi-VN')}</td>
+      <td class="u-inline-12972e58">${(m.cidBlocked||0).toLocaleString('vi-VN')}</td>
       <td style="border:1px solid var(--border);padding:6px;text-align:right${hot?';color:var(--error);font-weight:700':''}">${m.failPct.toFixed(2)}%</td>
       <td class="u-inline-12972e58">${m.minutes.toLocaleString('vi-VN',{maximumFractionDigits:1})}</td>
     `;
@@ -7919,6 +7940,7 @@ function plotGatewayCallDistribution(rows, colors){
     item.connected || 0,
     item.fail || 0,
     item.failPct || 0,
+    item.cidBlocked || 0,
   ]);
   Plotly.react(elId,[{
     type:'bar', orientation:'h', name:'Số cuộc gọi',
@@ -7928,7 +7950,7 @@ function plotGatewayCallDistribution(rows, colors){
     marker:{color:data.map(item=>categoryColor(item.gateway,palette))},
     text:data.map(item=>item.total.toLocaleString('vi-VN')),
     textposition:'auto',
-    hovertemplate:`Gateway: %{y}<br>Số cuộc gọi: %{x:,}<br>Tỷ trọng: %{customdata[0]:.2f}%<br>Số tài khoản: %{customdata[1]:,}<br>${statusLabel('Connected')}: %{customdata[2]:,}<br>${statusLabel('Fail')}: %{customdata[3]:,}<br>Tỷ lệ fail: %{customdata[4]:.2f}%<extra></extra>`,
+    hovertemplate:`Gateway: %{y}<br>Số cuộc gọi: %{x:,}<br>Tỷ trọng: %{customdata[0]:.2f}%<br>Số tài khoản: %{customdata[1]:,}<br>${statusLabel('Connected')}: %{customdata[2]:,}<br>${statusLabel('Fail')}: %{customdata[3]:,}<br>${statusLabel('CID_Blocked')}: %{customdata[5]:,}<br>Tỷ lệ fail: %{customdata[4]:.2f}%<extra></extra>`,
   },{
     type:'scatter', mode:'markers+text', name:'Tỷ lệ fail', xaxis:'x2',
     y:data.map(item=>item.gateway),
@@ -8088,6 +8110,7 @@ function renderGatewayHangupCauseTable(rows){
     .forEach(([gateway,items])=>{
       const gatewayTotal = items[0]?.gatewayTotal || items.reduce((sum,item)=>sum+item.total,0);
       const gatewayFail = items.reduce((sum,item)=>sum+item.fail,0);
+      const gatewayBlocked = items.reduce((sum,item)=>sum+(item.cidBlocked||0),0);
       const gatewayFailPct = gatewayTotal ? gatewayFail/gatewayTotal*100 : 0;
       const details = document.createElement('details');
       details.className = 'gateway-cause-group';
@@ -8103,6 +8126,7 @@ function renderGatewayHangupCauseTable(rows){
           <td>${item.noans.toLocaleString('vi-VN')}</td>
           <td>${item.cancelled.toLocaleString('vi-VN')}</td>
           <td>${(item.nonSystemFailure||0).toLocaleString('vi-VN')}</td>
+          <td>${(item.cidBlocked||0).toLocaleString('vi-VN')}</td>
           <td>${item.fail.toLocaleString('vi-VN')}</td>
           <td class="u-inline-e9710c57"${hot?'':''}>${item.failSharePct.toFixed(2)}%</td>
         </tr>`;
@@ -8111,10 +8135,10 @@ function renderGatewayHangupCauseTable(rows){
         <summary>
           <span class="gateway-cause-name">${reportTableEscape(gateway)}</span>
           <span class="gateway-cause-meta">${gatewayTotal.toLocaleString('vi-VN')} cuộc · ${items.length} nguyên nhân</span>
-          <span class="gateway-cause-meta gateway-cause-fail">Fail ${gatewayFail.toLocaleString('vi-VN')} · ${gatewayFailPct.toFixed(2)}%</span>
+          <span class="gateway-cause-meta gateway-cause-fail">Fail ${gatewayFail.toLocaleString('vi-VN')} · ${gatewayFailPct.toFixed(2)}% · CID bị khóa ${gatewayBlocked.toLocaleString('vi-VN')}</span>
         </summary>
         <div class="gateway-cause-table-wrap"><table class="gateway-cause-table">
-          <thead><tr><th>Nguyên nhân kết thúc</th><th>Số cuộc</th><th>Tỷ trọng cuộc gọi</th><th>${statusLabel('Connected')}</th><th>${statusLabel('No Answer')}</th><th>${statusLabel('Cancelled')}</th><th>${statusLabel('Non-System Failure')}</th><th>${statusLabel('Fail')}</th><th>Tỷ trọng lỗi</th></tr></thead>
+          <thead><tr><th>Nguyên nhân kết thúc</th><th>Số cuộc</th><th>Tỷ trọng cuộc gọi</th><th>${statusLabel('Connected')}</th><th>${statusLabel('No Answer')}</th><th>${statusLabel('Cancelled')}</th><th>${statusLabel('Non-System Failure')}</th><th>${statusLabel('CID_Blocked')}</th><th>${statusLabel('Fail')}</th><th>Tỷ trọng lỗi</th></tr></thead>
           <tbody>${bodyRows}</tbody>
         </table></div>`;
       host.appendChild(details);
@@ -8437,9 +8461,9 @@ function renderAdvancedAlerts(rows){
     const h = r.hour || String(r.start_stamp||'').slice(11,13) || 'Unknown';
     if(!hourly[h]) hourly[h] = {hour:h, total:0, failNoAnswer:0};
     hourly[h].total++;
-    if(r.connType==='Fail' || r.connType==='No Answer' || r.connType==='Cancelled') hourly[h].failNoAnswer++;
+    if(r.connType==='Fail' || r.connType==='CID_Blocked' || r.connType==='No Answer' || r.connType==='Cancelled') hourly[h].failNoAnswer++;
   });
-  const overallIssueRate = total ? rows.reduce((s,r)=> s + ((r.connType==='Fail'||r.connType==='No Answer'||r.connType==='Cancelled') ? 1 : 0), 0) / total : 0;
+  const overallIssueRate = total ? rows.reduce((s,r)=> s + ((r.connType==='Fail'||r.connType==='CID_Blocked'||r.connType==='No Answer'||r.connType==='Cancelled') ? 1 : 0), 0) / total : 0;
   const hourAnomalies = Object.values(hourly)
     .filter(h=> h.total>=50)
     .map(h=>({...h, rate:h.failNoAnswer/h.total, diffPp:(h.failNoAnswer/h.total-overallIssueRate)*100}))
@@ -9773,7 +9797,7 @@ async function mptSelectProfile(profileId,loadAccounts=true){
   }
   if(loadAccounts) await mptFetchAccounts(false);
   loadGatewayCids(true).catch(()=>{});
-  await updateDatabaseStatus();
+  updateDatabaseStatus();
 }
 
 function mptQueryFromLocation(){
@@ -9946,10 +9970,12 @@ async function updateDatabaseStatus(){
   const target=mptEl('databaseStatus');
   if(!target) return;
   if(!mptActiveProfileId){ target.textContent='Cơ sở dữ liệu chưa có dữ liệu.'; return; }
+  const profileId=mptActiveProfileId;
   try{
-    const response=await fetch('/api/data-status?profile_id='+encodeURIComponent(mptActiveProfileId),{cache:'no-store'});
+    const response=await fetch('/api/data-status?profile_id='+encodeURIComponent(profileId)+'&light=1',{cache:'no-store'});
     if(!response.ok) throw new Error(await mptApiError(response));
     const status=await response.json();
+    if(profileId!==mptActiveProfileId) return;
     const mb=bytes=>(Number(bytes||0)/1024/1024).toFixed(1);
     // Dung lượng là của CẢ file (mọi kết nối), nên ghi kèm tổng số dòng cho khỏi hiểu nhầm.
     const fileText=`cả file: ${Number(status.totalRows||0).toLocaleString('vi-VN')} dòng · ${mb(status.databaseBytes)} MB`;
@@ -9960,8 +9986,8 @@ async function updateDatabaseStatus(){
     if(!status.rows){
       target.textContent=`DB chưa có dữ liệu cho kết nối này (${fileText})${lastSyncText} · lưu tối đa ${status.retentionDays} ngày.`;
     }else{
-      const updated=status.updatedAt?new Date(status.updatedAt).toLocaleString('vi-VN'):'—';
-      target.textContent=`DB kết nối này: ${Number(status.rows).toLocaleString('vi-VN')} dòng · ${status.dateMin||'—'} → ${status.dateMax||'—'} · cập nhật ${updated}${lastSyncText} · ${fileText} · lưu ${status.retentionDays} ngày`;
+      const updated=status.updatedAt?` · cập nhật dữ liệu ${new Date(status.updatedAt).toLocaleString('vi-VN')}`:'';
+      target.textContent=`DB kết nối này: ${Number(status.rows).toLocaleString('vi-VN')} dòng · ${status.dateMin||'—'} → ${status.dateMax||'—'}${updated}${lastSyncText} · ${fileText} · lưu ${status.retentionDays} ngày`;
     }
     // File tạo trước bản sửa auto_vacuum (hoặc có nhiều trang trống) -> cho thu gọn.
     if(status.autoVacuum===0||Number(status.freeBytes||0)>64*1024*1024){
@@ -9973,7 +9999,7 @@ async function updateDatabaseStatus(){
       button.addEventListener('click',()=>compactDatabase(button,status));
       target.append(' ',button);
     }
-  }catch(error){ target.textContent='Không đọc được trạng thái DB: '+error.message; }
+  }catch(error){ if(profileId===mptActiveProfileId) target.textContent='Không đọc được trạng thái DB: '+error.message; }
 }
 
 async function compactDatabase(button,status){
@@ -10795,10 +10821,7 @@ function plotDirectionSplit(rows, colors){
   const elId = 'chart_direction_split';
   const counts = {Inbound:0, Outbound:0, Unknown:0};
   (rows||[]).forEach(r=>{
-    const d = String(r.direction||'').trim().toLowerCase();
-    if(d.includes('inbound') || d==='in' || d==='internal') counts.Inbound++;
-    else if(d.includes('outbound') || d==='out' || d==='external') counts.Outbound++;
-    else counts.Unknown++;
+    counts[normalizeCallDirection(r)]++;
   });
   const labels = Object.keys(counts).filter(k=> counts[k]>0);
   const values = labels.map(k=> counts[k]);

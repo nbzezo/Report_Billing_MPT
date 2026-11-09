@@ -28,7 +28,7 @@ if (-not $python) { throw 'Python is required.' }
 
 $argsList = @()
 if ($python.Name -eq 'pyw.exe') { $argsList += '-3' }
-$argsList += $script
+$argsList += '"' + $script + '"'
 
 Start-Process `
   -FilePath $python.Source `
