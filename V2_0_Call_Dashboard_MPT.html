@@ -667,6 +667,15 @@ function updateRN_CF_KPIs(rows){
         </div>
       </div>
     </section>
+    <section id="overviewHighlights" class="card full overview-highlights" data-tab="overview" aria-label="Điểm cần chú ý trong phạm vi lọc">
+      <div class="overview-highlights-head"><h2>Điểm cần chú ý</h2><div id="overviewScope" class="overview-scope" role="status"></div></div>
+      <div id="overviewComparison" class="overview-comparison" aria-live="polite"></div>
+      <div class="overview-highlights-grid">
+        <section class="overview-highlight-section"><div class="overview-section-head"><h3>Cảnh báo ưu tiên</h3><button type="button" data-overview-tab="advanced">Xem chi tiết</button></div><div id="overviewAlerts"></div></section>
+        <section class="overview-highlight-section"><div class="overview-section-head"><h3>Sức khỏe CID</h3><button type="button" data-overview-tab="cid">Mở vòng đời CID</button></div><div id="overviewCid"></div></section>
+      </div>
+      <section class="overview-highlight-section overview-hotspots"><div class="overview-section-head"><h3>Vấn đề tập trung ở đâu?</h3><button type="button" data-overview-tab="advanced">Xem tài khoản</button></div><div id="overviewHotspots"></div></section>
+    </section>
     <div id="chart_conn_donut" class="card small" data-tab="overview" draggable="true"></div>
     <div id="chart_stack_prefix_pct" class="card small" data-tab="quality" draggable="true"></div>
     <div id="chart_answer_gauge" class="card small" data-tab="overview" draggable="true"></div>
@@ -986,7 +995,7 @@ function updateRN_CF_KPIs(rows){
 
     <div id="panel_alerts" class="card full" data-tab="advanced" draggable="true">
       <h3 class="u-inline-02aaf7e0">Cảnh báo vận hành</h3>
-      <div class="muted">Tự động nhận diện vấn đề: tụt kết nối theo đầu số, bùng attempt nhưng không tăng connect, tỉ lệ số sai/không hợp lệ cao.</div>
+      <div class="muted">Tự động nhận diện biến động lưu lượng toàn bộ/tài khoản/Gateway, cuộc kết nối dưới 10 giây, tỷ lệ Fail, thời lượng, từng hangup_cause và chất lượng số đích. Ngày mới nhất được so với 2–7 ngày trước có dữ liệu; nếu là hôm nay, chỉ so đến cùng giờ.</div>
       <div id="alertsList" class="panel-scroll"></div>
     </div>
 
@@ -4414,7 +4423,7 @@ const REPORT_FINDER_TITLES={
    ========================================================================== */
 const REPORT_LAYOUT={
   overview:{ primary:99, order:[
-    'chart_conn_donut','chart_answer_gauge','chart_direction_split','chart_minutes_day','chart_minutes_account'
+    'overviewHighlights','chart_conn_donut','chart_answer_gauge','chart_direction_split','chart_minutes_day','chart_minutes_account'
   ]},
   quality:{ primary:4, order:[
     // xem nhanh: kết nối + tại sao hỏng
@@ -5253,6 +5262,7 @@ async function renderSteps(steps){
 }
 
 function renderOverviewTab(filtered, ov, colors){
+  renderOverviewHighlights(filtered, ov);
   const mDay = cubeVal('minutesPerDay', ()=>minutesPerDay(filtered));
   return renderSteps([
     ()=> plotConnDonut(ov.counts, colors),
@@ -5262,6 +5272,123 @@ function renderOverviewTab(filtered, ov, colors){
     ()=> plotMinutesByAccount(filtered, colors, parseInt((document.getElementById('topNSelectMinutes')||{}).value||'10',10)),
   ]);
 }
+
+function overviewPreviousPeriod(params){
+  const start=Date.parse(params.startDate+'T00:00:00Z');
+  const end=Date.parse(params.endDate+'T00:00:00Z');
+  if(!Number.isFinite(start)||!Number.isFinite(end)||end<start||params.endDate>=mptLocalDate()) return null;
+  const days=Math.round((end-start)/86400000)+1;
+  const day=ms=>new Date(ms).toISOString().slice(0,10);
+  return {...params,startDate:day(start-days*86400000),endDate:day(start-86400000),sections:['overview']};
+}
+
+function overviewHasEveryDay(cube,start,end){
+  const days=Math.round((Date.parse(end+'T00:00:00Z')-Date.parse(start+'T00:00:00Z'))/86400000)+1;
+  return cube?.meta?.dateMin===start && cube?.meta?.dateMax===end
+    && new Set(cube.minutesPerDay?.dates||[]).size===days;
+}
+
+function renderOverviewHighlights(filtered, ov){
+  const card=document.getElementById('overviewHighlights');
+  const scope=document.getElementById('overviewScope');
+  const alerts=document.getElementById('overviewAlerts');
+  const hotspots=document.getElementById('overviewHotspots');
+  const comparison=document.getElementById('overviewComparison');
+  if(!card||!scope||!alerts||!hotspots||!comparison) return;
+  if(currentTab==='overview') card.style.display='';
+  const params=dashState.cubeParams||{};
+  const meta=serverBackedReport?lastReportMeta:null;
+  const missing=meta?.missingDays||[];
+  const accountCount=dashState.cube?.meta?.accounts;
+  const parts=[`${UIFormat.date(params.startDate)} → ${UIFormat.date(params.endDate)}`];
+  if(accountCount!=null) parts.push(`${UIFormat.int(accountCount)} tài khoản có cuộc gọi`);
+  parts.push(missing.length ? `Thiếu ${missing.length} ngày đồng bộ` : (meta ? 'Không báo thiếu ngày' : 'Dữ liệu từ tệp / bộ nhớ'));
+  if(meta?.lastCall) parts.push(`Cuộc cuối ${formatVnDateTime(meta.lastCall)}`);
+  if(meta?.syncedAt) parts.push(`Cập nhật ${formatVnDateTime(meta.syncedAt)}`);
+  scope.textContent=parts.join(' · ');
+  scope.classList.toggle('warn',missing.length>0);
+
+  const completeRows=loadedRowTotal<=enriched.length;
+  const report=dashState.cube?.operationalAlerts ||
+    (completeRows ? computeOperationalAlerts(filtered) : null);
+  const important=(report?.items||[]).filter(item=>item.level==='red'||item.level==='yellow')
+    .sort((a,b)=>(a.level==='red'?0:1)-(b.level==='red'?0:1));
+  alerts.innerHTML=important.length ? important.slice(0,3).map(item=>
+    `<div class="overview-summary-row"><span class="badge ${item.level}">${item.level==='red'?'Cần xử lý':'Theo dõi'}</span><div><strong>${reportTableEscape(item.title)}</strong><small>${reportTableEscape(item.desc)}</small></div></div>`).join('')
+    +(important.length>3?`<p class="muted">Còn ${important.length-3} cảnh báo khác trong phần chi tiết.</p>`:'')
+    : report ? '<p class="muted">Chưa phát hiện cảnh báo vượt ngưỡng trong phạm vi lọc.</p>'
+      : '<p class="muted">Chưa có cảnh báo trên toàn bộ dữ liệu; cần tải lại báo cáo.</p>';
+
+  const accounts=dashState.cube?.accountKPIs ||
+    (completeRows ? computeAccountKPIs(filtered) : []);
+  const worst=accounts.filter(item=>item.total>=50).sort((a,b)=>b.failPct-a.failPct||b.total-a.total).slice(0,3);
+  hotspots.innerHTML=worst.length ? worst.map(item=>
+    `<div class="overview-summary-row"><strong>${reportTableEscape(item.label||item.acc)}</strong><span>${UIFormat.int(item.total)} cuộc · Lỗi ${UIFormat.pct(item.failPct,1)} · Kết nối ${UIFormat.pct(item.total?item.connected/item.total*100:0,1)}</span></div>`).join('')
+    : '<p class="muted">Chưa có tài khoản đạt tối thiểu 50 cuộc để xếp hạng.</p>';
+
+  renderOverviewCid(filtered);
+  comparison.textContent='Đang kiểm tra kỳ so sánh…';
+  const previous=overviewPreviousPeriod(params);
+  if(!previous||missing.length||!overviewHasEveryDay(dashState.cube,params.startDate,params.endDate)){
+    comparison.textContent='Chưa so sánh: kỳ đang chạy hoặc chưa có dữ liệu ở đủ từng ngày.'; return;
+  }
+  const filterKey=dashState.filterKey;
+  computeCubeFor(previous).then(cube=>{
+    if(filterKey!==dashState.filterKey) return;
+    if(!cube?.overview?.totalCalls || !overviewHasEveryDay(cube,previous.startDate,previous.endDate)){
+      comparison.textContent='Kỳ trước chưa có dữ liệu ở đủ từng ngày để so sánh.'; return;
+    }
+    const before=cube.overview;
+    const delta=(current,old,points)=>{
+      const change=points ? current-old : (old ? (current-old)/old*100 : 0);
+      const sign=change>0?'↑':change<0?'↓':'=';
+      return `${sign} ${UIFormat.dec(Math.abs(change),1)}${points?' điểm %':'%'}`;
+    };
+    const cells=[
+      ['Tổng cuộc',delta(ov.totalCalls,before.totalCalls,false)],
+      ['Kết nối',delta(ov.connectRate,before.connectRate,true)],
+      ['ASR hợp lệ',delta(ov.answerRate,before.answerRate,true)],
+      ['Phút gọi',delta(ov.totalMinutes,before.totalMinutes,false)]
+    ];
+    comparison.innerHTML=`<div class="overview-comparison-caption">So với dữ liệu đã lưu ${UIFormat.date(previous.startDate)} → ${UIFormat.date(previous.endDate)} · cùng bộ lọc</div>`
+      +cells.map(([label,value])=>`<div><span>${label}</span><strong>${value}</strong></div>`).join('');
+  }).catch(()=>{ if(filterKey===dashState.filterKey) comparison.textContent='Không tải được dữ liệu kỳ trước để so sánh.'; });
+}
+
+function renderOverviewCid(filtered=dashState.filtered||[]){
+  const host=document.getElementById('overviewCid');
+  if(!host) return;
+  if(!cidState.loaded||cidState.error||!cidState.timeline||cidState.profileId!==mptActiveProfileId){
+    host.innerHTML='<p class="muted">Chưa tải lịch sử CID cho kết nối này. Mở tab Vòng đời CID để đọc cache hoặc cập nhật.</p>';
+    return;
+  }
+  const scope=getCidScope();
+  const currentPaused=countCurrentPausedCids(gatewayCidIndex,scope.selectedIds);
+  const blocked=currentPaused==null?computeBlockMttr(scope.timeline).stillBlocked:currentPaused;
+  const coverage=buildCidCoverage({routings:scope.routings,accounts:scope.accounts,events:scope.events});
+  const sampled=loadedRowTotal>enriched.length;
+  const loss=!sampled&&filtered.length
+    ? computeDeadNumberLoss(cidTimeline(),filtered,{leaks:cidLeaks(filtered)}) : null;
+  const metrics=[
+    [UIFormat.int(blocked),'CID đang khóa',currentPaused==null?'theo lịch sử Block/Reactive':'theo trạng thái Gateway'],
+    [loss?UIFormat.int(loss.wastedCalls):'—','Cuộc gọi lãng phí',sampled?'Dữ liệu cuộc gọi bị cắt mẫu':'trong phạm vi CDR đang lọc'],
+    [loss?.reliable?UIFormat.int(Math.round(loss.lostConnections)):'—','Kết nối mất ước tính',sampled?'Dữ liệu cuộc gọi bị cắt mẫu':loss&&!loss.wastedCalls?'Không có cuộc gọi lãng phí':loss&&!loss.reliable?'Mẫu nền chưa đủ 200 cuộc':'ước tính từ tỷ lệ kết nối nền'],
+    [UIFormat.int(coverage.stats.unobservable),'Tài khoản chưa theo dõi','kiểm tra ánh xạ CID']
+  ];
+  const queue=sampled?[]:computeCidActionQueue(cidTimeline(),filtered).filter(item=>item.priority!=='Thấp').slice(0,2);
+  host.innerHTML='<div class="overview-cid-metrics">'+metrics.map(([value,label,note])=>
+    `<div><strong>${value}</strong><span>${label}</span><small>${note}</small></div>`).join('')+'</div>'
+    +(queue.length?'<div class="overview-cid-queue"><b>CID cần xử lý trước</b>'
+      +queue.map(item=>`<div>${reportTableEscape(item.cid)} · ${reportTableEscape(item.telco)} · ${reportTableEscape(item.gateway)} <span>${reportTableEscape(item.priority)} · ${UIFormat.dec(item.ageHours,1)} giờ</span></div>`).join('')+'</div>':'')
+    +(sampled?'<p class="muted">Chỉ số ảnh hưởng và hàng đợi CID cần toàn bộ cuộc gọi; hãy thu hẹp bộ lọc.</p>':'')
+    +((cidState.meta?.missingDays||[]).length?`<p class="muted">Lịch sử CID thiếu ${cidState.meta.missingDays.length} ngày.</p>`:'')
+    +((cidState.meta?.truncatedDays||[]).length?`<p class="muted">${cidState.meta.truncatedDays.length} ngày sự kiện CID chạm trần nguồn MPT.</p>`:'');
+}
+
+document.getElementById('overviewHighlights')?.addEventListener('click',event=>{
+  const button=event.target.closest('[data-overview-tab]');
+  if(button) showTab(button.dataset.overviewTab);
+});
 
 
 function renderQualityTab(filtered, colors){
@@ -5956,7 +6083,7 @@ async function exportBillingDetail(){
    cuộc gọi) nên nạp riêng một lần và giữ trong bộ nhớ, không nạp lại mỗi lần
    đổi filter. Tab này lười nạp: chỉ gọi mạng khi người dùng bấm nút.
    ========================================================================== */
-const cidState = { loaded:false, loading:false, error:'',
+const cidState = { loaded:false, loading:false, error:'', profileId:'',
                    events:[], routings:[], meta:null, timeline:null };
 const CID_REPORT_SELECTOR='#reportGrid > .card[data-tab="cid"]:not(#cidGroupEmpty)';
 function updateCidGroupVisibility(){
@@ -6144,6 +6271,7 @@ async function loadCidEvents(sync){
     cidState.meta = d.meta || null;
     cidState.timeline = buildCidTimeline(cidState.events);
     cidState.loaded = true;
+    cidState.profileId = pid;
     if(!sync){
       const cdrMissing=(lastReportMeta&&lastReportMeta.missingDays)||[];
       const eventMissing=(cidState.meta&&cidState.meta.missingDays)||[];
@@ -6159,6 +6287,7 @@ async function loadCidEvents(sync){
   }finally{
     cidState.loading = false;
     renderCidTab();
+    renderOverviewCid();
   }
   if(offerSync && confirm(offerSync)) return loadCidEvents(true);
 }

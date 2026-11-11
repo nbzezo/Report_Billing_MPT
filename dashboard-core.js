@@ -906,9 +906,19 @@ function computeOperationalAlerts(rows, precomputed){
   const invalidRatio = quality.destinationCount
     ? quality.invalidDestination / quality.destinationCount : 0;
   const stats = precomputed.dailyPrefixStats || computeDailyPrefixStats(list);
-  const dates = Array.from(new Set(stats.map(s=>s.date))).sort();
+  const dateSet=new Set();
+  let latestStamp='';
+  for(const row of list){
+    const day=row.date||dateKey(row.start_stamp);
+    if(day&&day!=='Unknown') dateSet.add(day);
+    if(String(row.start_stamp||'')>latestStamp) latestStamp=String(row.start_stamp);
+  }
+  const dates=Array.from(dateSet).sort();
   const lastDate = dates[dates.length-1];
-  const prevDates = dates.slice(Math.max(0,dates.length-8),-1);
+  const cutoff = Date.parse(lastDate+'T00:00:00Z')-7*86400000;
+  const prevDates = dates.filter(d=>d<lastDate && Date.parse(d+'T00:00:00Z')>=cutoff);
+  const liveCutoff=lastDate===localISODate(new Date())&&latestStamp.slice(0,10)===lastDate
+    ? latestStamp.slice(11,19) : null;
   const byPrefix = {};
   stats.forEach(s=>{ (byPrefix[s.prefix]||(byPrefix[s.prefix]={}))[s.date]=s; });
   const drops=[];
@@ -940,6 +950,96 @@ function computeOperationalAlerts(rows, precomputed){
   (health.critical||[]).forEach(msg=>items.push({level:'red',title:'Dữ liệu đầu vào hỏng',desc:msg}));
   if(health.missing.length) items.push({level:'red',title:'Thiếu cột bắt buộc',desc:health.missing.join(', ')});
   else if(health.sparse.length) items.push({level:'yellow',title:'Cột thiếu dữ liệu',desc:health.sparse.join(', ')});
+  if(prevDates.length>=2){
+    const previous=new Set(prevDates);
+    const makeDay=()=>({total:0,fail:0,connected:0,billsec:0,short:0,mapped:0,
+      causes:new Map(),accounts:new Map(),gateways:new Map()});
+    const today=makeDay(), base=makeDay();
+    const accountNames=new Map();
+    for(const row of list){
+      const day=row.date||dateKey(row.start_stamp);
+      const target=day===lastDate?today:previous.has(day)?base:null;
+      if(!target) continue;
+      if(target===base && liveCutoff && String(row.start_stamp||'').slice(11,19)>liveCutoff) continue;
+      target.total++;
+      const status=row.connType||classifyCall(row);
+      if(status==='Fail') target.fail++;
+      if(status==='Connected'){
+        target.connected++;
+        const seconds=Number(row.billsec)||0;
+        target.billsec+=seconds;
+        if(seconds>0&&seconds<10) target.short++;
+      }
+      const account=String(row.account_id||'').trim();
+      if(account){
+        target.accounts.set(account,(target.accounts.get(account)||0)+1);
+        if(row.account_name) accountNames.set(account,String(row.account_name));
+      }
+      const gateway=String(row.gateway||'').trim();
+      if(gateway){ target.mapped++; target.gateways.set(gateway,(target.gateways.get(gateway)||0)+1); }
+      const cause=String(row.hangup_cause||'').trim().toUpperCase();
+      if(cause) target.causes.set(cause,(target.causes.get(cause)||0)+1);
+    }
+    const dailyAverage=base.total/prevDates.length;
+    if(dailyAverage>=100 && base.total>=200){
+      const change=(today.total/dailyAverage-1)*100;
+      if(Math.abs(today.total-dailyAverage)>=50 && Math.abs(change)>=50) items.push({
+        level:change<=-70?'red':'yellow',title:`Lưu lượng cuộc gọi ${change>0?'tăng':'giảm'} bất thường`,
+        desc:`${dailyAverage.toFixed(0)} → ${today.total} cuộc/ngày (${change>0?'+':''}${change.toFixed(1)}%); ngày ${lastDate} so với trung bình ${prevDates.length} ngày trước${liveCutoff?' cùng giờ':''}.`
+      });
+    }
+    const volumeChanges=(current,previousCounts)=>Array.from(previousCounts,([key,count])=>{
+      const average=count/prevDates.length, now=current.get(key)||0;
+      return {key,average,now,change:average?(now/average-1)*100:0};
+    }).filter(x=>x.average>=50 && Math.abs(x.now-x.average)>=30 && Math.abs(x.change)>=50)
+      .sort((a,b)=>Math.abs(b.now-b.average)-Math.abs(a.now-a.average)).slice(0,3);
+    const accountChanges=volumeChanges(today.accounts,base.accounts);
+    if(accountChanges.length) items.push({level:'yellow',title:'Lưu lượng theo tài khoản biến động bất thường',
+      desc:accountChanges.map(x=>`${accountNames.get(x.key)||x.key}: ${x.average.toFixed(0)} → ${x.now} cuộc/ngày (${x.change>0?'+':''}${x.change.toFixed(0)}%)`).join('; ')+` · so với ${prevDates.length} ngày trước${liveCutoff?' cùng giờ':''}.`});
+    if(today.total && base.total && today.mapped/today.total>=0.8 && base.mapped/base.total>=0.8){
+      const gatewayChanges=volumeChanges(today.gateways,base.gateways);
+      if(gatewayChanges.length) items.push({level:'yellow',title:'Lưu lượng theo Gateway biến động bất thường',
+        desc:gatewayChanges.map(x=>`${x.key}: ${x.average.toFixed(0)} → ${x.now} cuộc/ngày (${x.change>0?'+':''}${x.change.toFixed(0)}%)`).join('; ')+` · so với ${prevDates.length} ngày trước${liveCutoff?' cùng giờ':''}.`});
+    }
+    if(today.total>=100 && base.total>=300){
+      const failNow=100*today.fail/today.total, failBase=100*base.fail/base.total;
+      const failDelta=failNow-failBase;
+      if(failDelta>=5) items.push({level:failDelta>=10?'red':'yellow',title:'Tỷ lệ Fail tăng bất thường',
+        desc:`${failBase.toFixed(1)}% → ${failNow.toFixed(1)}% (+${failDelta.toFixed(1)} điểm %); ${today.fail}/${today.total} cuộc ngày ${lastDate}, so với ${base.total} cuộc của ${prevDates.length} ngày trước.`});
+      const changedCauses=[];
+      for(const cause of new Set([...today.causes.keys(),...base.causes.keys()])){
+        const count=today.causes.get(cause)||0;
+        const oldCount=base.causes.get(cause)||0;
+        const oldRate=100*oldCount/base.total, nowRate=100*count/today.total;
+        const delta=nowRate-oldRate;
+        if(Math.abs(delta)<3 || Math.max(count,oldCount*today.total/base.total)<20) continue;
+        changedCauses.push({cause,count,oldRate,nowRate,delta});
+      }
+      changedCauses.sort((a,b)=>Math.abs(b.delta)-Math.abs(a.delta));
+      changedCauses.forEach(({cause,count,oldRate,nowRate,delta})=>items.push({
+        level:'yellow',
+        title:`Hangup cause ${cause} ${delta>0?'tăng':'giảm'} bất thường`,
+        desc:`Tỷ trọng trên tổng cuộc ${oldRate.toFixed(1)}% → ${nowRate.toFixed(1)}% (${delta>0?'+':''}${delta.toFixed(1)} điểm %); ${count}/${today.total} cuộc ngày ${lastDate}, so với ${prevDates.length} ngày trước.`
+      }));
+    }
+    if(today.connected>=30 && base.connected>=100){
+      const acdNow=today.billsec/today.connected, acdBase=base.billsec/base.connected;
+      const change=acdBase?(acdNow/acdBase-1)*100:0;
+      if(Math.abs(acdNow-acdBase)>=20 && Math.abs(change)>=25) items.push({
+        level:change<=-50?'red':'yellow',
+        title:`Thời lượng cuộc kết nối ${change>0?'tăng':'giảm'} bất thường`,
+        desc:`Trung bình ${acdBase.toFixed(0)}s → ${acdNow.toFixed(0)}s/cuộc (${change>0?'+':''}${change.toFixed(1)}%); ${today.connected} cuộc kết nối ngày ${lastDate}, so với ${base.connected} cuộc của ${prevDates.length} ngày trước.`
+      });
+    }
+    if(today.connected>=100 && base.connected>=300){
+      const rateNow=100*today.short/today.connected, rateBase=100*base.short/base.connected;
+      const delta=rateNow-rateBase;
+      if(today.short>=10 && delta>=5 && (!rateBase || rateNow>=rateBase*1.5)) items.push({
+        level:delta>=10?'red':'yellow',title:'Cuộc kết nối dưới 10 giây tăng bất thường',
+        desc:`${rateBase.toFixed(1)}% → ${rateNow.toFixed(1)}% (+${delta.toFixed(1)} điểm %); ${today.short}/${today.connected} cuộc kết nối ngày ${lastDate}, so với ${prevDates.length} ngày trước.`
+      });
+    }
+  }
   items.push({level:overallRate<0.25?'red':overallRate<0.35?'yellow':'green',title:'Tỷ lệ kết nối tổng',
     desc:`Tỷ lệ kết nối: ${(100*overallRate).toFixed(2)}% (${connected}/${total})`});
   items.push(invalidRatio>0.05

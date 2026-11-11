@@ -204,6 +204,65 @@ test('buildCube — overview trên dữ liệu mẫu 2 định dạng', () => {
   assert.equal(cube.operationalAlerts.scope.rows, 3);
 });
 
+test('cảnh báo Fail, thời lượng và từng hangup_cause so với các ngày trước, bỏ mẫu nhỏ', () => {
+  const rows=[];
+  const addDay=(date,total,failed,billsec)=>{
+    for(let i=0;i<total;i++){
+      const fail=i<failed;
+      rows.push({date,prefix:'_090',account_id:'A',caller_id_number:'0901234567',destination_number:'0912345678',
+        start_stamp:`${date} 12:00:00`,end_stamp:`${date} 12:03:00`,duration:fail?0:billsec,
+        billsec:fail?0:billsec,hangup_cause:fail?'NO_ROUTE_DESTINATION':'NORMAL_CLEARING',
+        connType:fail?'Fail':'Connected',uuid:`${date}-${i}`});
+    }
+  };
+  addDay('2026-09-01',200,20,100);
+  addDay('2026-09-02',200,20,100);
+  addDay('2026-09-03',200,20,100);
+  addDay('2026-09-04',200,70,180);
+  const alerts=core.computeOperationalAlerts(rows).items;
+  assert.ok(alerts.some(item=>item.title==='Tỷ lệ Fail tăng bất thường'));
+  assert.ok(alerts.some(item=>item.title==='Thời lượng cuộc kết nối tăng bất thường'));
+  assert.ok(alerts.some(item=>item.title==='Hangup cause NO_ROUTE_DESTINATION tăng bất thường'));
+  assert.ok(alerts.some(item=>item.title==='Hangup cause NORMAL_CLEARING giảm bất thường'));
+  assert.equal(core.computeOperationalAlerts(rows.slice(0,620)).items.some(item=>/^(Tỷ lệ Fail|Thời lượng cuộc kết nối|Hangup cause)/.test(item.title)),false);
+  const stale=rows.map(row=>row.date==='2026-09-04'?row:{...row,date:row.date.replace('2026-09','2026-08')});
+  assert.equal(core.computeOperationalAlerts(stale).items.some(item=>/bất thường$/.test(item.title)),false);
+});
+
+test('ngày đang chạy chỉ so với cùng giờ của các ngày trước', () => {
+  const day=offset=>{ const d=new Date(); d.setDate(d.getDate()+offset); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const rows=[];
+  const add=(date,hour,total,failed)=>{
+    for(let i=0;i<total;i++) rows.push({date,start_stamp:`${date} ${hour}:00:00`,prefix:'_090',
+      connType:i<failed?'Fail':'Connected',billsec:i<failed?0:100,
+      hangup_cause:i<failed?'NO_ROUTE_DESTINATION':'NORMAL_CLEARING'});
+  };
+  for(const offset of [-2,-1]){ add(day(offset),'08',150,75); add(day(offset),'18',150,0); }
+  add(day(0),'09',100,50);
+  assert.equal(core.computeOperationalAlerts(rows).items.some(item=>item.title==='Tỷ lệ Fail tăng bất thường'),false);
+});
+
+test('cảnh báo biến động lưu lượng toàn hệ thống, account, Gateway và cuộc ngắn', () => {
+  const rows=[];
+  const add=(date,total,short)=>{
+    for(let i=0;i<total;i++) rows.push({date,start_stamp:`${date} 09:00:00`,prefix:'_090',
+      account_id:'A',account_name:'Tài khoản A',gateway:'GW-1',connType:'Connected',
+      billsec:i<short?5:100,hangup_cause:'NORMAL_CLEARING'});
+  };
+  add('2026-09-01',200,10);
+  add('2026-09-02',200,10);
+  add('2026-09-03',400,80);
+  const titles=core.computeOperationalAlerts(rows).items.map(item=>item.title);
+  assert.ok(titles.includes('Lưu lượng cuộc gọi tăng bất thường'));
+  assert.ok(titles.includes('Lưu lượng theo tài khoản biến động bất thường'));
+  assert.ok(titles.includes('Lưu lượng theo Gateway biến động bất thường'));
+  assert.ok(titles.includes('Cuộc kết nối dưới 10 giây tăng bất thường'));
+  const low=rows.slice(0,400).concat(rows.slice(400,450));
+  const lowTitles=core.computeOperationalAlerts(low).items.map(item=>item.title);
+  assert.ok(lowTitles.includes('Lưu lượng cuộc gọi giảm bất thường'));
+  assert.ok(!lowTitles.includes('Cuộc kết nối dưới 10 giây tăng bất thường'));
+});
+
 test('ASR hợp lệ và Kết nối loại Fail/CID_Blocked dùng hai mẫu số khác nhau', () => {
   const counts={Fail:2,CID_Blocked:2,'No Answer':3,Cancelled:4,Connected:5,Unknown:1};
   assert.equal(core.computeASRExcludingFail(counts), 62.5);          // 5/(5+3)
