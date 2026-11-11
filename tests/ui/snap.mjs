@@ -69,7 +69,7 @@ try {
     if (kpiMetrics.height > 360) throw new Error(`Khối KPI Tổng quan vượt mục tiêu 360px: ${JSON.stringify(kpiMetrics)}`);
     const filterHeight = await page.locator('.adw-filterbar').evaluate(element => element.getBoundingClientRect().height);
     if (filterHeight > 112) throw new Error(`Thanh lọc cao ${filterHeight}px ở 1440px.`);
-    if (await page.locator('#kpi_conn_text .drilldown-trigger').count() !== 4) throw new Error('Phân bố trạng thái chưa có đủ 4 nút drilldown.');
+    if (await page.locator('#kpi_conn_text .drilldown-trigger').count() !== 6) throw new Error('Phân bố trạng thái chưa có đủ 6 nút drilldown.');
     const overviewReportState = await page.evaluate(() => ({
       directionVisible: !resolveReportCard('chart_direction_split').hidden,
       directionNoteHidden: document.getElementById('kpiDirectionNote').hidden,
